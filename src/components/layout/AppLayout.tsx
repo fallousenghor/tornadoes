@@ -1,26 +1,22 @@
 // AppLayout Component - AEVUM Enterprise ERP
-// Main layout with Sidebar, Header, and Outlet for nested routes
+// Corporate Professional Theme - B2B SaaS Design System
 
 import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store';
-import { Colors, Spacing, BorderRadius } from '../../constants/theme';
+import { Colors, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { getNavItems, getNavSections } from '../../routes';
 import { navSections } from '../../data/mockData';
 
 // Animation keyframes
 const keyframes = `
   @keyframes upfade {
-    from { opacity: 0; transform: translateY(12px); }
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes sh {
-    0% { background-position: -200%; }
-    100% { background-position: 200%; }
   }
   @keyframes pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    50% { opacity: 0.4; }
   }
   .kpi-a {
     animation: upfade 0.5s ease forwards;
@@ -73,7 +69,7 @@ export const AppLayout: React.FC = () => {
 
   return (
     <div style={{ 
-      fontFamily: "'Georgia',serif", 
+      fontFamily: "'DM Sans', sans-serif", 
       background: Colors.bg, 
       height: '100vh',
       color: Colors.text, 
@@ -84,103 +80,153 @@ export const AppLayout: React.FC = () => {
     }}>
       <style>{keyframes}</style>
 
-      {/* ==================== SIDEBAR ==================== */}
+      {/* ==================== SIDEBAR - Corporate Gradient ==================== */}
       <aside style={{ 
-        width: isSidebarOpen ? 250 : 64, 
-        background: Colors.card,
-        borderRight: `1px solid ${Colors.border}`, 
+        width: isSidebarOpen ? 260 : 72, 
+        background: Colors.sidebarGradient,
         display: 'flex', 
         flexDirection: 'column',
-        transition: 'width 0.28s cubic-bezier(0.4,0,0.2,1)', 
+        transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)', 
         flexShrink: 0,
         position: 'relative', 
         zIndex: 20, 
         height: '100vh', 
-        overflow: 'hidden' 
+        overflow: 'hidden',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
       }}>
         {/* Logo */}
-        <div style={{ padding: '22px 16px 18px', borderBottom: `1px solid ${Colors.border}`, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ 
+          padding: '20px 16px 16px', 
+          borderBottom: `1px solid ${Colors.sidebarBorder}`, 
+          flexShrink: 0 
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ 
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-              background: 'linear-gradient(135deg,#6490ff,#3b5bdb)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 17, fontWeight: 700,
-              color: '#fff', boxShadow: '0 4px 16px rgba(100,140,255,0.4)' 
+              width: 40, 
+              height: 40, 
+              borderRadius: 10, 
+              flexShrink: 0,
+              background: 'linear-gradient(135deg, #FFFFFF 0%, #F3F4F6 100%)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              fontFamily: "'DM Serif Display', Georgia, serif", 
+              fontSize: 20, 
+              fontWeight: 700,
+              color: Colors.primary,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)' 
             }}>N</div>
             {isSidebarOpen && (
               <div>
-                <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 16,
-                  fontWeight: 700, color: Colors.text, letterSpacing: '0.01em' }}>Nexus ERP</div>
-                <div style={{ fontSize: 9, color: Colors.textDim, letterSpacing: '0.12em',
-                  fontFamily: "'DM Sans',sans-serif", textTransform: 'uppercase' }}>Enterprise Suite</div>
+                <div style={{ 
+                  fontFamily: "'DM Serif Display', Georgia, serif", 
+                  fontSize: 18,
+                  fontWeight: 700, 
+                  color: Colors.sidebarText, 
+                  letterSpacing: '0.01em' 
+                }}>Nexus ERP</div>
+                <div style={{ 
+                  fontSize: 10, 
+                  color: Colors.sidebarTextMuted, 
+                  letterSpacing: '0.12em',
+                  fontFamily: "'DM Sans', sans-serif", 
+                  textTransform: 'uppercase' 
+                }}>Enterprise Suite</div>
               </div>
             )}
           </div>
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, padding: '8px 8px', overflowY: 'auto', overflowX: 'hidden' }}>
-          {/* Use store navSections if available, otherwise use our routes */}
+        <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto', overflowX: 'hidden' }}>
           {store.navSections.length > 0 ? (
             store.navSections.map((section) => {
               const isCollapsed = !!collapsedSections[section.label];
               const hasActive = section.items.some(i => i.id === activeNav);
               return (
-                <div key={section.label} style={{ marginBottom: 2 }}>
+                <div key={section.label} style={{ marginBottom: 4 }}>
+                  {/* Section Header */}
                   <div
                     onClick={() => isSidebarOpen && toggleSection(section.label)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: isSidebarOpen ? '8px 10px 4px' : '6px 0 2px',
+                      padding: isSidebarOpen ? '10px 12px 8px' : '8px 0 4px',
                       cursor: isSidebarOpen ? 'pointer' : 'default',
-                      borderRadius: 6,
+                      borderRadius: 8,
                     }}
                   >
                     {isSidebarOpen ? (
                       <>
-                        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.14em',
-                          color: hasActive ? Colors.accent + 'bb' : Colors.textMuted,
-                          fontFamily: "'DM Sans',sans-serif", textTransform: 'uppercase' }}>
+                        <span style={{ 
+                          fontSize: 11, 
+                          fontWeight: 700, 
+                          letterSpacing: '0.12em',
+                          color: hasActive ? Colors.sidebarText : Colors.sidebarTextMuted,
+                          fontFamily: "'DM Sans', sans-serif", 
+                          textTransform: 'uppercase' 
+                        }}>
                           {section.label}
                         </span>
-                        <span style={{ fontSize: 12, color: isCollapsed ? Colors.textMuted : Colors.textDim,
-                          display: 'inline-block', lineHeight: 1,
+                        <span style={{ 
+                          fontSize: 10, 
+                          color: isCollapsed ? Colors.sidebarTextMuted : Colors.sidebarText,
+                          display: 'inline-block', 
+                          lineHeight: 1,
                           transition: 'transform 0.25s ease',
-                          transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+                          transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' 
+                        }}>▾</span>
                       </>
                     ) : (
-                      <div style={{ width: 28, height: 1, background: 'rgba(100,140,255,0.1)', margin: '0 auto' }} />
+                      <div style={{ width: 32, height: 2, background: 'rgba(255,255,255,0.15)', margin: '0 auto', borderRadius: 1 }} />
                     )}
                   </div>
 
+                  {/* Items */}
                   <div style={{
                     overflow: 'hidden',
-                    maxHeight: (!isSidebarOpen || !isCollapsed) ? '400px' : '0px',
+                    maxHeight: (!isSidebarOpen || !isCollapsed) ? '500px' : '0px',
                     opacity: (!isSidebarOpen || !isCollapsed) ? 1 : 0,
-                    transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
+                    transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease',
                   }}>
                     {section.items.map((item) => {
                       const navItem = navItems.find(n => n.id === item.id);
+                      const isActive = activeNav === item.id;
                       return (
                         <div 
                           key={item.id} 
                           onClick={() => navItem && handleNavClick(navItem.path)}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 9,
-                            padding: '10px 12px', borderRadius: 8, marginBottom: 2,
-                            background: activeNav === item.id ? 'rgba(100,140,255,0.12)' : 'transparent',
-                            color: activeNav === item.id ? Colors.accent : '#5a6480',
-                            fontSize: 14, fontFamily: "'DM Sans',sans-serif",
-                            fontWeight: activeNav === item.id ? 600 : 400,
-                            borderLeft: activeNav === item.id ? `3px solid ${Colors.accent}` : '3px solid transparent',
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 10,
+                            padding: '10px 14px', 
+                            borderRadius: 8, 
+                            marginBottom: 2,
+                            background: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
+                            color: isActive ? Colors.sidebarText : Colors.sidebarTextMuted,
+                            fontSize: 13, 
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontWeight: isActive ? 600 : 400,
+                            borderLeft: isActive ? `3px solid ${Colors.sidebarText}` : '3px solid transparent',
                             cursor: 'pointer',
-                            transition: 'all 0.18s',
+                            transition: 'all 0.18s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                              e.currentTarget.style.color = Colors.sidebarText;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.background = 'transparent';
+                              e.currentTarget.style.color = Colors.sidebarTextMuted;
+                            }
                           }}
                         >
-                          <span style={{ fontSize: 16, flexShrink: 0, width: 18, textAlign: 'center' }}>{item.icon}</span>
+                          <span style={{ fontSize: 16, flexShrink: 0, width: 20, textAlign: 'center' }}>{item.icon}</span>
                           {isSidebarOpen && (
                             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {item.label}
@@ -199,58 +245,72 @@ export const AppLayout: React.FC = () => {
               const isCollapsed = !!collapsedSections[sectionName];
               const hasActive = items.some(i => i.id === activeNav);
               return (
-                <div key={sectionName} style={{ marginBottom: 2 }}>
+                <div key={sectionName} style={{ marginBottom: 4 }}>
                   <div
                     onClick={() => isSidebarOpen && toggleSection(sectionName)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: isSidebarOpen ? '8px 10px 4px' : '6px 0 2px',
+                      padding: isSidebarOpen ? '10px 12px 8px' : '8px 0 4px',
                       cursor: isSidebarOpen ? 'pointer' : 'default',
-                      borderRadius: 6,
+                      borderRadius: 8,
                     }}
                   >
                     {isSidebarOpen ? (
                       <>
-                        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.14em',
-                          color: hasActive ? Colors.accent + 'bb' : Colors.textMuted,
-                          fontFamily: "'DM Sans',sans-serif", textTransform: 'uppercase' }}>
+                        <span style={{ 
+                          fontSize: 11, 
+                          fontWeight: 700, 
+                          letterSpacing: '0.12em',
+                          color: hasActive ? Colors.sidebarText : Colors.sidebarTextMuted,
+                          fontFamily: "'DM Sans', sans-serif", 
+                          textTransform: 'uppercase' 
+                        }}>
                           {sectionName}
                         </span>
-                        <span style={{ fontSize: 12, color: isCollapsed ? Colors.textMuted : Colors.textDim,
-                          display: 'inline-block', lineHeight: 1,
+                        <span style={{ 
+                          fontSize: 10, 
+                          color: isCollapsed ? Colors.sidebarTextMuted : Colors.sidebarText,
+                          display: 'inline-block', 
+                          lineHeight: 1,
                           transition: 'transform 0.25s ease',
-                          transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+                          transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' 
+                        }}>▾</span>
                       </>
                     ) : (
-                      <div style={{ width: 28, height: 1, background: 'rgba(100,140,255,0.1)', margin: '0 auto' }} />
+                      <div style={{ width: 32, height: 2, background: 'rgba(255,255,255,0.15)', margin: '0 auto', borderRadius: 1 }} />
                     )}
                   </div>
 
                   <div style={{
                     overflow: 'hidden',
-                    maxHeight: (!isSidebarOpen || !isCollapsed) ? '400px' : '0px',
+                    maxHeight: (!isSidebarOpen || !isCollapsed) ? '500px' : '0px',
                     opacity: (!isSidebarOpen || !isCollapsed) ? 1 : 0,
-                    transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease',
+                    transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease',
                   }}>
                     {items.map((item) => (
                       <div 
                         key={item.id} 
                         onClick={() => handleNavClick(item.path)}
                         style={{
-                          display: 'flex', alignItems: 'center', gap: 9,
-                          padding: '10px 12px', borderRadius: 8, marginBottom: 2,
-                          background: activeNav === item.id ? 'rgba(100,140,255,0.12)' : 'transparent',
-                          color: activeNav === item.id ? Colors.accent : '#5a6480',
-                          fontSize: 14, fontFamily: "'DM Sans',sans-serif",
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 10,
+                          padding: '10px 14px', 
+                          borderRadius: 8, 
+                          marginBottom: 2,
+                          background: activeNav === item.id ? 'rgba(255,255,255,0.15)' : 'transparent',
+                          color: activeNav === item.id ? Colors.sidebarText : Colors.sidebarTextMuted,
+                          fontSize: 13, 
+                          fontFamily: "'DM Sans', sans-serif",
                           fontWeight: activeNav === item.id ? 600 : 400,
-                          borderLeft: activeNav === item.id ? `3px solid ${Colors.accent}` : '3px solid transparent',
+                          borderLeft: activeNav === item.id ? `3px solid ${Colors.sidebarText}` : '3px solid transparent',
                           cursor: 'pointer',
-                          transition: 'all 0.18s',
+                          transition: 'all 0.18s ease',
                         }}
                       >
-                        <span style={{ fontSize: 16, flexShrink: 0, width: 18, textAlign: 'center' }}>{item.icon}</span>
+                        <span style={{ fontSize: 16, flexShrink: 0, width: 20, textAlign: 'center' }}>{item.icon}</span>
                         {isSidebarOpen && (
                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {item.label}
@@ -265,40 +325,83 @@ export const AppLayout: React.FC = () => {
           )}
         </nav>
 
-        {/* User */}
-        <div style={{ padding: '12px 14px', borderTop: `1px solid ${Colors.border}`, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-              background: 'rgba(100,140,255,0.15)', border: '1px solid rgba(100,140,255,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 10, fontWeight: 700, color: Colors.accent, fontFamily: "'DM Sans',sans-serif" }}>
+        {/* User Section */}
+        <div style={{ 
+          padding: '14px 16px', 
+          borderTop: `1px solid ${Colors.sidebarBorder}`, 
+          flexShrink: 0 
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ 
+              width: 36, 
+              height: 36, 
+              borderRadius: '50%', 
+              flexShrink: 0,
+              background: 'rgba(255,255,255,0.15)', 
+              border: '1px solid rgba(255,255,255,0.2)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              fontSize: 12, 
+              fontWeight: 600, 
+              color: Colors.sidebarText, 
+              fontFamily: "'DM Sans', sans-serif" 
+            }}>
               {store.currentUser?.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
             </div>
             {isSidebarOpen && (
               <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ fontSize: 13, color: '#c0c8e8', fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>
+                <div style={{ 
+                  fontSize: 13, 
+                  color: Colors.sidebarText, 
+                  fontFamily: "'DM Sans', sans-serif", 
+                  fontWeight: 600 
+                }}>
                   {store.currentUser?.name || 'Utilisateur'}
                 </div>
-                <div style={{ fontSize: 11, color: Colors.textDim, fontFamily: "'DM Sans',sans-serif" }}>
+                <div style={{ 
+                  fontSize: 11, 
+                  color: Colors.sidebarTextMuted, 
+                  fontFamily: "'DM Sans', sans-serif" 
+                }}>
                   {store.currentUser?.email || 'user@nexus-erp.sn'}
                 </div>
               </div>
             )}
-            {isSidebarOpen && <div style={{ 
-              width: 6, height: 6, borderRadius: '50%',
-              background: Colors.green, flexShrink: 0, animation: 'pulse 2s infinite'
-            }} />}
+            {isSidebarOpen && (
+              <div style={{ 
+                width: 8, 
+                height: 8, 
+                borderRadius: '50%',
+                background: Colors.success, 
+                flexShrink: 0, 
+                boxShadow: `0 0 8px ${Colors.success}`,
+                animation: 'pulse 2s infinite'
+              }} />
+            )}
           </div>
         </div>
 
-        {/* Toggle */}
+        {/* Toggle Button */}
         <div 
           onClick={toggleSidebar}
           style={{ 
-            position: 'absolute', top: 28, right: -12, width: 24, height: 24,
-            borderRadius: '50%', background: '#151622', border: `1px solid ${Colors.border}`,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 10, color: Colors.accent, zIndex: 21 
+            position: 'absolute', 
+            top: 26, 
+            right: -14, 
+            width: 28, 
+            height: 28,
+            borderRadius: '50%', 
+            background: Colors.card, 
+            border: `1px solid ${Colors.border}`,
+            cursor: 'pointer', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            fontSize: 11, 
+            color: Colors.primary, 
+            zIndex: 21,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}
         >
           {isSidebarOpen ? '◀' : '▶'}
@@ -308,32 +411,63 @@ export const AppLayout: React.FC = () => {
       {/* ==================== MAIN CONTENT ==================== */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
-        {/* Header */}
-        <header style={{ height: 58, background: Colors.bg, borderBottom: `1px solid ${Colors.border}`,
-          display: 'flex', alignItems: 'center', padding: '0 26px', gap: 12, flexShrink: 0 }}>
+        {/* Header - Clean corporate white */}
+        <header style={{ 
+          height: 64, 
+          background: Colors.header, 
+          borderBottom: `1px solid ${Colors.border}`,
+          display: 'flex', 
+          alignItems: 'center', 
+          padding: '0 24px', 
+          gap: 16, 
+          flexShrink: 0,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        }}>
+          {/* Title */}
           <div style={{ flex: 1 }}>
-            <h1 style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 18,
-              fontWeight: 700, color: Colors.text }}>
+            <h1 style={{ 
+              fontFamily: "'DM Serif Display', Georgia, serif", 
+              fontSize: 20,
+              fontWeight: 700, 
+              color: Colors.text,
+              margin: 0,
+            }}>
               {currentItem?.label || "Tableau de Bord"}
             </h1>
-            <div style={{ fontSize: 9, color: Colors.textDim, fontFamily: "'DM Sans',sans-serif", marginTop: 1 }}>
+            <div style={{ 
+              fontSize: 11, 
+              color: Colors.textMuted, 
+              fontFamily: "'DM Sans', sans-serif", 
+              marginTop: 2 
+            }}>
               Exercice 2024–2025 · Données en temps réel · Dakar, Sénégal
             </div>
           </div>
 
           {/* View Toggle */}
-          <div style={{ display: 'flex', gap: 2, background: '#111320',
-            border: `1px solid ${Colors.border}`, borderRadius: 8, padding: 3 }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: 4, 
+            background: Colors.bgSecondary,
+            border: `1px solid ${Colors.border}`, 
+            borderRadius: BorderRadius.lg, 
+            padding: 4 
+          }}>
             {['DG', 'RH', 'Finance'].map(v => (
               <button 
                 key={v} 
                 onClick={() => setActiveView(v)}
                 style={{
-                  padding: '5px 12px', borderRadius: 6, border: 'none',
-                  background: activeView === v ? 'rgba(100,140,255,0.15)' : 'transparent',
-                  color: activeView === v ? Colors.accent : Colors.textMuted, cursor: 'pointer',
-                  fontWeight: activeView === v ? 600 : 400, fontSize: 11,
-                  fontFamily: "'DM Sans',sans-serif", transition: 'all 0.2s',
+                  padding: '6px 14px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: activeView === v ? Colors.primary : 'transparent',
+                  color: activeView === v ? Colors.textInverse : Colors.textSecondary,
+                  cursor: 'pointer',
+                  fontWeight: activeView === v ? 600 : 400,
+                  fontSize: 12,
+                  fontFamily: "'DM Sans', sans-serif",
+                  transition: 'all 0.2s ease',
                 }}
               >
                 {v}
@@ -342,62 +476,148 @@ export const AppLayout: React.FC = () => {
           </div>
 
           {/* Search */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0f1020',
-            border: `1px solid ${Colors.border}`, borderRadius: 8, padding: '6px 12px', width: 190 }}>
-            <span style={{ color: Colors.textDim, fontSize: 12 }}>⌕</span>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 8, 
+            background: Colors.inputBg,
+            border: `1px solid ${Colors.border}`, 
+            borderRadius: BorderRadius.lg, 
+            padding: '8px 14px', 
+            width: 220,
+          }}>
+            <span style={{ color: Colors.textMuted, fontSize: 14 }}>⌕</span>
             <input 
               placeholder="Rechercher…" 
               style={{ 
-                background: 'none', border: 'none',
-                color: '#a0b0d0', fontSize: 11, fontFamily: "'DM Sans',sans-serif", width: '100%' 
+                background: 'none', 
+                border: 'none',
+                color: Colors.textPrimary, 
+                fontSize: 13, 
+                fontFamily: "'DM Sans', sans-serif", 
+                width: '100%',
+                outline: 'none',
               }} 
             />
           </div>
 
           {/* System Status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
-            background: 'rgba(62,207,142,0.08)', borderRadius: 6,
-            border: '1px solid rgba(62,207,142,0.15)' }}>
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: Colors.green, animation: 'pulse 2s infinite' }} />
-            <span style={{ fontSize: 9, color: Colors.green, fontFamily: "'DM Sans',sans-serif" }}>Système actif</span>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 6, 
+            padding: '6px 12px',
+            background: Colors.successBg, 
+            borderRadius: BorderRadius.md,
+            border: `1px solid ${Colors.successMuted}` 
+          }}>
+            <div style={{ 
+              width: 6, 
+              height: 6, 
+              borderRadius: '50%', 
+              background: Colors.success,
+              animation: 'pulse 2s infinite' 
+            }} />
+            <span style={{ 
+              fontSize: 11, 
+              color: Colors.success, 
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 500,
+            }}>Système actif</span>
           </div>
 
           {/* Notifications */}
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#0f1020',
-            border: `1px solid ${Colors.border}`, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer', position: 'relative', fontSize: 13 }}>
+          <div style={{ 
+            width: 38, 
+            height: 38, 
+            borderRadius: BorderRadius.lg, 
+            background: Colors.bgSecondary,
+            border: `1px solid ${Colors.border}`, 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'center', 
+            cursor: 'pointer', 
+            position: 'relative', 
+            fontSize: 14,
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = Colors.bgTertiary;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = Colors.bgSecondary;
+          }}
+          >
             🔔
-            <div style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7,
-              borderRadius: '50%', background: Colors.accent, border: `2px solid ${Colors.bg}` }} />
+            <div style={{ 
+              position: 'absolute', 
+              top: 6, 
+              right: 6, 
+              width: 8, 
+              height: 8,
+              borderRadius: '50%', 
+              background: Colors.danger, 
+              border: `2px solid ${Colors.header}` 
+            }} />
+          </div>
+
+          {/* AI Badge */}
+          <div style={{ 
+            padding: '6px 12px', 
+            borderRadius: BorderRadius.md,
+            background: Colors.primaryMuted, 
+            border: `1px solid ${Colors.primaryMuted}`,
+            fontSize: 11, 
+            color: Colors.primary, 
+            fontFamily: "'DM Sans', sans-serif",
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 5,
+            fontWeight: 500,
+          }}>
+            <span>🤖</span> IA Activée
           </div>
 
           {/* Logout */}
           <div 
             onClick={handleLogout}
             style={{ 
-              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
-              background: 'rgba(224,80,80,0.08)', borderRadius: 8,
-              border: '1px solid rgba(224,80,80,0.15)',
-              cursor: 'pointer', fontSize: 11, color: Colors.red,
-              fontFamily: "'DM Sans',sans-serif", transition: 'all 0.2s',
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6, 
+              padding: '8px 14px',
+              background: Colors.dangerBg, 
+              borderRadius: BorderRadius.lg,
+              border: `1px solid ${Colors.dangerMuted}`,
+              cursor: 'pointer', 
+              fontSize: 12, 
+              color: Colors.danger,
+              fontFamily: "'DM Sans', sans-serif", 
+              transition: 'all 0.2s ease',
+              fontWeight: 500,
             }}
             title="Déconnexion"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = Colors.danger;
+              e.currentTarget.style.color = Colors.textInverse;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = Colors.dangerBg;
+              e.currentTarget.style.color = Colors.danger;
+            }}
           >
             <span>🚪</span>
             <span>Déconnexion</span>
           </div>
-
-          {/* AI Badge */}
-          <div style={{ padding: '4px 10px', borderRadius: 6,
-            background: 'rgba(100,140,255,0.1)', border: '1px solid rgba(100,140,255,0.2)',
-            fontSize: 9, color: Colors.accent, fontFamily: "'DM Sans',sans-serif",
-            display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span>🤖</span> IA Activée
-          </div>
         </header>
 
         {/* Main Scrollable Content - Outlet for nested routes */}
-        <main style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        <main style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          padding: 24,
+          background: Colors.bg,
+        }}>
           <Outlet />
         </main>
       </div>

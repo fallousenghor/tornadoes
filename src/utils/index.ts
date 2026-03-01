@@ -260,37 +260,37 @@ export const paginate = <T>(
  */
 export const getStatusColor = (status: string): string => {
   const statusColors: Record<string, string> = {
-    // Employee status
-    'Actif': '#3ecf8e',
-    'Congé': '#fb923c',
-    'Inactif': '#e05050',
-    'Suspendu': '#e05050',
+    // Employee status - Corporate palette
+    'Actif': '#16A34A',
+    'Congé': '#D97706',
+    'Inactif': '#6B7280',
+    'Suspendu': '#DC2626',
     
     // Invoice status
-    'Payé': '#3ecf8e',
-    'En attente': '#fb923c',
-    'Partiel': '#6490ff',
+    'Payé': '#16A34A',
+    'En attente': '#D97706',
+    'Partiel': '#1E3A8A',
     
     // Project status
-    'Démarrage': '#6490ff',
-    'En cours': '#fb923c',
-    'Finalisation': '#a78bfa',
-    'Terminé': '#3ecf8e',
+    'Démarrage': '#1E3A8A',
+    'En cours': '#16A34A',
+    'Finalisation': '#8B5CF6',
+    'Terminé': '#16A34A',
     
     // Leave status
-    'approved': '#3ecf8e',
-    'pending': '#fb923c',
-    'rejected': '#e05050',
+    'approved': '#16A34A',
+    'pending': '#D97706',
+    'rejected': '#DC2626',
     
     // Priority
-    'Haute': '#e05050',
-    'Critique': '#e05050',
-    'Urgente': '#fb923c',
-    'Moyenne': '#6490ff',
-    'Basse': '#7a84a0',
+    'Haute': '#D97706',
+    'Critique': '#DC2626',
+    'Urgente': '#D97706',
+    'Moyenne': '#1E3A8A',
+    'Basse': '#6B7280',
   };
   
-  return statusColors[status] || '#6490ff';
+  return statusColors[status] || '#1E3A8A';
 };
 
 /**
@@ -300,12 +300,12 @@ export const getStatusColor = (status: string): string => {
  */
 export const getContractColor = (contract: string): string => {
   const colors: Record<string, string> = {
-    'CDI': '#3ecf8e',
-    'CDD': '#fb923c',
-    'Freelance': '#a78bfa',
-    'Stage': '#2dd4bf',
+    'CDI': '#16A34A',
+    'CDD': '#8B5CF6',
+    'Freelance': '#0EA5E9',
+    'Stage': '#D97706',
   };
-  return colors[contract] || '#6490ff';
+  return colors[contract] || '#1E3A8A';
 };
 
 /**

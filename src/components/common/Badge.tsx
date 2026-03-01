@@ -1,8 +1,9 @@
 // Badge Component - AEVUM Enterprise ERP
+// Corporate Professional Badge Component
 
 import React from 'react';
 import { Colors, BorderRadius, Spacing, FontSizes } from '../../constants/theme';
-import { getStatusColor, getContractColor } from '../../utils';
+import { getStatusColor } from '../../utils';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -23,9 +24,15 @@ export const Badge: React.FC<BadgeProps> = ({
       return getStatusColor(children);
     }
     if (type === 'contract' && typeof children === 'string') {
-      return getContractColor(children);
+      const contractColors: Record<string, string> = {
+        'CDI': '#16A34A',
+        'CDD': '#8B5CF6',
+        'Freelance': '#0EA5E9',
+        'Stage': '#D97706',
+      };
+      return contractColors[children] || Colors.primary;
     }
-    return Colors.accent;
+    return Colors.primary;
   };
 
   const badgeColor = getBadgeColor();
@@ -33,10 +40,10 @@ export const Badge: React.FC<BadgeProps> = ({
   const style: React.CSSProperties = {
     fontSize: FontSizes.xs,
     fontWeight: 600,
-    padding: `${Spacing.xs + 2}px ${Spacing.sm}px`,
+    padding: `${Spacing.xs + 2}px ${Spacing.sm + 2}px`,
     borderRadius: BorderRadius.full,
     fontFamily: "'DM Sans', sans-serif",
-    background: `${badgeColor}18`,
+    background: `${badgeColor}15`,
     color: badgeColor,
     display: 'inline-flex',
     alignItems: 'center',
@@ -58,8 +65,8 @@ interface StatBadgeProps {
 
 export const StatBadge: React.FC<StatBadgeProps> = ({ value, className = '' }) => {
   const isPositive = value > 0;
-  const color = isPositive ? Colors.green : Colors.red;
-  const bg = isPositive ? Colors.greenMuted : Colors.redMuted;
+  const color = isPositive ? Colors.success : Colors.danger;
+  const bg = isPositive ? Colors.successMuted : Colors.dangerMuted;
 
   const style: React.CSSProperties = {
     fontSize: FontSizes.xs,

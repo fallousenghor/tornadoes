@@ -1,114 +1,386 @@
 // StatusBadge - AEVUM Enterprise ERP
-// Reusable status badge component - DRY Principle
+// Corporate Professional Status Badge Component
 
 import React from 'react';
+import { Colors, BorderRadius } from '../../constants/theme';
 
 export interface StatusBadgeProps {
   status: string;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary';
   size?: 'sm' | 'md' | 'lg';
   style?: React.CSSProperties;
   className?: string;
 }
 
-// Predefined status color configurations
+// Predefined status color configurations - Corporate Professional Palette
 export const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
-  // Employee/Staff Status
-  'Actif': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Actif' },
-  'Congé': { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', label: 'Congé' },
-  'Inactif': { bg: 'rgba(160, 174, 192, 0.15)', color: '#a0aeb0', label: 'Inactif' },
-  'Suspendu': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Suspendu' },
+  // ===========================================
+  // EMPLOYEE/STAFF STATUS
+  // ===========================================
+  'Actif': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Actif' 
+  },
+  'Congé': { 
+    bg: 'rgba(245, 158, 11, 0.1)', 
+    color: '#D97706', 
+    label: 'Congé' 
+  },
+  'Inactif': { 
+    bg: 'rgba(107, 114, 128, 0.1)', 
+    color: '#6B7280', 
+    label: 'Inactif' 
+  },
+  'Suspendu': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Suspendu' 
+  },
   
-  // Contract Types
-  'CDI': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'CDI' },
-  'CDD': { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', label: 'CDD' },
-  'Freelance': { bg: 'rgba(45, 212, 191, 0.15)', color: '#2dd4bf', label: 'Freelance' },
-  'Stage': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'Stage' },
+  // ===========================================
+  // CONTRACT TYPES
+  // ===========================================
+  'CDI': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'CDI' 
+  },
+  'CDD': { 
+    bg: 'rgba(139, 92, 246, 0.1)', 
+    color: '#8B5CF6', 
+    label: 'CDD' 
+  },
+  'Freelance': { 
+    bg: 'rgba(14, 165, 233, 0.1)', 
+    color: '#0EA5E9', 
+    label: 'Freelance' 
+  },
+  'Stage': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'Stage' 
+  },
   
-  // Student Status
-  'inscrit': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Inscrit' },
-  'actif': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Actif' },
-  'attente': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'En attente' },
-  'diplome': { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', label: 'Diplômé' },
-  'abandon': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Abandon' },
+  // ===========================================
+  // STUDENT STATUS
+  // ===========================================
+  'inscrit': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'Inscrit' 
+  },
+  'actif': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Actif' 
+  },
+  'attente': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'En attente' 
+  },
+  'diplome': { 
+    bg: 'rgba(139, 92, 246, 0.1)', 
+    color: '#8B5CF6', 
+    label: 'Diplômé' 
+  },
+  'abandon': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Abandon' 
+  },
   
-  // Document Status
-  'draft': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Brouillon' },
-  'pending_signature': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'En attente signature' },
-  'signed': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Signé' },
-  'expired': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Expiré' },
+  // ===========================================
+  // DOCUMENT STATUS
+  // ===========================================
+  'draft': { 
+    bg: 'rgba(107, 114, 128, 0.1)', 
+    color: '#6B7280', 
+    label: 'Brouillon' 
+  },
+  'pending_signature': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'En attente signature' 
+  },
+  'signed': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Signé' 
+  },
+  'expired': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Expiré' 
+  },
   
-  // Project Status
-  'demarrage': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Démarrage' },
-  'en_cours': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'En cours' },
-  'finalisation': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'Finalisation' },
-  'termine': { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', label: 'Terminé' },
+  // ===========================================
+  // PROJECT STATUS
+  // ===========================================
+  'demarrage': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'Démarrage' 
+  },
+  'en_cours': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'En cours' 
+  },
+  'finalisation': { 
+    bg: 'rgba(139, 92, 246, 0.1)', 
+    color: '#8B5CF6', 
+    label: 'Finalisation' 
+  },
+  'termine': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Terminé' 
+  },
   
-  // Project Priority
-  'basse': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Basse' },
-  'moyenne': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Moyenne' },
-  'haute': { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', label: 'Haute' },
-  'critique': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Critique' },
+  // ===========================================
+  // PROJECT PRIORITY
+  // ===========================================
+  'basse': { 
+    bg: 'rgba(107, 114, 128, 0.1)', 
+    color: '#6B7280', 
+    label: 'Basse' 
+  },
+  'moyenne': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'Moyenne' 
+  },
+  'haute': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'Haute' 
+  },
+  'critique': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Critique' 
+  },
   
-  // Leave Status
-  'pending': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'En attente' },
-  'approved': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Approuvé' },
-  'rejected': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Rejeté' },
-  'cancelled': { bg: 'rgba(160, 174, 192, 0.15)', color: '#a0aeb0', label: 'Annulé' },
+  // ===========================================
+  // LEAVE STATUS
+  // ===========================================
+  'pending': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'En attente' 
+  },
+  'approved': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Approuvé' 
+  },
+  'rejected': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Rejeté' 
+  },
+  'cancelled': { 
+    bg: 'rgba(107, 114, 128, 0.1)', 
+    color: '#6B7280', 
+    label: 'Annulé' 
+  },
   
-  // Invoice Status
-  'paye': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Payé' },
-  'en_attente': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'En attente' },
-  'partiel': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Partiel' },
+  // ===========================================
+  // INVOICE STATUS
+  // ===========================================
+  'paye': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Payé' 
+  },
+  'en_attente': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'En attente' 
+  },
+  'partiel': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'Partiel' 
+  },
   
-  // Stock Status
-  'OK': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'OK' },
-  'Attention': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'Attention' },
-  'Critique': { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', label: 'Critique' },
-  'Rupture': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Rupture' },
+  // ===========================================
+  // STOCK STATUS
+  // ===========================================
+  'OK': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'OK' 
+  },
+  'Attention': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'Attention' 
+  },
+  'Critique': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Critique' 
+  },
+  'Rupture': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Rupture' 
+  },
   
-  // Teacher Status
-  'inactif': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Inactif' },
-  'conge': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'Congé' },
+  // ===========================================
+  // TEACHER STATUS
+  // ===========================================
+  'inactif': { 
+    bg: 'rgba(107, 114, 128, 0.1)', 
+    color: '#6B7280', 
+    label: 'Inactif' 
+  },
+  'conge': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'Congé' 
+  },
   
-  // Assignment Status
-  'assigned': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Assigné' },
-  'returned': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Retourné' },
-  'maintenance': { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', label: 'Maintenance' },
-  'active': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Actif' },
+  // ===========================================
+  // ASSIGNMENT STATUS
+  // ===========================================
+  'assigned': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'Assigné' 
+  },
+  'returned': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Retourné' 
+  },
+  'maintenance': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'Maintenance' 
+  },
+  'active': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Actif' 
+  },
   
-  // Maintenance
-  'preventive': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Préventive' },
-  'corrective': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Corrective' },
+  // ===========================================
+  // MAINTENANCE
+  // ===========================================
+  'preventive': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'Préventive' 
+  },
+  'corrective': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Corrective' 
+  },
   
-  // Task Status
-  'todo': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'À faire' },
-  'in_progress': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'En cours' },
-  'review': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'En révision' },
-  'done': { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', label: 'Terminé' },
+  // ===========================================
+  // TASK STATUS
+  // ===========================================
+  'todo': { 
+    bg: 'rgba(107, 114, 128, 0.1)', 
+    color: '#6B7280', 
+    label: 'À faire' 
+  },
+  'in_progress': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'En cours' 
+  },
+  'review': { 
+    bg: 'rgba(139, 92, 246, 0.1)', 
+    color: '#8B5CF6', 
+    label: 'En révision' 
+  },
+  'done': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Terminé' 
+  },
   
-  // Grade ranges
-  'excellent': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Excellent' },
-  'tres_bien': { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff', label: 'Très Bien' },
-  'bien': { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', label: 'Bien' },
-  'passable': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c', label: 'Passable' },
-  'insuffisant': { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Insuffisant' },
+  // ===========================================
+  // GRADE RANGES
+  // ===========================================
+  'excellent': { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A', 
+    label: 'Excellent' 
+  },
+  'tres_bien': { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A', 
+    label: 'Très Bien' 
+  },
+  'bien': { 
+    bg: 'rgba(139, 92, 246, 0.1)', 
+    color: '#8B5CF6', 
+    label: 'Bien' 
+  },
+  'passable': { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706', 
+    label: 'Passable' 
+  },
+  'insuffisant': { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626', 
+    label: 'Insuffisant' 
+  },
 };
 
-// Variant-based colors for custom statuses
+// Variant-based colors for custom statuses - Corporate Palette
 const variantColors = {
-  default: { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff' },
-  success: { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e' },
-  warning: { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c' },
-  danger: { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050' },
-  info: { bg: 'rgba(100, 140, 255, 0.15)', color: '#6490ff' },
+  default: { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A' 
+  },
+  success: { 
+    bg: 'rgba(22, 163, 74, 0.1)', 
+    color: '#16A34A' 
+  },
+  warning: { 
+    bg: 'rgba(217, 119, 6, 0.1)', 
+    color: '#D97706' 
+  },
+  danger: { 
+    bg: 'rgba(220, 38, 38, 0.1)', 
+    color: '#DC2626' 
+  },
+  info: { 
+    bg: 'rgba(14, 165, 233, 0.1)', 
+    color: '#0EA5E9' 
+  },
+  primary: { 
+    bg: 'rgba(30, 58, 138, 0.1)', 
+    color: '#1E3A8A' 
+  },
 };
 
-// Size configurations
+// Size configurations - Professional sizing
 const sizeStyles = {
-  sm: { padding: '2px 8px', fontSize: 10, borderRadius: 4 },
-  md: { padding: '4px 10px', fontSize: 11, borderRadius: 6 },
-  lg: { padding: '6px 14px', fontSize: 12, borderRadius: 8 },
+  sm: { 
+    padding: '3px 8px', 
+    fontSize: 10, 
+    borderRadius: 4 
+  },
+  md: { 
+    padding: '4px 10px', 
+    fontSize: 11, 
+    borderRadius: 6 
+  },
+  lg: { 
+    padding: '6px 14px', 
+    fontSize: 12, 
+    borderRadius: 8 
+  },
 };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ 
@@ -119,7 +391,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   className 
 }) => {
   // Get config from predefined statuses or use variant
-  const config = statusConfig[status] ? { ...statusConfig[status] } : { ...variantColors[variant], label: status };
+  const config = statusConfig[status] 
+    ? { ...statusConfig[status] } 
+    : { ...variantColors[variant], label: status };
+  
   const sizeStyle = sizeStyles[size];
   
   return (
@@ -131,11 +406,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
         padding: sizeStyle.padding,
         borderRadius: sizeStyle.borderRadius,
         fontSize: sizeStyle.fontSize,
-        fontWeight: 500,
+        fontWeight: 600,
         background: config.bg,
         color: config.color,
         textTransform: 'uppercase',
         letterSpacing: '0.03em',
+        fontFamily: "'DM Sans', sans-serif",
         ...style,
       }}
     >

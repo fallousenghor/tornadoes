@@ -1,5 +1,6 @@
 /* Global Styles - AEVUM Enterprise ERP */
-/* Updated with larger font sizes for better readability */
+/* Corporate Professional Theme - B2B SaaS Design System */
+/* ============================================================= */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
@@ -18,48 +19,55 @@ html, body, #root {
 
 body {
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: rgba(100, 140, 255, 0.08);
-  color: #e2e8f8;
-  font-size: 16px;
+  background: #F9FAFB;
+  color: #1F2937;
+  font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography - Increased sizes */
+/* Typography - Professional sizing for B2B */
 h1 {
-  font-size: 2rem !important;
+  font-size: 1.75rem !important;
   font-weight: 700;
+  color: #1F2937;
 }
 
 h2 {
-  font-size: 1.75rem !important;
+  font-size: 1.5rem !important;
   font-weight: 600;
+  color: #1F2937;
 }
 
 h3 {
-  font-size: 1.5rem !important;
+  font-size: 1.25rem !important;
   font-weight: 600;
+  color: #1F2937;
 }
 
 h4 {
-  font-size: 1.25rem !important;
+  font-size: 1.125rem !important;
   font-weight: 500;
+  color: #1F2937;
 }
 
 p {
-  font-size: 1rem !important;
+  font-size: 0.9375rem !important;
   line-height: 1.7;
+  color: #4B5563;
 }
 
 /* Links */
 a {
-  color: #6490ff;
+  color: #1E3A8A;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.9375rem;
+  transition: color 0.15s ease;
 }
 
 a:hover {
+  color: #2563EB;
   text-decoration: underline;
 }
 
@@ -67,87 +75,85 @@ a:hover {
 button {
   font-family: inherit;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 /* Inputs */
 input, textarea, select {
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.875rem;
+  color: #1F2937;
 }
 
 input::placeholder {
-  color: #3a3f58;
-  font-size: 0.95rem;
+  color: #9CA3AF;
+  font-size: 0.875rem;
 }
 
 /* Labels */
 label {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 500;
+  color: #374151;
 }
 
 /* Tables */
 table {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 th {
-  font-size: 0.85rem !important;
+  font-size: 0.75rem !important;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: #6B7280;
 }
 
 td {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
+  color: #1F2937;
 }
 
-/* Scrollbar - Modern Design */
+/* Scrollbar - Professional corporate style */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(100, 140, 255, 0.05);
-  border-radius: 5px;
+  background: #F3F4F6;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #6490ff 0%, #4a7cfc 100%);
-  border-radius: 5px;
+  background: linear-gradient(180deg, #1E3A8A 0%, #2563EB 100%);
+  border-radius: 4px;
   border: none;
-  box-shadow: 0 2px 6px rgba(100, 140, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(30, 58, 138, 0.2);
   transition: all 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #7aa3ff 0%, #6490ff 100%);
-  box-shadow: 0 0 12px rgba(100, 140, 255, 0.5), 0 2px 6px rgba(100, 140, 255, 0.3);
-  transform: scale(1.05);
-}
-
-::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(180deg, #8fb4ff 0%, #7aa3ff 100%);
-  box-shadow: 0 0 16px rgba(100, 140, 255, 0.6), 0 2px 8px rgba(100, 140, 255, 0.4);
+  background: linear-gradient(180deg, #2563EB 0%, #3B82F6 100%);
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
 }
 
 /* Firefox Scrollbar Support */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #6490ff rgba(100, 140, 255, 0.05);
+  scrollbar-color: #1E3A8A #F3F4F6;
 }
 
 /* Selection */
 ::selection {
-  background: linear-gradient(180deg, #7aa3ff 0%, #6490ff 100%);
+  background: linear-gradient(180deg, #1E3A8A 0%, #2563EB 100%);
   color: #fff;
 }
 
 /* Focus */
 :focus-visible {
-  outline: 2px solid #6490ff;
+  outline: 2px solid #2563EB;
   outline-offset: 2px;
 }
 
@@ -155,7 +161,7 @@ td {
 @keyframes upfade {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -177,14 +183,14 @@ td {
     opacity: 1;
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.4;
   }
 }
 
 @keyframes stagger-in {
   from {
     opacity: 0;
-    transform: translateX(-6px);
+    transform: translateX(-4px);
   }
   to {
     opacity: 1;
@@ -194,7 +200,7 @@ td {
 
 /* Utility classes */
 .shimmer {
-  background: linear-gradient(90deg, transparent, rgba(100,140,255,0.03), transparent);
+  background: linear-gradient(90deg, transparent, rgba(30, 58, 138, 0.05), transparent);
   background-size: 200%;
   animation: shimmer 4s infinite;
 }
@@ -207,70 +213,70 @@ td {
   animation: stagger-in 0.4s ease forwards;
 }
 
-/* Card hover effect */
+/* Card hover effect - Subtle professional */
 .card-h {
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card-h:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 /* Navigation item */
 .nav-i {
-  transition: all 0.18s;
+  transition: all 0.18s ease;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .nav-i:hover {
-  background: rgba(100, 140, 255, 0.08) !important;
-  color: #6490ff !important;
+  background: rgba(30, 58, 138, 0.05) !important;
+  color: #1E3A8A !important;
 }
 
 /* Section header */
 .sec-hd {
-  transition: background 0.15s;
+  transition: background 0.15s ease;
   border-radius: 6px;
 }
 
 .sec-hd:hover {
-  background: rgba(100, 140, 255, 0.05) !important;
+  background: rgba(30, 58, 138, 0.03) !important;
 }
 
-/* Row hover */
+/* Row hover - Professional subtle */
 .row-h {
-  transition: background 0.15s;
+  transition: background 0.15s ease;
   cursor: pointer;
 }
 
 .row-h:hover {
-  background: rgba(100, 140, 255, 0.05) !important;
+  background: #F9FAFB !important;
 }
 
 /* Tab */
 .tab {
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .tab:hover {
-  color: #6490ff !important;
+  color: #1E3A8A !important;
 }
 
 /* Button */
 .btn {
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .btn:hover {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 /* KPI animations */
@@ -303,74 +309,177 @@ td {
   animation-delay: 0.3s;
 }
 
-/* Form elements - larger */
+/* Form elements */
 .form-control {
-  font-size: 1rem;
-  padding: 12px 16px;
+  font-size: 0.875rem;
+  padding: 10px 14px;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  background: #FFFFFF;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  outline: none;
 }
 
 .form-label {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  color: #374151;
 }
 
 /* Badges */
 .badge {
-  font-size: 0.8rem;
-  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 /* Cards */
 .card {
-  font-size: 1rem;
-  padding: 24px;
+  font-size: 0.9375rem;
+  padding: 20px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
 }
 
 /* Modal */
 .modal-title {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
 }
 
 .modal-body {
-  font-size: 1rem;
+  font-size: 0.9375rem;
 }
 
 /* Stats */
 .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
+  color: #1F2937;
 }
 
 .stat-label {
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  color: #6B7280;
 }
 
 /* Sidebar */
 .sidebar-item {
-  font-size: 1rem;
-  padding: 12px 16px;
+  font-size: 0.875rem;
+  padding: 10px 14px;
 }
 
 .sidebar-section {
-  font-size: 0.8rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 /* Header */
 .header-title {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
 .header-subtitle {
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  color: #6B7280;
 }
 
 /* Footer */
 .footer-text {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  color: #9CA3AF;
+}
+
+/* Professional shadows */
+.shadow-sm {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Corporate colors utility classes */
+.text-primary {
+  color: #1E3A8A !important;
+}
+
+.text-success {
+  color: #16A34A !important;
+}
+
+.text-warning {
+  color: #F59E0B !important;
+}
+
+.text-danger {
+  color: #DC2626 !important;
+}
+
+.text-muted {
+  color: #6B7280 !important;
+}
+
+.bg-primary {
+  background-color: #1E3A8A !important;
+}
+
+.bg-success {
+  background-color: #16A34A !important;
+}
+
+.bg-warning {
+  background-color: #F59E0B !important;
+}
+
+.bg-danger {
+  background-color: #DC2626 !important;
+}
+
+.bg-surface {
+  background-color: #FFFFFF !important;
+}
+
+.bg-subtle {
+  background-color: #F9FAFB !important;
+}
+
+/* Border utilities */
+.border-subtle {
+  border-color: #E5E7EB !important;
+}
+
+/* Status badge backgrounds */
+.bg-success-soft {
+  background-color: rgba(22, 163, 74, 0.1) !important;
+}
+
+.bg-warning-soft {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+.bg-danger-soft {
+  background-color: rgba(220, 38, 38, 0.1) !important;
+}
+
+.bg-primary-soft {
+  background-color: rgba(30, 58, 138, 0.1) !important;
 }
 
