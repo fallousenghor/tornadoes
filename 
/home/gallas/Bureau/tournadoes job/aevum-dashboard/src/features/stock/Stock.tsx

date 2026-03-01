@@ -1,0 +1,1208 @@
+
+// Stock & Matériel Feature - AEVUM Enterprise ERP
+// Inventory management, equipment assignments, and maintenance alerts
+
+import React, { useState } from 'react';
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
+} from 'recharts';
+
+import { Button, Badge, ProgressBar, SectionTitle, Input } from '../../components/common';
+import { Modal } from '../../components/common';
+import { Colors, Spacing, BorderRadius } from '../../constants/theme';
+import { formatCurrency } from '../../utils';
+import {
+  stockItems,
+  stockSummary,
+  equipmentAssignments,
+  maintenanceAlerts,
+  stockMovements,
+  stockCategoriesData,
+} from '../../data/mockData';
+
+// Tooltip style
+const tooltipStyle = {
+  contentStyle: {
+    background: Colors.card,
+    border: '1px solid rgba(100,140,255,0.2)',
+    borderRadius: 8,
+    fontSize: 11,
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  labelStyle: { color: Colors.accent },
+  itemStyle: { color: Colors.textLight },
+};
+
+const CardStyles = {
+  default: {
+    background: Colors.card,
+    border: `1px solid ${Colors.border}`,
+    borderRadius: BorderRadius.xxl,
+    padding: Spacing.xxl,
+  } as React.CSSProperties,
+};
+
+// Colors for charts
+const COLORS = {
+  available: '#3ecf8e',
+  assigned: '#6490ff',
+  maintenance: '#fb923c',
+  critical: '#e05050',
+};
+
+const CategoryColors: Record<string, string> = {
+  informatique: '#6490ff',
+  mobilite: '#3ecf8e',
+  mobilier: '#a78bfa',
+  equipements: '#fb923c',
+};
+
+// KPI Card Component
+interface KPICardProps {
+  label: string;
+  value: string | number;
+  subValue?: string;
+  icon: string;
+  color: string;
+  trend?: 'up' | 'down' | 'stable';
+}
+
+const KPICard: React.FC<KPICardProps> = ({ label, value, subValue, icon, color, trend }) => {
+  return (
+    <div style={{ 
+      ...CardStyles.default, 
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      <div style={{ 
+        position: 'absolute', 
+        inset: 0, 
+        borderRadius: BorderRadius.xxl,
+        background: 'linear-gradient(90deg, transparent, rgba(100,140,255,0.03), transparent)',
+        backgroundSize: '200%',
+      }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8,
+          background: `${color}18`, border: `1px solid ${color}33`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16, color
+        }}>{icon}</div>
+        {trend && (
+          <div style={{
+            padding: '3px 8px', borderRadius: 6,
+            background: trend === 'up' ? 'rgba(62,207,142,0.1)' : trend === 'down' ? 'rgba(224,80,80,0.1)' : 'rgba(100,140,255,0.1)',
+            color: trend === 'up' ? Colors.green : trend === 'down' ? Colors.red : Colors.accent,
+            fontSize: 10, fontFamily: "'DM Sans',sans-serif", fontWeight: 600,
+          }}>
+            {trend === 'up' ? '▲' : trend === 'down' ? '▼' : '—'} {subValue}
+          </div>
+        )}
+      </div>
+      <div style={{ 
+        fontFamily: "'DM Serif Display',Georgia,serif", 
+        fontSize: 26,
+        fontWeight: 700, 
+        color: Colors.text, 
+        marginBottom: 4 
+      }}>{value}</div>
+      <div style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
+    </div>
+  );
+};
+
+export const Stock: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'inventory' | 'assignments' | 'maintenance'>('inventory');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+  
+  // Modal states
+  const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  
+  // Form states
+  const [newItemForm, setNewItemForm] = useState({
+    name: '',
+    category: 'informatique',
+    quantity: 0,
+    minQuantity: 5,
+    reference: '',
+  });
+  
+  const [assignmentForm, setAssignmentForm] = useState({
+    employeeName: '',
+    itemId: '',
+    notes: '',
+  });
+
+  // Filter stock items based on search and category
+  const filteredItems = stockItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.reference?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const paginatedItems = filteredItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter]);
+
+  const handleOpenDetail = (item: any) => {
+    setSelectedItem(item);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleOpenAssignment = (item: any) => {
+    setSelectedItem(item);
+    setAssignmentForm({ ...assignmentForm, itemId: item.id });
+    setIsAssignmentModalOpen(true);
+  };
+
+  const handleOpenMaintenance = (alert: any) => {
+    setSelectedAlert(alert);
+    setIsMaintenanceModalOpen(true);
+  };
+
+  return (
+    <div style={{ fontFamily: "'DM Sans',sans-serif" }}>
+      
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 22, fontWeight: 700, color: Colors.text, marginBottom: 4 }}>
+            Stock & Matériel
+          </h1>
+          <div style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+            Gestion des équipements · Attribution · Maintenance
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Button variant="secondary" size="sm">📥 Exporter</Button>
+          <Button variant="primary" size="sm" onClick={() => setIsNewItemModalOpen(true)}>+ Nouvel article</Button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        <KPICard
+          label="Total Articles"
+          value={stockSummary.totalItems}
+          subValue="+12 ce mois"
+          icon="◈"
+          color={Colors.accent}
+          trend="up"
+        />
+        <KPICard
+          label="Disponibles"
+          value={stockSummary.available}
+          subValue="72% du total"
+          icon="◎"
+          color={Colors.green}
+          trend="up"
+        />
+        <KPICard
+          label="Attribués"
+          value={stockSummary.assigned}
+          subValue="23% du total"
+          icon="▣"
+          color={Colors.purple}
+          trend="stable"
+        />
+        <KPICard
+          label="En Maintenance"
+          value={stockSummary.maintenance}
+          subValue="5 équipements"
+          icon="⚙"
+          color={Colors.orange}
+          trend="down"
+        />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#111320', padding: 4, borderRadius: 10, width: 'fit-content' }}>
+        {[
+          { id: 'inventory', label: 'Inventaire', icon: '◈' },
+          { id: 'assignments', label: 'Attributions', icon: '▣' },
+          { id: 'maintenance', label: 'Maintenance', icon: '⚙' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 7,
+              border: 'none',
+              background: activeTab === tab.id ? 'rgba(100,140,255,0.15)' : 'transparent',
+              color: activeTab === tab.id ? Colors.accent : Colors.textMuted,
+              cursor: 'pointer',
+              fontWeight: activeTab === tab.id ? 600 : 400,
+              fontSize: 12,
+              fontFamily: "'DM Sans',sans-serif",
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              transition: 'all 0.2s',
+            }}
+          >
+            <span>{tab.icon}</span> {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'inventory' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+          {/* Stock Table */}
+          <div style={CardStyles.default}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <SectionTitle icon="◈" title="Articles en Stock" sub={`${filteredItems.length} articles trouvés`} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  style={{ width: 180 }}
+                />
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: `1px solid ${Colors.border}`,
+                    background: Colors.bg,
+                    color: Colors.text,
+                    fontSize: 12,
+                    fontFamily: "'DM Sans',sans-serif",
+                  }}
+                >
+                  <option value="all">Toutes catégories</option>
+                  <option value="informatique">Informatique</option>
+                  <option value="mobilier">Mobilier</option>
+                  <option value="equipements">Équipements</option>
+                  <option value="mobilite">Mobilité</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${Colors.border}` }}>
+                    {["Réf","Article","Catégorie","Quantité","Disponibles","Attribués","État","Actions"].map(h => (
+                      <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10,
+                        fontWeight: 700, color: Colors.textDim, fontFamily: "'DM Sans',sans-serif",
+                        letterSpacing: '0.08em', textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedItems.map((item, i) => {
+                    const status = item.quantity <= (item.minQuantity || 0) ? 'critical' :
+                                   item.quantity <= (item.minQuantity || 0) * 1.5 ? 'warning' : 'good';
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(100,140,255,0.04)' }}>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                            {item.reference}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8,
+                              background: `${CategoryColors[item.category]}18`,
+                              border: `1px solid ${CategoryColors[item.category]}33`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 14 }}>
+                              {item.category === 'informatique' ? '💻' : 
+                               item.category === 'mobilier' ? '🪑' : 
+                               item.category === 'mobilite' ? '🚗' : '⚙'}
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 500, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                              {item.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <Badge color={CategoryColors[item.category]}>
+                            {item.category === 'informatique' ? 'Informatique' :
+                             item.category === 'mobilier' ? 'Mobilier' :
+                             item.category === 'mobilite' ? 'Mobilité' : 'Équipements'}
+                          </Badge>
+                        </td>
+                        <td style={{ padding: '12px', fontSize: 12, color: Colors.text, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                          {item.quantity}
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ fontSize: 12, color: Colors.green, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                            {item.available}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ fontSize: 12, color: Colors.accent, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                            {item.assigned}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <div style={{
+                            padding: '4px 10px', borderRadius: 20, fontSize: 9, fontWeight: 600,
+                            background: status === 'critical' ? 'rgba(224,80,80,0.15)' : 
+                                       status === 'warning' ? 'rgba(251,146,60,0.15)' : 'rgba(62,207,142,0.15)',
+                            color: status === 'critical' ? Colors.red : status === 'warning' ? Colors.orange : Colors.green,
+                            fontFamily: "'DM Sans',sans-serif", display: 'inline-block',
+                          }}>
+                            {status === 'critical' ? 'Rupture' : status === 'warning' ? 'Faible' : 'OK'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {['Attribuer','Détail'].map(a => (
+                              <button 
+                                key={a} 
+                                onClick={() => a === 'Attribuer' ? handleOpenAssignment(item) : handleOpenDetail(item)}
+                                style={{ padding: '4px 10px', borderRadius: 6,
+                                border: `1px solid ${Colors.border}`, background: 'transparent',
+                                color: Colors.textMuted, fontSize: 10, cursor: 'pointer',
+                                fontFamily: "'DM Sans',sans-serif" }}>{a}</button>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTop: `1px solid ${Colors.border}` }}>
+                <div style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                  Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredItems.length)} sur {filteredItems.length} articles
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: `1px solid ${Colors.border}`,
+                      background: currentPage === 1 ? 'transparent' : Colors.bg,
+                      color: currentPage === 1 ? Colors.textMuted : Colors.text,
+                      fontSize: 11,
+                      fontFamily: "'DM Sans',sans-serif",
+                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === 1 ? 0.5 : 1,
+                    }}
+                  >
+                    ← Précédent
+                  </button>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 6,
+                          border: 'none',
+                          background: currentPage === page ? Colors.accent : 'transparent',
+                          color: currentPage === page ? '#fff' : Colors.textMuted,
+                          fontSize: 11,
+                          fontFamily: "'DM Sans',sans-serif",
+                          fontWeight: currentPage === page ? 600 : 400,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: `1px solid ${Colors.border}`,
+                      background: currentPage === totalPages ? 'transparent' : Colors.bg,
+                      color: currentPage === totalPages ? Colors.textMuted : Colors.text,
+                      fontSize: 11,
+                      fontFamily: "'DM Sans',sans-serif",
+                      cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === totalPages ? 0.5 : 1,
+                    }}
+                  >
+                    Suivant →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar - Stock Overview */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Category Distribution */}
+            <div style={CardStyles.default}>
+              <SectionTitle icon="◉" title="Répartition par Catégorie" sub="Répartition du stock" />
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie
+                    data={stockCategoriesData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {stockCategoriesData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CategoryColors[entry.name]} />
+                    ))}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} formatter={(v: number) => `${v} articles`} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                {stockCategoriesData.map((cat, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: CategoryColors[cat.name] }} />
+                      <span style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                        {cat.name === 'informatique' ? 'Informatique' :
+                         cat.name === 'mobilier' ? 'Mobilier' :
+                         cat.name === 'mobilite' ? 'Mobilité' : 'Équipements'}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                      {cat.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Stock Status */}
+            <div style={CardStyles.default}>
+              <SectionTitle icon="◎" title="État du Stock" sub="Disponibilité globale" />
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                    Taux d'utilisation
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                    {Math.round((stockSummary.assigned / stockSummary.totalItems) * 100)}%
+                  </span>
+                </div>
+                <ProgressBar value={Math.round((stockSummary.assigned / stockSummary.totalItems) * 100)} color={Colors.accent} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ padding: 12, borderRadius: 8, background: 'rgba(62,207,142,0.08)', border: '1px solid rgba(62,207,142,0.15)' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: Colors.green, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                    {stockSummary.available}
+                  </div>
+                  <div style={{ fontSize: 9, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>Disponibles</div>
+                </div>
+                <div style={{ padding: 12, borderRadius: 8, background: 'rgba(100,140,255,0.08)', border: '1px solid rgba(100,140,255,0.15)' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: Colors.accent, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                    {stockSummary.assigned}
+                  </div>
+                  <div style={{ fontSize: 9, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>Attribués</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Movements */}
+            <div style={CardStyles.default}>
+              <SectionTitle icon="◈" title="Mouvements Récents" sub="Entrées & Sorties" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {stockMovements.slice(0, 5).map((m, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                    borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(100,140,255,0.05)' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6,
+                      background: m.type === 'in' ? 'rgba(62,207,142,0.12)' : 'rgba(224,80,80,0.12)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, color: m.type === 'in' ? Colors.green : Colors.red }}>
+                      {m.type === 'in' ? '↓' : '↑'}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: Colors.text, fontFamily: "'DM Sans',sans-serif", fontWeight: 500 }}>
+                        {m.item}
+                      </div>
+                      <div style={{ fontSize: 9, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                        {m.date}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: m.type === 'in' ? Colors.green : Colors.red,
+                      fontFamily: "'DM Sans',sans-serif" }}>
+                      {m.type === 'in' ? '+' : '-'}{m.quantity}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'assignments' && (
+        <div style={CardStyles.default}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <SectionTitle icon="▣" title="Attributions d'Équipements" sub={`${equipmentAssignments.length} attributions actives`} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="secondary" size="sm">Historique</Button>
+              <Button variant="primary" size="sm" onClick={() => setIsAssignmentModalOpen(true)}>+ Nouvelle attribution</Button>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${Colors.border}` }}>
+                  {["Employé","Article","Réf","Date attribution","Statut","Actions"].map(h => (
+                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10,
+                      fontWeight: 700, color: Colors.textDim, fontFamily: "'DM Sans',sans-serif",
+                      letterSpacing: '0.08em', textTransform: 'uppercase' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {equipmentAssignments.map((assign, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(100,140,255,0.04)' }}>
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%',
+                          background: 'rgba(100,140,255,0.15)', border: '1px solid rgba(100,140,255,0.2)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, fontWeight: 700, color: Colors.accent, fontFamily: "'DM Sans',sans-serif" }}>
+                          {assign.employeeName.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                            {assign.employeeName}
+                          </div>
+                          <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                            {assign.department}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{ fontSize: 12, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                        {assign.itemName}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                        {assign.itemRef}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                      {assign.assignedDate}
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <Badge type={assign.status === 'active' ? 'status' : undefined} color={assign.status === 'active' ? Colors.green : Colors.orange}>
+                        {assign.status === 'active' ? 'Actif' : 'En retour'}
+                      </Badge>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button style={{ padding: '4px 10px', borderRadius: 6,
+                          border: `1px solid ${Colors.border}`, background: 'transparent',
+                          color: Colors.textMuted, fontSize: 10, cursor: 'pointer',
+                          fontFamily: "'DM Sans',sans-serif" }}>
+                          Retour
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'maintenance' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Maintenance Alerts */}
+          <div style={CardStyles.default}>
+            <SectionTitle icon="⚙" title="Alertes de Maintenance" sub="Équipements nécessitant intervention" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {maintenanceAlerts.map((alert, i) => (
+                <div key={i} style={{ padding: 14, borderRadius: 10,
+                  background: alert.priority === 'high' ? 'rgba(224,80,80,0.06)' : 'rgba(251,146,60,0.06)',
+                  border: `1px solid ${alert.priority === 'high' ? 'rgba(224,80,80,0.15)' : 'rgba(251,146,60,0.15)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                        {alert.itemName}
+                      </div>
+                      <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                        {alert.itemRef}
+                      </div>
+                    </div>
+                    <div style={{ padding: '3px 8px', borderRadius: 6, fontSize: 9, fontWeight: 600,
+                      background: alert.priority === 'high' ? 'rgba(224,80,80,0.15)' : 'rgba(251,146,60,0.15)',
+                      color: alert.priority === 'high' ? Colors.red : Colors.orange,
+                      fontFamily: "'DM Sans',sans-serif" }}>
+                      {alert.priority === 'high' ? 'Urgent' : 'Préventif'}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", marginBottom: 10 }}>
+                    {alert.description}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                      📅 {alert.scheduledDate}
+                    </span>
+                    <Button variant="primary" size="sm" onClick={() => handleOpenMaintenance(alert)}>Planifier</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Maintenance Stats */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={CardStyles.default}>
+              <SectionTitle icon="◉" title="Statistiques Maintenance" sub="Vue d'ensemble" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(100,140,255,0.06)',
+                  border: '1px solid rgba(100,140,255,0.1)' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: Colors.accent, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                    12
+                  </div>
+                  <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                    Preventives ce mois
+                  </div>
+                </div>
+                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(224,80,80,0.06)',
+                  border: '1px solid rgba(224,80,80,0.1)' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: Colors.red, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                    3
+                  </div>
+                  <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                    Correctives urgentes
+                  </div>
+                </div>
+                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(62,207,142,0.06)',
+                  border: '1px solid rgba(62,207,142,0.1)' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: Colors.green, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                    89%
+                  </div>
+                  <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                    Taux de résolution
+                  </div>
+                </div>
+                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(167,139,250,0.06)',
+                  border: '1px solid rgba(167,139,250,0.1)' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: Colors.purple, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                    2 450€
+                  </div>
+                  <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                    Coût moyen/mois
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Maintenance Chart */}
+            <div style={CardStyles.default}>
+              <SectionTitle icon="◈" title="Historique Maintenance" sub="Interventions mensuelles" />
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={[
+                  { month: 'Jan', preventive: 8, corrective: 2 },
+                  { month: 'Fév', preventive: 10, corrective: 1 },
+                  { month: 'Mar', preventive: 6, corrective: 3 },
+                  { month: 'Avr', preventive: 12, corrective: 2 },
+                  { month: 'Mai', preventive: 9, corrective: 1 },
+                  { month: 'Jun', preventive: 11, corrective: 2 },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,140,255,0.05)" />
+                  <XAxis dataKey="month" tick={{ fill: '#5a6480', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#5a6480', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip {...tooltipStyle} />
+                  <Bar dataKey="preventive" fill={Colors.accent} radius={[3,3,0,0]} name="Préventive" />
+                  <Bar dataKey="corrective" fill={Colors.orange} radius={[3,3,0,0]} name="Corrective" />
+                </BarChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: Colors.accent }} />
+                  <span style={{ fontSize: 9, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>Préventive</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: Colors.orange }} />
+                  <span style={{ fontSize: 9, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>Corrective</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Section - Stock Levels Alert */}
+      <div style={{ marginTop: 20, padding: '14px 18px', background: 'rgba(251,146,60,0.08)',
+        borderRadius: 12, border: '1px solid rgba(251,146,60,0.2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(251,146,60,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⚠️</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: Colors.orange, fontFamily: "'DM Sans',sans-serif" }}>
+            Alertes de Stock
+          </div>
+          <div style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+            3 articles en rupture · 8 articles en stock faible · Maintenance prévue pour 5 équipements
+          </div>
+        </div>
+        <Button variant="primary" size="sm">Voir les alertes</Button>
+      </div>
+
+      {/* Modal: Nouvel Article */}
+      <Modal
+        isOpen={isNewItemModalOpen}
+        onClose={() => setIsNewItemModalOpen(false)}
+        title="Ajouter un nouvel article"
+        size="md"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+              Nom de l'article *
+            </label>
+            <input
+              type="text"
+              value={newItemForm.name}
+              onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+              placeholder="Ex: MacBook Pro 14"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: `1px solid ${Colors.border}`,
+                background: Colors.bg,
+                color: Colors.text,
+                fontSize: 13,
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            />
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                Catégorie *
+              </label>
+              <select
+                value={newItemForm.category}
+                onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              >
+                <option value="informatique">Informatique</option>
+                <option value="mobilier">Mobilier</option>
+                <option value="equipements">Équipements</option>
+                <option value="mobilite">Mobilité</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                Référence
+              </label>
+              <input
+                type="text"
+                value={newItemForm.reference}
+                onChange={(e) => setNewItemForm({ ...newItemForm, reference: e.target.value })}
+                placeholder="Ex: IT-001"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                Quantité *
+              </label>
+              <input
+                type="number"
+                value={newItemForm.quantity}
+                onChange={(e) => setNewItemForm({ ...newItemForm, quantity: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                Quantité minimum
+              </label>
+              <input
+                type="number"
+                value={newItemForm.minQuantity}
+                onChange={(e) => setNewItemForm({ ...newItemForm, minQuantity: parseInt(e.target.value) || 0 })}
+                placeholder="5"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <Button variant="secondary" size="sm" onClick={() => setIsNewItemModalOpen(false)}>Annuler</Button>
+            <Button variant="primary" size="sm" onClick={() => { alert('Article ajouté!'); setIsNewItemModalOpen(false); }}>
+              Ajouter l'article
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Attribution */}
+      <Modal
+        isOpen={isAssignmentModalOpen}
+        onClose={() => setIsAssignmentModalOpen(false)}
+        title="Attribuer un équipement"
+        size="md"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+              Article à attribuer
+            </label>
+            <div style={{
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: `1px solid ${Colors.border}`,
+              background: 'rgba(100,140,255,0.05)',
+              color: Colors.text,
+              fontSize: 13,
+              fontFamily: "'DM Sans',sans-serif",
+            }}>
+              {selectedItem?.name} <span style={{ color: Colors.textMuted }}>({selectedItem?.reference})</span>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+              Employé *
+            </label>
+            <select
+              value={assignmentForm.employeeName}
+              onChange={(e) => setAssignmentForm({ ...assignmentForm, employeeName: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: `1px solid ${Colors.border}`,
+                background: Colors.bg,
+                color: Colors.text,
+                fontSize: 13,
+                fontFamily: "'DM Sans',sans-serif",
+              }}
+            >
+              <option value="">Sélectionner un employé</option>
+              <option value="Fatou Diallo">Fatou Diallo - RH</option>
+              <option value="Moussa Sow">Moussa Sow - Finance</option>
+              <option value="Sara Mendy">Sara Mendy - Tech</option>
+              <option value="Ibou Gaye">Ibou Gaye - Ventes</option>
+              <option value="Rokhaya Fall">Rokhaya Fall - Formation</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+              Notes
+            </label>
+            <textarea
+              value={assignmentForm.notes}
+              onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
+              placeholder="Observations ou notes spéciales..."
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: `1px solid ${Colors.border}`,
+                background: Colors.bg,
+                color: Colors.text,
+                fontSize: 13,
+                fontFamily: "'DM Sans',sans-serif",
+                resize: 'none',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <Button variant="secondary" size="sm" onClick={() => setIsAssignmentModalOpen(false)}>Annuler</Button>
+            <Button variant="primary" size="sm" onClick={() => { alert('Équipement attribué!'); setIsAssignmentModalOpen(false); }}>
+              Confirmer l'attribution
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Détail Article */}
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title="Détails de l'article"
+        size="md"
+      >
+        {selectedItem && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 16, borderBottom: `1px solid ${Colors.border}` }}>
+              <div style={{ width: 56, height: 56, borderRadius: 12,
+                background: `${CategoryColors[selectedItem.category]}18`,
+                border: `1px solid ${CategoryColors[selectedItem.category]}33`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+                {selectedItem.category === 'informatique' ? '💻' : 
+                 selectedItem.category === 'mobilier' ? '🪑' : 
+                 selectedItem.category === 'mobilite' ? '🚗' : '⚙'}
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                  {selectedItem.name}
+                </div>
+                <div style={{ fontSize: 12, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                  Réf: {selectedItem.reference}
+                </div>
+              </div>
+              <Badge color={CategoryColors[selectedItem.category]}>
+                {selectedItem.category === 'informatique' ? 'Informatique' :
+                 selectedItem.category === 'mobilier' ? 'Mobilier' :
+                 selectedItem.category === 'mobilite' ? 'Mobilité' : 'Équipements'}
+              </Badge>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div style={{ padding: 14, borderRadius: 10, background: 'rgba(100,140,255,0.06)', border: '1px solid rgba(100,140,255,0.1)' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: Colors.accent, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                  {selectedItem.quantity}
+                </div>
+                <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>Quantité totale</div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 10, background: 'rgba(62,207,142,0.06)', border: '1px solid rgba(62,207,142,0.1)' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: Colors.green, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                  {selectedItem.available}
+                </div>
+                <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>Disponibles</div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 10, background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.1)' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: Colors.purple, fontFamily: "'DM Serif Display',Georgia,serif" }}>
+                  {selectedItem.assigned}
+                </div>
+                <div style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>Attribués</div>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", marginBottom: 8 }}>Seuil minimum</div>
+              <ProgressBar 
+                value={Math.round((selectedItem.available / selectedItem.minQuantity) * 100)} 
+                color={selectedItem.available <= selectedItem.minQuantity ? Colors.red : Colors.accent} 
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                <span style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                  {selectedItem.available} disponibles
+                </span>
+                <span style={{ fontSize: 10, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                  Seuil: {selectedItem.minQuantity}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <Button variant="primary" size="sm" style={{ flex: 1 }} onClick={() => { handleOpenAssignment(selectedItem); setIsDetailModalOpen(false); }}>
+                + Nouvelle attribution
+              </Button>
+              <Button variant="secondary" size="sm" style={{ flex: 1 }}>
+                Modifier l'article
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal: Maintenance */}
+      <Modal
+        isOpen={isMaintenanceModalOpen}
+        onClose={() => setIsMaintenanceModalOpen(false)}
+        title="Planifier une maintenance"
+        size="md"
+      >
+        {selectedAlert && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 16, borderBottom: `1px solid ${Colors.border}` }}>
+              <div style={{ width: 56, height: 56, borderRadius: 12,
+                background: selectedAlert.priority === 'high' ? 'rgba(224,80,80,0.1)' : 'rgba(251,146,60,0.1)',
+                border: `1px solid ${selectedAlert.priority === 'high' ? 'rgba(224,80,80,0.3)' : 'rgba(251,146,60,0.3)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+                ⚙️
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>
+                  {selectedAlert.itemName}
+                </div>
+                <div style={{ fontSize: 12, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>
+                  Réf: {selectedAlert.itemRef}
+                </div>
+              </div>
+              <div style={{ padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                background: selectedAlert.priority === 'high' ? 'rgba(224,80,80,0.15)' : 'rgba(251,146,60,0.15)',
+                color: selectedAlert.priority === 'high' ? Colors.red : Colors.orange,
+                fontFamily: "'DM Sans',sans-serif" }}>
+                {selectedAlert.priority === 'high' ? 'Urgent' : 'Préventif'}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                Type de maintenance
+              </label>
+              <select
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              >
+                <option value="preventive">Préventive</option>
+                <option value="corrective">Corrective</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                  Date prévue
+                </label>
+                <input
+                  type="date"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: `1px solid ${Colors.border}`,
+                    background: Colors.bg,
+                    color: Colors.text,
+                    fontSize: 13,
+                    fontFamily: "'DM Sans',sans-serif",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                  Technicien
+                </label>
+                <select
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: `1px solid ${Colors.border}`,
+                    background: Colors.bg,
+                    color: Colors.text,
+                    fontSize: 13,
+                    fontFamily: "'DM Sans',sans-serif",
+                  }}
+                >
+                  <option value="">Sélectionner</option>
+                  <option value="tech1">Mamadou Faye - Tech</option>
+                  <option value="tech2">Cheikh Diop - Maintenance</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 11, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>
+                Description de l'intervention
+              </label>
+              <textarea
+                defaultValue={selectedAlert.description}
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                  fontFamily: "'DM Sans',sans-serif",
+                  resize: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <Button variant="secondary" size="sm" onClick={() => setIsMaintenanceModalOpen(false)}>Annuler</Button>
+              <Button variant="primary" size="sm" onClick={() => { alert('Maintenance planifiée!'); setIsMaintenanceModalOpen(false); }}>
+                Confirmer
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+    </div>
+  );
+};
+
+export default Stock;
+
