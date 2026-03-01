@@ -1,12 +1,15 @@
 // Login Page - AEVUM Enterprise ERP
-// Authentication page with corporate design
+// Authentication page with corporate design - Theme Support
 
 import React, { useState, FormEvent } from 'react';
 import { useAppStore } from '../../store';
 import { Colors, BorderRadius, Spacing, FontSizes } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { ThemeToggle } from '../../components/common/ThemeToggle';
 
 const Login: React.FC = () => {
   const { login } = useAppStore();
+  const { colors, mode, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +41,7 @@ const Login: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: Colors.bg,
+      background: colors.bg,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -46,11 +49,18 @@ const Login: React.FC = () => {
       position: 'relative',
       overflow: 'hidden',
     }}>
+      {/* Theme Toggle */}
+      <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 10 }}>
+        <ThemeToggle />
+      </div>
+
       {/* Background decoration */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        background: 'radial-gradient(ellipse at 20% 20%, rgba(100,140,255,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(167,139,250,0.06) 0%, transparent 50%)',
+        background: mode === 'light' 
+          ? 'radial-gradient(ellipse at 20% 20%, rgba(30, 58, 138, 0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%)'
+          : 'radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%)',
         pointerEvents: 'none',
       }} />
       
@@ -58,10 +68,9 @@ const Login: React.FC = () => {
       <div style={{
         position: 'absolute',
         inset: 0,
-        backgroundImage: `
-          linear-gradient(rgba(100,140,255,0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(100,140,255,0.03) 1px, transparent 1px)
-        `,
+        backgroundImage: mode === 'light'
+          ? `linear-gradient(rgba(30, 58, 138, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(30, 58, 138, 0.03) 1px, transparent 1px)`
+          : `linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px)`,
         backgroundSize: '60px 60px',
         pointerEvents: 'none',
       }} />
@@ -78,31 +87,31 @@ const Login: React.FC = () => {
             width: 72,
             height: 72,
             borderRadius: 20,
-            background: 'linear-gradient(135deg,#6490ff,#3b5bdb)',
+            background: colors.sidebarGradient,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 16px',
-            boxShadow: '0 8px 32px rgba(100,140,255,0.4)',
+            boxShadow: '0 8px 32px rgba(30, 58, 138, 0.3)',
           }}>
             <span style={{
-              fontFamily: "'DM Serif Display',Georgia,serif",
+              fontFamily: "'DM Serif Display', Georgia, serif",
               fontSize: 32,
               fontWeight: 700,
               color: '#fff',
-            }}>N</span>
+            }}>T</span>
           </div>
           <h1 style={{
-            fontFamily: "'DM Serif Display',Georgia,serif",
+            fontFamily: "'DM Serif Display', Georgia, serif",
             fontSize: 28,
             fontWeight: 700,
-            color: Colors.text,
+            color: colors.text,
             marginBottom: 4,
-          }}>Nexus ERP</h1>
+          }}>Tornadoes Job</h1>
           <p style={{
             fontSize: 12,
-            color: Colors.textMuted,
-            fontFamily: "'DM Sans',sans-serif",
+            color: colors.textMuted,
+            fontFamily: "'DM Sans', sans-serif",
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
           }}>Suite Entreprise · Connexion</p>
@@ -110,17 +119,19 @@ const Login: React.FC = () => {
 
         {/* Login Card */}
         <div style={{
-          background: Colors.card,
-          border: `1px solid ${Colors.border}`,
+          background: colors.card,
+          border: `1px solid ${colors.border}`,
           borderRadius: BorderRadius.xxl,
           padding: 32,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          boxShadow: mode === 'light' 
+            ? '0 8px 32px rgba(0, 0, 0, 0.08)' 
+            : '0 8px 32px rgba(0, 0, 0, 0.4)',
         }}>
           <h2 style={{
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: "'DM Sans', sans-serif",
             fontSize: 16,
             fontWeight: 600,
-            color: Colors.text,
+            color: colors.text,
             marginBottom: 24,
             textAlign: 'center',
           }}>Connexion à votre compte</h2>
@@ -132,9 +143,9 @@ const Login: React.FC = () => {
                 display: 'block',
                 fontSize: 11,
                 fontWeight: 600,
-                color: Colors.textMuted,
+                color: colors.textMuted,
                 marginBottom: 6,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: "'DM Sans', sans-serif",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
               }}>Email</label>
@@ -147,22 +158,22 @@ const Login: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '12px 14px',
-                  background: Colors.input,
-                  border: `1px solid ${Colors.border}`,
+                  background: colors.inputBg,
+                  border: `1px solid ${colors.border}`,
                   borderRadius: BorderRadius.lg,
-                  color: Colors.text,
+                  color: colors.textPrimary,
                   fontSize: 14,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: "'DM Sans', sans-serif",
                   outline: 'none',
                   boxSizing: 'border-box',
                   transition: 'border-color 0.2s, box-shadow 0.2s',
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = Colors.accent;
-                  e.target.style.boxShadow = `0 0 0 3px ${Colors.accent}22`;
+                  e.target.style.borderColor = colors.primary;
+                  e.target.style.boxShadow = `0 0 0 3px ${colors.primaryMuted}`;
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = Colors.border;
+                  e.target.style.borderColor = colors.border;
                   e.target.style.boxShadow = 'none';
                 }}
               />
@@ -174,9 +185,9 @@ const Login: React.FC = () => {
                 display: 'block',
                 fontSize: 11,
                 fontWeight: 600,
-                color: Colors.textMuted,
+                color: colors.textMuted,
                 marginBottom: 6,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: "'DM Sans', sans-serif",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
               }}>Mot de passe</label>
@@ -189,22 +200,22 @@ const Login: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '12px 14px',
-                  background: Colors.input,
-                  border: `1px solid ${Colors.border}`,
+                  background: colors.inputBg,
+                  border: `1px solid ${colors.border}`,
                   borderRadius: BorderRadius.lg,
-                  color: Colors.text,
+                  color: colors.textPrimary,
                   fontSize: 14,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: "'DM Sans', sans-serif",
                   outline: 'none',
                   boxSizing: 'border-box',
                   transition: 'border-color 0.2s, box-shadow 0.2s',
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = Colors.accent;
-                  e.target.style.boxShadow = `0 0 0 3px ${Colors.accent}22`;
+                  e.target.style.borderColor = colors.primary;
+                  e.target.style.boxShadow = `0 0 0 3px ${colors.primaryMuted}`;
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = Colors.border;
+                  e.target.style.borderColor = colors.border;
                   e.target.style.boxShadow = 'none';
                 }}
               />
@@ -214,13 +225,13 @@ const Login: React.FC = () => {
             {error && (
               <div style={{
                 padding: '10px 12px',
-                background: 'rgba(224,80,80,0.1)',
-                border: '1px solid rgba(224,80,80,0.2)',
+                background: colors.dangerBg,
+                border: `1px solid ${colors.dangerMuted}`,
                 borderRadius: BorderRadius.md,
                 marginBottom: 16,
-                color: Colors.red,
+                color: colors.danger,
                 fontSize: 12,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: "'DM Sans', sans-serif",
                 textAlign: 'center',
               }}>
                 {error}
@@ -234,26 +245,26 @@ const Login: React.FC = () => {
               style={{
                 width: '100%',
                 padding: '14px',
-                background: isLoading ? 'rgba(100,140,255,0.5)' : 'linear-gradient(135deg,#6490ff,#3b5bdb)',
+                background: isLoading ? colors.primaryMuted : colors.primary,
                 border: 'none',
                 borderRadius: BorderRadius.lg,
                 color: '#fff',
                 fontSize: 14,
                 fontWeight: 600,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: "'DM Sans', sans-serif",
                 cursor: isLoading ? 'not-allowed' : 'pointer',
                 transition: 'transform 0.15s, box-shadow 0.15s',
-                boxShadow: isLoading ? 'none' : '0 4px 16px rgba(100,140,255,0.3)',
+                boxShadow: isLoading ? 'none' : '0 4px 16px rgba(30, 58, 138, 0.3)',
               }}
               onMouseOver={(e) => {
                 if (!isLoading) {
                   e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(100,140,255,0.4)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(30, 58, 138, 0.4)';
                 }
               }}
               onMouseOut={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 16px rgba(100,140,255,0.3)';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(30, 58, 138, 0.3)';
               }}
             >
               {isLoading ? (
@@ -279,13 +290,13 @@ const Login: React.FC = () => {
           }}>
             <a href="#" style={{
               fontSize: 12,
-              color: Colors.textMuted,
-              fontFamily: "'DM Sans',sans-serif",
+              color: colors.textMuted,
+              fontFamily: "'DM Sans', sans-serif",
               textDecoration: 'none',
               transition: 'color 0.2s',
             }}
-            onMouseOver={(e) => e.currentTarget.style.color = Colors.accent}
-            onMouseOut={(e) => e.currentTarget.style.color = Colors.textMuted}
+            onMouseOver={(e) => e.currentTarget.style.color = colors.primary}
+            onMouseOut={(e) => e.currentTarget.style.color = colors.textMuted}
             >
               Mot de passe oublié ?
             </a>
@@ -296,16 +307,16 @@ const Login: React.FC = () => {
         <div style={{
           marginTop: 24,
           padding: 20,
-          background: 'rgba(255,255,255,0.02)',
-          border: `1px solid ${Colors.border}`,
+          background: mode === 'light' ? 'rgba(0, 0, 0, 0.02)' : 'rgba(255, 255, 255, 0.02)',
+          border: `1px solid ${colors.border}`,
           borderRadius: BorderRadius.xxl,
         }}>
           <p style={{
             fontSize: 10,
             fontWeight: 600,
-            color: Colors.textMuted,
+            color: colors.textMuted,
             marginBottom: 12,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: "'DM Sans', sans-serif",
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
             textAlign: 'center',
@@ -320,27 +331,27 @@ const Login: React.FC = () => {
                 alignItems: 'center',
                 gap: 10,
                 padding: '10px 14px',
-                background: 'rgba(100,140,255,0.08)',
-                border: '1px solid rgba(100,140,255,0.15)',
+                background: colors.primaryMuted,
+                border: `1px solid ${colors.primaryMuted}`,
                 borderRadius: BorderRadius.lg,
-                color: Colors.textLight,
+                color: colors.textSecondary,
                 fontSize: 12,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: "'DM Sans', sans-serif",
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(100,140,255,0.15)';
-                e.currentTarget.style.borderColor = 'rgba(100,140,255,0.25)';
+                e.currentTarget.style.background = colors.primaryMuted;
+                e.currentTarget.style.borderColor = colors.primary;
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(100,140,255,0.08)';
-                e.currentTarget.style.borderColor = 'rgba(100,140,255,0.15)';
+                e.currentTarget.style.background = colors.primaryMuted;
+                e.currentTarget.style.borderColor = colors.primaryMuted;
               }}
             >
               <span style={{ fontSize: 14 }}>👔</span>
               <span style={{ flex: 1, textAlign: 'left' }}>Directeur Général</span>
-              <span style={{ color: Colors.textMuted, fontSize: 10 }}>DG</span>
+              <span style={{ color: colors.textMuted, fontSize: 10 }}>DG</span>
             </button>
 
             <button
@@ -351,27 +362,25 @@ const Login: React.FC = () => {
                 alignItems: 'center',
                 gap: 10,
                 padding: '10px 14px',
-                background: 'rgba(62,207,142,0.08)',
-                border: '1px solid rgba(62,207,142,0.15)',
+                background: colors.successBg,
+                border: `1px solid ${colors.successMuted}`,
                 borderRadius: BorderRadius.lg,
-                color: Colors.textLight,
+                color: colors.textSecondary,
                 fontSize: 12,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: "'DM Sans', sans-serif",
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(62,207,142,0.15)';
-                e.currentTarget.style.borderColor = 'rgba(62,207,142,0.25)';
+                e.currentTarget.style.background = colors.successMuted;
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(62,207,142,0.08)';
-                e.currentTarget.style.borderColor = 'rgba(62,207,142,0.15)';
+                e.currentTarget.style.background = colors.successBg;
               }}
             >
               <span style={{ fontSize: 14 }}>👥</span>
               <span style={{ flex: 1, textAlign: 'left' }}>Responsable RH</span>
-              <span style={{ color: Colors.textMuted, fontSize: 10 }}>RH</span>
+              <span style={{ color: colors.textMuted, fontSize: 10 }}>RH</span>
             </button>
 
             <button
@@ -382,27 +391,25 @@ const Login: React.FC = () => {
                 alignItems: 'center',
                 gap: 10,
                 padding: '10px 14px',
-                background: 'rgba(251,146,60,0.08)',
-                border: '1px solid rgba(251,146,60,0.15)',
+                background: colors.warningBg,
+                border: `1px solid ${colors.warningMuted}`,
                 borderRadius: BorderRadius.lg,
-                color: Colors.textLight,
+                color: colors.textSecondary,
                 fontSize: 12,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: "'DM Sans', sans-serif",
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(251,146,60,0.15)';
-                e.currentTarget.style.borderColor = 'rgba(251,146,60,0.25)';
+                e.currentTarget.style.background = colors.warningMuted;
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(251,146,60,0.08)';
-                e.currentTarget.style.borderColor = 'rgba(251,146,60,0.15)';
+                e.currentTarget.style.background = colors.warningBg;
               }}
             >
               <span style={{ fontSize: 14 }}>💰</span>
               <span style={{ flex: 1, textAlign: 'left' }}>Directeur Financier</span>
-              <span style={{ color: Colors.textMuted, fontSize: 10 }}>Finance</span>
+              <span style={{ color: colors.textMuted, fontSize: 10 }}>Finance</span>
             </button>
           </div>
         </div>
@@ -412,10 +419,10 @@ const Login: React.FC = () => {
           textAlign: 'center',
           marginTop: 24,
           fontSize: 10,
-          color: Colors.textDim,
-          fontFamily: "'DM Sans',sans-serif",
+          color: colors.textMuted,
+          fontFamily: "'DM Sans', sans-serif",
         }}>
-          © 2025 Nexus ERP · Architecture SOLID · JWT + RBAC
+          © 2025 Tornadoes Job · Architecture SOLID · JWT + RBAC
         </div>
       </div>
 

@@ -1,7 +1,8 @@
 // Sidebar Component - AEVUM Enterprise ERP
 
 import React from 'react';
-import { Colors, Spacing, Transitions, Layout } from '../../constants/theme';
+import { Spacing, Transitions, Layout } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import type { NavSection, NavItem } from '../../types';
 
 interface SidebarProps {
@@ -23,10 +24,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsedSections,
   onToggleSection,
 }) => {
+  const { colors, mode } = useTheme();
+  
   const sidebarStyle: React.CSSProperties = {
     width: isOpen ? Layout.sidebarWidth : Layout.sidebarCollapsed,
-    background: Colors.card,
-    borderRight: `1px solid ${Colors.border}`,
+    background: colors.card,
+    borderRight: `1px solid ${colors.border}`,
     display: 'flex',
     flexDirection: 'column',
     transition: Transitions.slow,
@@ -40,29 +43,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside style={sidebarStyle}>
       {/* Logo */}
-      <div style={{ padding: '22px 16px 18px', borderBottom: `1px solid ${Colors.border}`, flexShrink: 0 }}>
+      <div style={{ padding: '22px 16px 18px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ 
             width: 48, 
             height: 48, 
             borderRadius: 12, 
             flexShrink: 0,
-            background: 'linear-gradient(135deg,#6490ff,#3b5bdb)',
+            background: mode === 'dark' 
+              ? 'linear-gradient(135deg,#3B82F6,#1E40AF)' 
+              : 'linear-gradient(135deg,#6490ff,#3b5bdb)',
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            fontFamily: "'DM Serif Display',Georgia,serif", 
+            fontFamily: "'Plus Jakarta Sans', sans-serif", 
             fontSize: 24, 
             fontWeight: 700,
             color: '#fff', 
-            boxShadow: '0 4px 16px rgba(100,140,255,0.4)' 
-          }}>N</div>
+            boxShadow: mode === 'dark'
+              ? '0 4px 16px rgba(59,130,246,0.4)'
+              : '0 4px 16px rgba(100,140,255,0.4)' 
+          }}>T</div>
           {isOpen && (
             <div>
-              <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 22,
-                fontWeight: 700, color: Colors.text, letterSpacing: '0.01em' }}>Nexus ERP</div>
-              <div style={{ fontSize: 12, color: Colors.textDim, letterSpacing: '0.12em',
-                fontFamily: "'DM Sans',sans-serif", textTransform: 'uppercase' }}>Enterprise Suite</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22,
+                fontWeight: 700, color: colors.text, letterSpacing: '0.01em' }}>Tornadoes</div>
+              <div style={{ fontSize: 12, color: colors.textDim, letterSpacing: '0.12em',
+                fontFamily: "'Plus Jakarta Sans', sans-serif", textTransform: 'uppercase' }}>Job Afrique</div>
             </div>
           )}
         </div>
@@ -91,17 +98,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isOpen ? (
                   <>
                     <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em',
-                      color: hasActive ? Colors.accent + 'bb' : Colors.textMuted,
-                      fontFamily: "'DM Sans',sans-serif", textTransform: 'uppercase' }}>
+                      color: hasActive ? colors.accent + 'bb' : colors.textMuted,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", textTransform: 'uppercase' }}>
                       {section.label}
                     </span>
-                    <span style={{ fontSize: 12, color: isCollapsed ? Colors.textMuted : Colors.textDim,
+                    <span style={{ fontSize: 12, color: isCollapsed ? colors.textMuted : colors.textDim,
                       display: 'inline-block', lineHeight: 1,
                       transition: 'transform 0.25s ease',
                       transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
                   </>
                 ) : (
-                  <div style={{ width: 28, height: 1, background: 'rgba(100,140,255,0.1)', margin: '0 auto' }} />
+                  <div style={{ width: 28, height: 1, background: mode === 'dark' ? 'rgba(59,130,246,0.1)' : 'rgba(100,140,255,0.1)', margin: '0 auto' }} />
                 )}
               </div>
 
@@ -128,21 +135,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* User Section */}
-      <div style={{ padding: '16px 18px', borderTop: `1px solid ${Colors.border}`, flexShrink: 0 }}>
+      <div style={{ padding: '16px 18px', borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
-            background: 'rgba(100,140,255,0.15)', border: '1px solid rgba(100,140,255,0.3)',
+            background: mode === 'dark' ? 'rgba(59,130,246,0.15)' : 'rgba(100,140,255,0.15)', 
+            border: mode === 'dark' ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(100,140,255,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: Colors.accent, fontFamily: "'DM Sans',sans-serif" }}>DG</div>
+            fontSize: 14, fontWeight: 700, color: colors.accent, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>DG</div>
           {isOpen && (
             <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{ fontSize: 14, color: '#c0c8e8', fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>Directeur Général</div>
-              <div style={{ fontSize: 12, color: Colors.textDim, fontFamily: "'DM Sans',sans-serif" }}>dg@nexus-erp.sn</div>
+              <div style={{ fontSize: 14, color: mode === 'dark' ? '#CBD5E1' : '#c0c8e8', fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600 }}>Directeur Général</div>
+              <div style={{ fontSize: 12, color: colors.textDim, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>tornadoes.job.sn</div>
             </div>
           )}
           {isOpen && <div style={{ 
             width: 6, height: 6, borderRadius: '50%',
-            background: Colors.green, flexShrink: 0,
+            background: colors.green, flexShrink: 0,
             animation: 'pulse 2s infinite'
           }} />}
         </div>
@@ -158,14 +166,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           width: 28, 
           height: 28,
           borderRadius: '50%', 
-          background: '#151622', 
-          border: `1px solid ${Colors.border}`,
+          background: mode === 'dark' ? '#1E293B' : '#151622', 
+          border: `1px solid ${colors.border}`,
           cursor: 'pointer', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
           fontSize: 12, 
-          color: Colors.accent, 
+          color: colors.accent, 
           zIndex: 21 
         }}
       >
@@ -184,6 +192,8 @@ interface NavItemComponentProps {
 }
 
 const NavItemComponent: React.FC<NavItemComponentProps> = ({ item, isActive, isOpen, onClick }) => {
+  const { colors, mode } = useTheme();
+  
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -191,12 +201,12 @@ const NavItemComponent: React.FC<NavItemComponentProps> = ({ item, isActive, isO
     padding: '12px 14px',
     borderRadius: 8,
     marginBottom: 2,
-    background: isActive ? 'rgba(100,140,255,0.12)' : 'transparent',
-    color: isActive ? Colors.accent : '#6a7488',
+    background: isActive ? (mode === 'dark' ? 'rgba(59,130,246,0.12)' : 'rgba(100,140,255,0.12)') : 'transparent',
+    color: isActive ? colors.accent : (mode === 'dark' ? '#94A3B8' : '#6a7488'),
     fontSize: 14,
-    fontFamily: "'DM Sans',sans-serif",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: isActive ? 600 : 400,
-    borderLeft: isActive ? `3px solid ${Colors.accent}` : '3px solid transparent',
+    borderLeft: isActive ? `3px solid ${colors.accent}` : '3px solid transparent',
     cursor: 'pointer',
     transition: 'all 0.18s',
   };

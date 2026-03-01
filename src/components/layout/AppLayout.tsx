@@ -1,10 +1,12 @@
 // AppLayout Component - AEVUM Enterprise ERP
-// Corporate Professional Theme - B2B SaaS Design System
+// Corporate Professional Theme - B2B SaaS Design System with Theme Support
 
 import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { Colors, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { ThemeToggle } from '../common/ThemeToggle';
 import { getNavItems, getNavSections } from '../../routes';
 import { navSections } from '../../data/mockData';
 
@@ -27,6 +29,7 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const store = useAppStore();
+  const { colors } = useTheme();
   const { 
     isSidebarOpen, 
     toggleSidebar, 
@@ -70,9 +73,9 @@ export const AppLayout: React.FC = () => {
   return (
     <div style={{ 
       fontFamily: "'DM Sans', sans-serif", 
-      background: Colors.bg, 
+      background: colors.bg, 
       height: '100vh',
-      color: Colors.text, 
+      color: colors.text, 
       display: 'flex', 
       overflow: 'hidden', 
       position: 'fixed', 
@@ -83,7 +86,7 @@ export const AppLayout: React.FC = () => {
       {/* ==================== SIDEBAR - Corporate Gradient ==================== */}
       <aside style={{ 
         width: isSidebarOpen ? 260 : 72, 
-        background: Colors.sidebarGradient,
+        background: colors.sidebarGradient,
         display: 'flex', 
         flexDirection: 'column',
         transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)', 
@@ -97,7 +100,7 @@ export const AppLayout: React.FC = () => {
         {/* Logo */}
         <div style={{ 
           padding: '20px 16px 16px', 
-          borderBottom: `1px solid ${Colors.sidebarBorder}`, 
+          borderBottom: `1px solid ${colors.sidebarBorder}`, 
           flexShrink: 0 
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -113,25 +116,25 @@ export const AppLayout: React.FC = () => {
               fontFamily: "'DM Serif Display', Georgia, serif", 
               fontSize: 20, 
               fontWeight: 700,
-              color: Colors.primary,
+              color: colors.primary,
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)' 
-            }}>N</div>
+            }}>T</div>
             {isSidebarOpen && (
               <div>
                 <div style={{ 
                   fontFamily: "'DM Serif Display', Georgia, serif", 
                   fontSize: 18,
                   fontWeight: 700, 
-                  color: Colors.sidebarText, 
+                  color: colors.sidebarText, 
                   letterSpacing: '0.01em' 
-                }}>Nexus ERP</div>
+                }}>Tornadoes</div>
                 <div style={{ 
                   fontSize: 10, 
-                  color: Colors.sidebarTextMuted, 
+                  color: colors.sidebarTextMuted, 
                   letterSpacing: '0.12em',
                   fontFamily: "'DM Sans', sans-serif", 
                   textTransform: 'uppercase' 
-                }}>Enterprise Suite</div>
+                }}>Job Afrique</div>
               </div>
             )}
           </div>
@@ -163,7 +166,7 @@ export const AppLayout: React.FC = () => {
                           fontSize: 11, 
                           fontWeight: 700, 
                           letterSpacing: '0.12em',
-                          color: hasActive ? Colors.sidebarText : Colors.sidebarTextMuted,
+                          color: hasActive ? colors.sidebarText : colors.sidebarTextMuted,
                           fontFamily: "'DM Sans', sans-serif", 
                           textTransform: 'uppercase' 
                         }}>
@@ -171,7 +174,7 @@ export const AppLayout: React.FC = () => {
                         </span>
                         <span style={{ 
                           fontSize: 10, 
-                          color: isCollapsed ? Colors.sidebarTextMuted : Colors.sidebarText,
+                          color: isCollapsed ? colors.sidebarTextMuted : colors.sidebarText,
                           display: 'inline-block', 
                           lineHeight: 1,
                           transition: 'transform 0.25s ease',
@@ -205,24 +208,24 @@ export const AppLayout: React.FC = () => {
                             borderRadius: 8, 
                             marginBottom: 2,
                             background: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
-                            color: isActive ? Colors.sidebarText : Colors.sidebarTextMuted,
+                            color: isActive ? colors.sidebarText : colors.sidebarTextMuted,
                             fontSize: 13, 
                             fontFamily: "'DM Sans', sans-serif",
                             fontWeight: isActive ? 600 : 400,
-                            borderLeft: isActive ? `3px solid ${Colors.sidebarText}` : '3px solid transparent',
+                            borderLeft: isActive ? `3px solid ${colors.sidebarText}` : '3px solid transparent',
                             cursor: 'pointer',
                             transition: 'all 0.18s ease',
                           }}
                           onMouseEnter={(e) => {
                             if (!isActive) {
                               e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                              e.currentTarget.style.color = Colors.sidebarText;
+                              e.currentTarget.style.color = colors.sidebarText;
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (!isActive) {
                               e.currentTarget.style.background = 'transparent';
-                              e.currentTarget.style.color = Colors.sidebarTextMuted;
+                              e.currentTarget.style.color = colors.sidebarTextMuted;
                             }
                           }}
                         >
@@ -263,7 +266,7 @@ export const AppLayout: React.FC = () => {
                           fontSize: 11, 
                           fontWeight: 700, 
                           letterSpacing: '0.12em',
-                          color: hasActive ? Colors.sidebarText : Colors.sidebarTextMuted,
+                          color: hasActive ? colors.sidebarText : colors.sidebarTextMuted,
                           fontFamily: "'DM Sans', sans-serif", 
                           textTransform: 'uppercase' 
                         }}>
@@ -271,7 +274,7 @@ export const AppLayout: React.FC = () => {
                         </span>
                         <span style={{ 
                           fontSize: 10, 
-                          color: isCollapsed ? Colors.sidebarTextMuted : Colors.sidebarText,
+                          color: isCollapsed ? colors.sidebarTextMuted : colors.sidebarText,
                           display: 'inline-block', 
                           lineHeight: 1,
                           transition: 'transform 0.25s ease',
@@ -301,11 +304,11 @@ export const AppLayout: React.FC = () => {
                           borderRadius: 8, 
                           marginBottom: 2,
                           background: activeNav === item.id ? 'rgba(255,255,255,0.15)' : 'transparent',
-                          color: activeNav === item.id ? Colors.sidebarText : Colors.sidebarTextMuted,
+                          color: activeNav === item.id ? colors.sidebarText : colors.sidebarTextMuted,
                           fontSize: 13, 
                           fontFamily: "'DM Sans', sans-serif",
                           fontWeight: activeNav === item.id ? 600 : 400,
-                          borderLeft: activeNav === item.id ? `3px solid ${Colors.sidebarText}` : '3px solid transparent',
+                          borderLeft: activeNav === item.id ? `3px solid ${colors.sidebarText}` : '3px solid transparent',
                           cursor: 'pointer',
                           transition: 'all 0.18s ease',
                         }}
@@ -328,7 +331,7 @@ export const AppLayout: React.FC = () => {
         {/* User Section */}
         <div style={{ 
           padding: '14px 16px', 
-          borderTop: `1px solid ${Colors.sidebarBorder}`, 
+          borderTop: `1px solid ${colors.sidebarBorder}`, 
           flexShrink: 0 
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -344,7 +347,7 @@ export const AppLayout: React.FC = () => {
               justifyContent: 'center',
               fontSize: 12, 
               fontWeight: 600, 
-              color: Colors.sidebarText, 
+              color: colors.sidebarText, 
               fontFamily: "'DM Sans', sans-serif" 
             }}>
               {store.currentUser?.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
@@ -353,7 +356,7 @@ export const AppLayout: React.FC = () => {
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <div style={{ 
                   fontSize: 13, 
-                  color: Colors.sidebarText, 
+                  color: colors.sidebarText, 
                   fontFamily: "'DM Sans', sans-serif", 
                   fontWeight: 600 
                 }}>
@@ -361,7 +364,7 @@ export const AppLayout: React.FC = () => {
                 </div>
                 <div style={{ 
                   fontSize: 11, 
-                  color: Colors.sidebarTextMuted, 
+                  color: colors.sidebarTextMuted, 
                   fontFamily: "'DM Sans', sans-serif" 
                 }}>
                   {store.currentUser?.email || 'user@nexus-erp.sn'}
@@ -373,9 +376,9 @@ export const AppLayout: React.FC = () => {
                 width: 8, 
                 height: 8, 
                 borderRadius: '50%',
-                background: Colors.success, 
+                background: colors.success, 
                 flexShrink: 0, 
-                boxShadow: `0 0 8px ${Colors.success}`,
+                boxShadow: `0 0 8px ${colors.success}`,
                 animation: 'pulse 2s infinite'
               }} />
             )}
@@ -392,14 +395,14 @@ export const AppLayout: React.FC = () => {
             width: 28, 
             height: 28,
             borderRadius: '50%', 
-            background: Colors.card, 
-            border: `1px solid ${Colors.border}`,
+            background: colors.card, 
+            border: `1px solid ${colors.border}`,
             cursor: 'pointer', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             fontSize: 11, 
-            color: Colors.primary, 
+            color: colors.primary, 
             zIndex: 21,
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}
@@ -414,8 +417,8 @@ export const AppLayout: React.FC = () => {
         {/* Header - Clean corporate white */}
         <header style={{ 
           height: 64, 
-          background: Colors.header, 
-          borderBottom: `1px solid ${Colors.border}`,
+          background: colors.header, 
+          borderBottom: `1px solid ${colors.border}`,
           display: 'flex', 
           alignItems: 'center', 
           padding: '0 24px', 
@@ -429,14 +432,14 @@ export const AppLayout: React.FC = () => {
               fontFamily: "'DM Serif Display', Georgia, serif", 
               fontSize: 20,
               fontWeight: 700, 
-              color: Colors.text,
+              color: colors.text,
               margin: 0,
             }}>
               {currentItem?.label || "Tableau de Bord"}
             </h1>
             <div style={{ 
               fontSize: 11, 
-              color: Colors.textMuted, 
+              color: colors.textMuted, 
               fontFamily: "'DM Sans', sans-serif", 
               marginTop: 2 
             }}>
@@ -448,8 +451,8 @@ export const AppLayout: React.FC = () => {
           <div style={{ 
             display: 'flex', 
             gap: 4, 
-            background: Colors.bgSecondary,
-            border: `1px solid ${Colors.border}`, 
+            background: colors.bgSecondary,
+            border: `1px solid ${colors.border}`, 
             borderRadius: BorderRadius.lg, 
             padding: 4 
           }}>
@@ -461,8 +464,8 @@ export const AppLayout: React.FC = () => {
                   padding: '6px 14px',
                   borderRadius: 6,
                   border: 'none',
-                  background: activeView === v ? Colors.primary : 'transparent',
-                  color: activeView === v ? Colors.textInverse : Colors.textSecondary,
+                  background: activeView === v ? colors.primary : 'transparent',
+                  color: activeView === v ? colors.textInverse : colors.textSecondary,
                   cursor: 'pointer',
                   fontWeight: activeView === v ? 600 : 400,
                   fontSize: 12,
@@ -480,19 +483,19 @@ export const AppLayout: React.FC = () => {
             display: 'flex', 
             alignItems: 'center', 
             gap: 8, 
-            background: Colors.inputBg,
-            border: `1px solid ${Colors.border}`, 
+            background: colors.inputBg,
+            border: `1px solid ${colors.border}`, 
             borderRadius: BorderRadius.lg, 
             padding: '8px 14px', 
             width: 220,
           }}>
-            <span style={{ color: Colors.textMuted, fontSize: 14 }}>⌕</span>
+            <span style={{ color: colors.textMuted, fontSize: 14 }}>⌕</span>
             <input 
               placeholder="Rechercher…" 
               style={{ 
                 background: 'none', 
                 border: 'none',
-                color: Colors.textPrimary, 
+                color: colors.textPrimary, 
                 fontSize: 13, 
                 fontFamily: "'DM Sans', sans-serif", 
                 width: '100%',
@@ -507,32 +510,35 @@ export const AppLayout: React.FC = () => {
             alignItems: 'center', 
             gap: 6, 
             padding: '6px 12px',
-            background: Colors.successBg, 
+            background: colors.successBg, 
             borderRadius: BorderRadius.md,
-            border: `1px solid ${Colors.successMuted}` 
+            border: `1px solid ${colors.successMuted}` 
           }}>
             <div style={{ 
               width: 6, 
               height: 6, 
               borderRadius: '50%', 
-              background: Colors.success,
+              background: colors.success,
               animation: 'pulse 2s infinite' 
             }} />
             <span style={{ 
               fontSize: 11, 
-              color: Colors.success, 
+              color: colors.success, 
               fontFamily: "'DM Sans', sans-serif",
               fontWeight: 500,
             }}>Système actif</span>
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Notifications */}
           <div style={{ 
             width: 38, 
             height: 38, 
             borderRadius: BorderRadius.lg, 
-            background: Colors.bgSecondary,
-            border: `1px solid ${Colors.border}`, 
+            background: colors.bgSecondary,
+            border: `1px solid ${colors.border}`, 
             display: 'flex', 
             alignItems: 'center',
             justifyContent: 'center', 
@@ -542,10 +548,10 @@ export const AppLayout: React.FC = () => {
             transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = Colors.bgTertiary;
+            e.currentTarget.style.background = colors.bgTertiary;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = Colors.bgSecondary;
+            e.currentTarget.style.background = colors.bgSecondary;
           }}
           >
             🔔
@@ -556,8 +562,8 @@ export const AppLayout: React.FC = () => {
               width: 8, 
               height: 8,
               borderRadius: '50%', 
-              background: Colors.danger, 
-              border: `2px solid ${Colors.header}` 
+              background: colors.danger, 
+              border: `2px solid ${colors.header}` 
             }} />
           </div>
 
@@ -565,10 +571,10 @@ export const AppLayout: React.FC = () => {
           <div style={{ 
             padding: '6px 12px', 
             borderRadius: BorderRadius.md,
-            background: Colors.primaryMuted, 
-            border: `1px solid ${Colors.primaryMuted}`,
+            background: colors.primaryMuted, 
+            border: `1px solid ${colors.primaryMuted}`,
             fontSize: 11, 
-            color: Colors.primary, 
+            color: colors.primary, 
             fontFamily: "'DM Sans', sans-serif",
             display: 'flex', 
             alignItems: 'center', 
@@ -586,24 +592,24 @@ export const AppLayout: React.FC = () => {
               alignItems: 'center', 
               gap: 6, 
               padding: '8px 14px',
-              background: Colors.dangerBg, 
+              background: colors.dangerBg, 
               borderRadius: BorderRadius.lg,
-              border: `1px solid ${Colors.dangerMuted}`,
+              border: `1px solid ${colors.dangerMuted}`,
               cursor: 'pointer', 
               fontSize: 12, 
-              color: Colors.danger,
+              color: colors.danger,
               fontFamily: "'DM Sans', sans-serif", 
               transition: 'all 0.2s ease',
               fontWeight: 500,
             }}
             title="Déconnexion"
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = Colors.danger;
-              e.currentTarget.style.color = Colors.textInverse;
+              e.currentTarget.style.background = colors.danger;
+              e.currentTarget.style.color = colors.textInverse;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = Colors.dangerBg;
-              e.currentTarget.style.color = Colors.danger;
+              e.currentTarget.style.background = colors.dangerBg;
+              e.currentTarget.style.color = colors.danger;
             }}
           >
             <span>🚪</span>
@@ -616,7 +622,7 @@ export const AppLayout: React.FC = () => {
           flex: 1, 
           overflowY: 'auto', 
           padding: 24,
-          background: Colors.bg,
+          background: colors.bg,
         }}>
           <Outlet />
         </main>

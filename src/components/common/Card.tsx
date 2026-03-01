@@ -1,8 +1,9 @@
 // Card Component - AEVUM Enterprise ERP
-// Corporate Professional Card Component
+// Corporate Professional Theme - B2B SaaS Design System
 
 import React from 'react';
 import { Colors, BorderRadius, Shadows, Transitions, Spacing } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface CardProps {
   children: React.ReactNode;
@@ -10,7 +11,7 @@ interface CardProps {
   hoverable?: boolean;
   onClick?: () => void;
   style?: React.CSSProperties;
-  variant?: 'default' | 'elevated' | 'flat';
+  variant?: 'default' | 'flat' | 'elevated';
 }
 
 export const Card: React.FC<CardProps> = ({ 
@@ -21,29 +22,31 @@ export const Card: React.FC<CardProps> = ({
   style,
   variant = 'default',
 }) => {
+  const { colors } = useTheme();
   const [isHovered, setIsHovered] = React.useState(false);
 
   const getVariantStyles = (): React.CSSProperties => {
     switch (variant) {
-      case 'elevated':
-        return {
-          background: Colors.card,
-          border: 'none',
-          borderRadius: BorderRadius.xxl,
-          padding: Spacing.xxl,
-          boxShadow: Shadows.card,
-        };
       case 'flat':
         return {
-          background: Colors.card,
+          background: colors.card,
           border: 'none',
           borderRadius: BorderRadius.lg,
           padding: Spacing.lg,
         };
+      case 'elevated':
+        return {
+          background: colors.card,
+          border: `1px solid ${colors.border}`,
+          borderRadius: BorderRadius.xxl,
+          padding: Spacing.xxl,
+          boxShadow: Shadows.cardElevated,
+        };
+      case 'default':
       default:
         return {
-          background: Colors.card,
-          border: `1px solid ${Colors.border}`,
+          background: colors.card,
+          border: `1px solid ${colors.border}`,
           borderRadius: BorderRadius.xxl,
           padding: Spacing.xxl,
         };
@@ -56,7 +59,7 @@ export const Card: React.FC<CardProps> = ({
     transform: isHovered && hoverable ? 'translateY(-2px)' : 'none',
     boxShadow: isHovered && hoverable 
       ? Shadows.cardHover 
-      : (variant === 'elevated' ? Shadows.card : (variant === 'default' ? Shadows.card : 'none')),
+      : (variant === 'elevated' ? Shadows.cardElevated : Shadows.card),
     cursor: onClick ? 'pointer' : 'default',
     ...style,
   };

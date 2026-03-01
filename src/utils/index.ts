@@ -1,5 +1,6 @@
 // Utility Functions - AEVUM Enterprise ERP
 // Reusable helper functions (DRY Principle)
+// Corporate Professional Theme
 
 // ==================== Formatters ====================
 
@@ -251,24 +252,24 @@ export const paginate = <T>(
   return array.slice(start, end);
 };
 
-// ==================== UI Helpers ====================
+// ==================== UI Helpers - Corporate Palette ====================
 
 /**
- * Get status color
+ * Get status color - Corporate Professional Palette
  * @param status - Status string
  * @returns Color hex code
  */
 export const getStatusColor = (status: string): string => {
   const statusColors: Record<string, string> = {
-    // Employee status - Corporate palette
+    // Employee status
     'Actif': '#16A34A',
-    'Congé': '#D97706',
+    'Congé': '#F59E0B',
     'Inactif': '#6B7280',
     'Suspendu': '#DC2626',
     
     // Invoice status
     'Payé': '#16A34A',
-    'En attente': '#D97706',
+    'En attente': '#F59E0B',
     'Partiel': '#1E3A8A',
     
     // Project status
@@ -279,13 +280,13 @@ export const getStatusColor = (status: string): string => {
     
     // Leave status
     'approved': '#16A34A',
-    'pending': '#D97706',
+    'pending': '#F59E0B',
     'rejected': '#DC2626',
     
     // Priority
-    'Haute': '#D97706',
+    'Haute': '#DC2626',
     'Critique': '#DC2626',
-    'Urgente': '#D97706',
+    'Urgente': '#F59E0B',
     'Moyenne': '#1E3A8A',
     'Basse': '#6B7280',
   };
@@ -294,7 +295,7 @@ export const getStatusColor = (status: string): string => {
 };
 
 /**
- * Get contract type color
+ * Get contract type color - Corporate Professional Palette
  * @param contract - Contract type
  * @returns Color hex code
  */

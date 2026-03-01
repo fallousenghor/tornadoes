@@ -1,10 +1,11 @@
 // App.tsx - AEVUM Enterprise ERP
-// Main application component with React Router and Lazy Loading
+// Main application component with React Router, Lazy Loading and Theme Provider
 
 import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAppStore } from './store';
 import { AppLayout } from './components/layout';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { getNavItems, getRouteId } from './routes';
 
 // Lazy load Login component
@@ -32,7 +33,7 @@ const Audit = React.lazy(() => import('./features/audit/Audit'));
 const Settings = React.lazy(() => import('./features/settings/Settings'));
 const AIAnalytics = React.lazy(() => import('./features/ai/AIAnalytics'));
 
-// Loading fallback component
+// Loading fallback component - uses CSS variables for theme support
 const LoadingFallback: React.FC = () => (
   <div style={{
     height: '100vh',
@@ -40,21 +41,21 @@ const LoadingFallback: React.FC = () => (
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    background: '#0a0b14',
-    color: '#6490ff',
+    background: 'var(--color-bg)',
+    color: 'var(--color-primary)',
     fontFamily: "'DM Sans', sans-serif",
   }}>
     <div style={{
       width: 48,
       height: 48,
       border: '3px solid rgba(100, 140, 255, 0.2)',
-      borderTopColor: '#6490ff',
+      borderTopColor: 'var(--color-primary)',
       borderRadius: '50%',
       animation: 'spin 0.8s linear infinite',
       marginBottom: 16,
     }} />
-    <div style={{ fontSize: 14, fontWeight: 600 }}>Chargement...</div>
-    <div style={{ fontSize: 11, color: '#5a6480', marginTop: 4 }}>Nexus ERP</div>
+    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)' }}>Chargement...</div>
+    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>Nexus ERP</div>
     <style>{`
       @keyframes spin {
         from { transform: rotate(0deg); }
@@ -177,12 +178,14 @@ const AppRoutes: React.FC = () => {
   );
 };
 
-// Main App Component
+// Main App Component with ThemeProvider
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </ThemeProvider>
   );
 };
 

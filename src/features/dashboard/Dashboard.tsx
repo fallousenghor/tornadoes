@@ -1,10 +1,11 @@
 // Dashboard Feature - AEVUM Enterprise ERP
-// Main dashboard component with KPIs, charts, and analytics
+// Main dashboard component with KPIs, charts, and analytics - Theme Support
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Sparkline } from '../../components/charts';
-import { Colors, Spacing, BorderRadius } from '../../constants/theme';
+import { Spacing, BorderRadius } from '../../constants/theme';
 import { useAppStore } from '../../store';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Import dashboard components
 import { 
@@ -16,7 +17,6 @@ import {
   PresenceChart,
   LeavesPieChart,
   PerformanceRadar,
-  // EmployeesTable,
   CashFlowChart,
   InvoicesList,
   ProjectsList,
@@ -28,7 +28,7 @@ import {
 // Import mock data
 import { kpis } from '../../data/mockData';
 
-// KPI Card Component
+// KPI Card Component with Theme Support
 interface KPICardLocalProps {
   label: string;
   value: string;
@@ -39,14 +39,16 @@ interface KPICardLocalProps {
   index: number;
 }
 
-const cardStyle = {
-  background: Colors.card,
-  border: `1px solid ${Colors.border}`,
-  borderRadius: BorderRadius.xxl,
-  padding: Spacing.xxl,
-} as React.CSSProperties;
-
 const DashboardKPICard: React.FC<KPICardLocalProps> = ({ label, value, change, icon, color, sparkData, index }) => {
+  const { colors } = useTheme();
+  
+  const cardStyle: React.CSSProperties = {
+    background: colors.card,
+    border: `1px solid ${colors.border}`,
+    borderRadius: BorderRadius.xxl,
+    padding: Spacing.xxl,
+  };
+
   return (
     <div 
       className="kpi-a" 
@@ -62,7 +64,7 @@ const DashboardKPICard: React.FC<KPICardLocalProps> = ({ label, value, change, i
         position: 'absolute', 
         inset: 0, 
         borderRadius: BorderRadius.xxl,
-        background: 'linear-gradient(90deg, transparent, rgba(100,140,255,0.03), transparent)',
+        background: 'linear-gradient(90deg, transparent, rgba(30,58,138,0.03), transparent)',
         backgroundSize: '200%',
         animation: 'sh 4s infinite',
       }} />
@@ -78,27 +80,28 @@ const DashboardKPICard: React.FC<KPICardLocalProps> = ({ label, value, change, i
           borderRadius: 4,
           fontSize: 10,
           fontWeight: 600,
-          background: change > 0 ? 'rgba(62, 207, 142, 0.15)' : 'rgba(224, 80, 80, 0.15)',
-          color: change > 0 ? '#3ecf8e' : '#e05050',
+          background: change > 0 ? colors.successBg : colors.dangerBg,
+          color: change > 0 ? colors.success : colors.danger,
         }}>
           {change > 0 ? '+' : ''}{change}%
         </span>
       </div>
       <div style={{ 
-        fontFamily: "'DM Serif Display',Georgia,serif", 
+        fontFamily: "'DM Serif Display', Georgia, serif", 
         fontSize: 20,
         fontWeight: 700, 
-        color: Colors.text, 
+        color: colors.text, 
         marginBottom: 2 
       }}>{value}</div>
-      <div style={{ fontSize: 9, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif", marginBottom: 8 }}>{label}</div>
-      <Sparkline data={sparkData} color={change > 0 ? color : Colors.red} />
+      <div style={{ fontSize: 9, color: colors.textMuted, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>{label}</div>
+      <Sparkline data={sparkData} color={change > 0 ? color : colors.danger} />
     </div>
   );
 };
 
 const Dashboard: React.FC = () => {
   const store = useAppStore();
+  const { colors } = useTheme();
 
   // Animation keyframes
   const keyframes = `
@@ -121,13 +124,13 @@ const Dashboard: React.FC = () => {
 
   // Get AI alerts from mock data
   const aiAlerts = [
-    { icon: '⚡', text: '3 nouveaux employés en attente de validation', color: 'rgba(100,140,255,0.08)', border: 'rgba(100,140,255,0.15)', btn: 'Voir' },
-    { icon: '💰', text: 'Facture #INV-2024-156 en retard de paiement', color: 'rgba(251,146,60,0.08)', border: 'rgba(251,146,60,0.15)', btn: 'Relancer' },
-    { icon: '📦', text: 'Alerte stock: 5 produits en rupture', color: 'rgba(224,80,80,0.08)', border: 'rgba(224,80,80,0.15)', btn: 'Commander' },
+    { icon: '⚡', text: '3 nouveaux employés en attente de validation', color: colors.primaryMuted, border: colors.primaryMuted, btn: 'Voir' },
+    { icon: '💰', text: 'Facture #INV-2024-156 en retard de paiement', color: colors.warningBg, border: colors.warningMuted, btn: 'Relancer' },
+    { icon: '📦', text: 'Alerte stock: 5 produits en rupture', color: colors.dangerBg, border: colors.dangerMuted, btn: 'Commander' },
   ];
 
   return (
-    <div style={{ fontFamily: "'Georgia',serif" }}>
+    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{keyframes}</style>
 
       {/* AI Alerts */}
@@ -162,8 +165,16 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* ROW 2: RH Section Title */}
-      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-        color: Colors.textDim, fontFamily: "'DM Sans',sans-serif", marginBottom: 12, marginTop: 8 }}>
+      <div style={{ 
+        fontSize: 9, 
+        fontWeight: 700, 
+        letterSpacing: '0.14em', 
+        textTransform: 'uppercase',
+        color: colors.textMuted, 
+        fontFamily: "'DM Sans', sans-serif", 
+        marginBottom: 12, 
+        marginTop: 8 
+      }}>
         👥 Ressources Humaines
       </div>
 
@@ -174,12 +185,17 @@ const Dashboard: React.FC = () => {
         <PerformanceRadar />
       </div>
 
-      {/* Employees Table */}
-      {/* <EmployeesTable /> */}
-
       {/* Finance Section Title */}
-      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-        color: Colors.textDim, fontFamily: "'DM Sans',sans-serif", marginBottom: 12, marginTop: 8 }}>
+      <div style={{ 
+        fontSize: 9, 
+        fontWeight: 700, 
+        letterSpacing: '0.14em', 
+        textTransform: 'uppercase',
+        color: colors.textMuted, 
+        fontFamily: "'DM Sans', sans-serif", 
+        marginBottom: 12, 
+        marginTop: 8 
+      }}>
         💰 Finance & Trésorerie
       </div>
 
@@ -195,11 +211,17 @@ const Dashboard: React.FC = () => {
         <StockChart />
       </div>
 
-     
-
       {/* Activity Section Title */}
-      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-        color: Colors.textDim, fontFamily: "'DM Sans',sans-serif", marginBottom: 12, marginTop: 8 }}>
+      <div style={{ 
+        fontSize: 9, 
+        fontWeight: 700, 
+        letterSpacing: '0.14em', 
+        textTransform: 'uppercase',
+        color: colors.textMuted, 
+        fontFamily: "'DM Sans', sans-serif", 
+        marginBottom: 12, 
+        marginTop: 8 
+      }}>
         📡 Activité en Temps Réel
       </div>
 
@@ -207,19 +229,33 @@ const Dashboard: React.FC = () => {
       <ActivityFeed />
 
       {/* Footer */}
-      <div style={{ padding: '12px 0', borderTop: '1px solid rgba(100,140,255,0.06)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 9, color: '#2a2f45', fontFamily: "'DM Sans',sans-serif" }}>
+      <div style={{ 
+        padding: '12px 0', 
+        borderTop: `1px solid ${colors.border}`,
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center' 
+      }}>
+        <span style={{ fontSize: 9, color: colors.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
           © 2025 Nexus ERP · Suite Entreprise · v5.0 · Architecture SOLID · JWT + RBAC
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontSize: 9, color: '#2a2f45', fontFamily: "'DM Sans',sans-serif" }}>
+          <span style={{ fontSize: 9, color: colors.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
             Dernière sync : il y a 1 min
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
             {['Docs API','Support','RGPD'].map(l => (
-              <span key={l} style={{ fontSize: 9, color: '#3a4560', cursor: 'pointer',
-                fontFamily: "'DM Sans',sans-serif" }}>{l}</span>
+              <span 
+                key={l} 
+                style={{ 
+                  fontSize: 9, 
+                  color: colors.textMuted, 
+                  cursor: 'pointer',
+                  fontFamily: "'DM Sans', sans-serif" 
+                }}
+              >
+                {l}
+              </span>
             ))}
           </div>
         </div>

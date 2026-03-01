@@ -1,8 +1,9 @@
 // Clock Component - AEVUM Enterprise ERP
-// Beautiful clock with hour announcement using Web Speech API
+// Beautiful clock with hour announcement - Theme Support
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Colors, BorderRadius } from '../../../constants/theme';
+import { BorderRadius } from '../../../constants/theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface ClockProps {
   showDate?: boolean;
@@ -13,6 +14,7 @@ export const Clock: React.FC<ClockProps> = ({
   showDate = true, 
   size = 'medium' 
 }) => {
+  const { colors, mode } = useTheme();
   const [time, setTime] = useState(new Date());
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -43,7 +45,6 @@ export const Clock: React.FC<ClockProps> = ({
   // Announce time function using Web Speech API
   const announceTime = useCallback(() => {
     if ('speechSynthesis' in window) {
-      // Stop any current speech
       window.speechSynthesis.cancel();
 
       const hourText = hours === 0 ? 'minuit' : 
@@ -90,7 +91,6 @@ export const Clock: React.FC<ClockProps> = ({
     }
   }, [minutes, seconds, announceTime]);
 
-  // Manual announce button click
   const handleAnnounce = () => {
     announceTime();
   };
@@ -100,6 +100,11 @@ export const Clock: React.FC<ClockProps> = ({
   const minuteAngle = minutes * 6 + seconds * 0.1;
   const hourAngle = hours * 30 + minutes * 0.5;
 
+  // Dark clock background for both themes (looks better)
+  const clockBg = mode === 'light' 
+    ? 'linear-gradient(145deg, #1a1d2e, #12141f)'
+    : 'linear-gradient(145deg, #1a1d2e, #0f1219)';
+
   return (
     <div style={{
       display: 'flex',
@@ -107,8 +112,8 @@ export const Clock: React.FC<ClockProps> = ({
       alignItems: 'center',
       gap: 12,
       padding: 16,
-      background: Colors.card,
-      border: `1px solid ${Colors.border}`,
+      background: colors.card,
+      border: `1px solid ${colors.border}`,
       borderRadius: BorderRadius.xxl,
     }}>
       {/* Clock Face */}
@@ -116,9 +121,9 @@ export const Clock: React.FC<ClockProps> = ({
         width: config.clock,
         height: config.clock,
         borderRadius: '50%',
-        background: `linear-gradient(145deg, #1a1d2e, #12141f)`,
-        border: `3px solid ${Colors.accent}`,
-        boxShadow: `0 0 20px ${Colors.accent}33, inset 0 0 30px rgba(0,0,0,0.5)`,
+        background: clockBg,
+        border: `3px solid ${colors.primary}`,
+        boxShadow: `0 0 20px ${colors.primary}33, inset 0 0 30px rgba(0,0,0,0.5)`,
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
@@ -132,7 +137,7 @@ export const Clock: React.FC<ClockProps> = ({
               position: 'absolute',
               width: i % 3 === 0 ? 8 : 4,
               height: i % 3 === 0 ? 12 : 6,
-              background: i % 3 === 0 ? Colors.accent : Colors.textMuted,
+              background: i % 3 === 0 ? colors.primary : colors.textMuted,
               borderRadius: 2,
               top: 8,
               transformOrigin: 'center',
@@ -141,13 +146,12 @@ export const Clock: React.FC<ClockProps> = ({
           />
         ))}
 
-        {/* Clock hands */}
         {/* Hour hand */}
         <div style={{
           position: 'absolute',
           width: 4,
           height: config.clock * 0.25,
-          background: Colors.accent,
+          background: colors.primary,
           borderRadius: 2,
           top: '25%',
           transformOrigin: 'center bottom',
@@ -160,7 +164,7 @@ export const Clock: React.FC<ClockProps> = ({
           position: 'absolute',
           width: 3,
           height: config.clock * 0.35,
-          background: Colors.textLight,
+          background: colors.textSecondary,
           borderRadius: 2,
           top: '15%',
           transformOrigin: 'center bottom',
@@ -173,7 +177,7 @@ export const Clock: React.FC<ClockProps> = ({
           position: 'absolute',
           width: 1,
           height: config.clock * 0.4,
-          background: Colors.red,
+          background: colors.danger,
           borderRadius: 1,
           top: '10%',
           transformOrigin: 'center bottom',
@@ -186,8 +190,8 @@ export const Clock: React.FC<ClockProps> = ({
           width: 10,
           height: 10,
           borderRadius: '50%',
-          background: Colors.accent,
-          boxShadow: `0 0 10px ${Colors.accent}`,
+          background: colors.primary,
+          boxShadow: `0 0 10px ${colors.primary}`,
         }} />
       </div>
 
@@ -198,17 +202,17 @@ export const Clock: React.FC<ClockProps> = ({
         gap: 4,
       }}>
         <span style={{
-          fontFamily: "'DM Serif Display', serif",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
           fontSize: config.font,
           fontWeight: 700,
-          color: Colors.text,
+          color: colors.text,
         }}>
           {timeString}
         </span>
         <span style={{
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
           fontSize: config.label,
-          color: Colors.red,
+          color: colors.danger,
           fontWeight: 600,
         }}>
           {secondsString}
@@ -218,9 +222,9 @@ export const Clock: React.FC<ClockProps> = ({
       {/* Date display */}
       {showDate && (
         <div style={{
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
           fontSize: config.label,
-          color: Colors.textMuted,
+          color: colors.textMuted,
           textTransform: 'capitalize',
         }}>
           {dateString}
@@ -236,12 +240,12 @@ export const Clock: React.FC<ClockProps> = ({
           alignItems: 'center',
           gap: 6,
           padding: '8px 16px',
-          background: isSpeaking ? 'rgba(100, 140, 255, 0.1)' : 'rgba(100, 140, 255, 0.15)',
-          border: `1px solid ${Colors.accent}44`,
+          background: isSpeaking ? colors.primaryMuted : colors.primaryMuted,
+          border: `1px solid ${colors.primaryMuted}`,
           borderRadius: BorderRadius.lg,
-          color: Colors.accent,
+          color: colors.primary,
           fontSize: config.label,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
           fontWeight: 500,
           cursor: isSpeaking ? 'default' : 'pointer',
           transition: 'all 0.2s',
@@ -264,7 +268,7 @@ export const Clock: React.FC<ClockProps> = ({
               style={{
                 width: 4,
                 height: 12,
-                background: Colors.accent,
+                background: colors.primary,
                 borderRadius: 2,
                 animation: `soundWave 0.5s ease-in-out infinite`,
                 animationDelay: `${i * 0.15}s`,

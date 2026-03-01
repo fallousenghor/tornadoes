@@ -16,3 +16,6 @@ export { PaginationControls } from './PaginationControls';
 export { FilterBar, createStatusOptions, createCategoryOptions } from './FilterBar';
 export { SummaryCard, SummaryCardGrid } from './SummaryCard';
 
+// Theme Toggle
+export { ThemeToggle } from './ThemeToggle';
+

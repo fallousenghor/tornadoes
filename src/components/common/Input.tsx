@@ -1,8 +1,9 @@
 // Input Component - AEVUM Enterprise ERP
-// Corporate Professional Input Component
+// Corporate Professional Theme - B2B SaaS Design System
 
 import React from 'react';
 import { Colors, BorderRadius, Transitions, Spacing, FontSizes } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface InputProps {
   placeholder?: string;
@@ -23,16 +24,26 @@ export const Input: React.FC<InputProps> = ({
   style,
   disabled = false,
 }) => {
+  const { colors } = useTheme();
   const [isFocused, setIsFocused] = React.useState(false);
 
   const baseStyle: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    color: Colors.textPrimary,
+    background: colors.inputBg,
+    border: `1px solid ${colors.border}`,
+    borderRadius: BorderRadius.lg,
+    color: colors.textPrimary,
     fontSize: FontSizes.md,
     fontFamily: "'DM Sans', sans-serif",
     width: '100%',
     outline: 'none',
+    padding: `${Spacing.sm}px ${Spacing.md}px`,
+    transition: Transitions.fast,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? 'not-allowed' : 'text',
+    ...(isFocused && {
+      borderColor: colors.primary,
+      boxShadow: `0 0 0 3px ${colors.primaryMuted}`,
+    }),
     ...style,
   };
 
@@ -63,67 +74,39 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   value,
   onChange,
 }) => {
-  const [isFocused, setIsFocused] = React.useState(false);
-
+  const { colors } = useTheme();
+  
   const containerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: Spacing.sm,
-    background: Colors.inputBg,
-    border: `1px solid ${isFocused ? Colors.primary : Colors.border}`,
+    background: colors.inputBg,
+    border: `1px solid ${colors.border}`,
     borderRadius: BorderRadius.lg,
-    padding: `${Spacing.sm + 2}px ${Spacing.md}px`,
+    padding: `${Spacing.sm}px ${Spacing.md}px`,
     width: 220,
     transition: Transitions.fast,
-    boxShadow: isFocused ? '0 0 0 3px rgba(37, 99, 235, 0.1)' : 'none',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    color: colors.textPrimary,
+    fontSize: FontSizes.md,
+    fontFamily: "'DM Sans', sans-serif",
+    width: '100%',
+    outline: 'none',
   };
 
   return (
-    <div 
-      style={containerStyle}
-      onMouseEnter={() => setIsFocused(true)}
-      onMouseLeave={() => setIsFocused(false)}
-    >
-      <span style={{ color: Colors.textMuted, fontSize: 14 }}>⌕</span>
-      <Input 
+    <div style={containerStyle}>
+      <span style={{ color: colors.textMuted, fontSize: 14 }}>⌕</span>
+      <input 
         placeholder={placeholder} 
         value={value} 
-        onChange={onChange}
+        onChange={(e) => onChange?.(e.target.value)}
+        style={inputStyle}
       />
-    </div>
-  );
-};
-
-// Labeled Input with styling
-interface LabeledInputProps extends InputProps {
-  label?: string;
-}
-
-export const LabeledInput: React.FC<LabeledInputProps> = ({
-  label,
-  ...props
-}) => {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {label && (
-        <label style={{
-          fontSize: FontSizes.sm,
-          fontWeight: 500,
-          color: Colors.textSecondary,
-          fontFamily: "'DM Sans', sans-serif",
-        }}>
-          {label}
-        </label>
-      )}
-      <div style={{
-        background: Colors.inputBg,
-        border: `1px solid ${Colors.border}`,
-        borderRadius: BorderRadius.lg,
-        padding: `${Spacing.sm + 2}px ${Spacing.md}px`,
-        transition: Transitions.fast,
-      }}>
-        <Input {...props} />
-      </div>
     </div>
   );
 };

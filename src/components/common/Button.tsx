@@ -1,10 +1,11 @@
 // Button Component - AEVUM Enterprise ERP
-// Corporate Professional Button Component
+// Corporate Professional Theme - B2B SaaS Design System
 
 import React from 'react';
 import { Colors, BorderRadius, Transitions, Spacing, FontSizes } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
@@ -18,51 +19,6 @@ interface ButtonProps {
   style?: React.CSSProperties;
 }
 
-// Corporate professional button variants
-const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
-  primary: {
-    background: Colors.primary,
-    color: Colors.textInverse,
-    border: 'none',
-  },
-  secondary: {
-    background: Colors.bgSecondary,
-    color: Colors.textPrimary,
-    border: `1px solid ${Colors.border}`,
-  },
-  ghost: {
-    background: 'transparent',
-    color: Colors.textSecondary,
-    border: 'none',
-  },
-  danger: {
-    background: Colors.danger,
-    color: Colors.textInverse,
-    border: 'none',
-  },
-  outline: {
-    background: 'transparent',
-    color: Colors.primary,
-    border: `1px solid ${Colors.primary}`,
-  },
-};
-
-// Size configurations - Professional sizing
-const sizeStyles: Record<ButtonSize, React.CSSProperties> = {
-  sm: {
-    padding: `${Spacing.xs + 2}px ${Spacing.sm + 4}px`,
-    fontSize: FontSizes.sm,
-  },
-  md: {
-    padding: `${Spacing.sm + 2}px ${Spacing.lg}px`,
-    fontSize: FontSizes.md,
-  },
-  lg: {
-    padding: `${Spacing.md}px ${Spacing.xl + 4}px`,
-    fontSize: FontSizes.lg,
-  },
-};
-
 export const Button: React.FC<ButtonProps> = ({
   children,
   onClick,
@@ -73,37 +29,81 @@ export const Button: React.FC<ButtonProps> = ({
   type = 'button',
   style,
 }) => {
+  const { colors } = useTheme();
   const [isHovered, setIsHovered] = React.useState(false);
 
-  const getHoverStyles = () => {
+  const getVariantStyles = (): React.CSSProperties => {
+    switch (variant) {
+      case 'primary':
+        return {
+          background: colors.primary,
+          color: colors.textInverse,
+          border: 'none',
+        };
+      case 'secondary':
+        return {
+          background: colors.bgSecondary,
+          color: colors.textPrimary,
+          border: `1px solid ${colors.border}`,
+        };
+      case 'ghost':
+        return {
+          background: 'transparent',
+          color: colors.textSecondary,
+          border: 'none',
+        };
+      case 'danger':
+        return {
+          background: colors.danger,
+          color: colors.textInverse,
+          border: 'none',
+        };
+      default:
+        return {};
+    }
+  };
+
+  const getHoverStyles = (): React.CSSProperties => {
     if (disabled) return {};
     
     switch (variant) {
       case 'primary':
         return {
-          background: Colors.primaryLight,
-          transform: 'translateY(-1px)',
-          boxShadow: '0 4px 12px rgba(30, 58, 138, 0.3)',
+          background: colors.primaryLight,
         };
       case 'secondary':
         return {
-          background: Colors.bgTertiary,
-          borderColor: Colors.borderDark,
+          background: colors.bgTertiary,
         };
       case 'ghost':
         return {
-          background: Colors.hover,
-          color: Colors.primary,
+          background: colors.hover,
         };
       case 'danger':
         return {
-          background: Colors.dangerLight,
-          transform: 'translateY(-1px)',
-          boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+          background: colors.dangerLight,
         };
-      case 'outline':
+      default:
+        return {};
+    }
+  };
+
+  const getSizeStyles = (): React.CSSProperties => {
+    switch (size) {
+      case 'sm':
         return {
-          background: Colors.primaryMuted,
+          padding: `${Spacing.xs}px ${Spacing.sm}px`,
+          fontSize: FontSizes.sm,
+        };
+      case 'md':
+        return {
+          padding: `${Spacing.sm}px ${Spacing.lg}px`,
+          fontSize: FontSizes.md,
+        };
+      case 'lg':
+        return {
+          padding: `${Spacing.md}px ${Spacing.xl}px`,
+          fontSize: FontSizes.lg,
         };
       default:
         return {};
@@ -114,16 +114,16 @@ export const Button: React.FC<ButtonProps> = ({
     borderRadius: BorderRadius.lg,
     cursor: disabled ? 'not-allowed' : 'pointer',
     transition: Transitions.fast,
-    opacity: disabled ? 0.5 : isHovered ? 1 : 1,
+    opacity: disabled ? 0.5 : isHovered ? 0.9 : 1,
     fontFamily: "'DM Sans', sans-serif",
-    fontWeight: 500,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    boxShadow: variant === 'primary' || variant === 'danger' ? '0 2px 4px rgba(0, 0, 0, 0.1)' : 'none',
-    ...variantStyles[variant],
-    ...sizeStyles[size],
+    fontWeight: 500,
+    boxShadow: variant === 'primary' ? '0 2px 4px rgba(30, 58, 138, 0.2)' : 'none',
+    ...getVariantStyles(),
+    ...getSizeStyles(),
     ...(isHovered && !disabled ? getHoverStyles() : {}),
     ...style,
   };

@@ -12,144 +12,146 @@
 // Text Secondary: #4B5563
 // Border: #E5E7EB
 
+// CSS Variable-based colors for automatic theme support
+// These will automatically use the correct colors based on the data-theme attribute
 export const Colors = {
   // ===========================================
   // PRIMARY BRAND COLORS - Corporate Blue
   // ===========================================
-  primary: '#1E3A8A',
-  primaryLight: '#2563EB',
-  primaryLighter: '#3B82F6',
-  primaryMuted: 'rgba(30, 58, 138, 0.1)',
-  primaryMutedBg: 'rgba(30, 58, 138, 0.08)',
+  primary: 'var(--color-primary, #1E3A8A)',
+  primaryLight: 'var(--color-primary-light, #2563EB)',
+  primaryLighter: 'var(--color-primary-lighter, #3B82F6)',
+  primaryMuted: 'var(--color-primary-muted, rgba(30, 58, 138, 0.1))',
+  primaryMutedBg: 'var(--color-primary-muted-bg, rgba(30, 58, 138, 0.08))',
   
   // Secondary
-  secondary: '#2563EB',
-  secondaryMuted: 'rgba(37, 99, 235, 0.1)',
+  secondary: 'var(--color-secondary, #2563EB)',
+  secondaryMuted: 'var(--color-secondary-muted, rgba(37, 99, 235, 0.1))',
   
   // ===========================================
   // STATUS COLORS
   // ===========================================
   // Success - Professional Green
-  success: '#16A34A',
-  successLight: '#22C55E',
-  successMuted: 'rgba(22, 163, 74, 0.1)',
-  successBg: 'rgba(22, 163, 74, 0.08)',
+  success: 'var(--color-success, #16A34A)',
+  successLight: 'var(--color-success-light, #22C55E)',
+  successMuted: 'var(--color-success-muted, rgba(22, 163, 74, 0.1))',
+  successBg: 'var(--color-success-bg, rgba(22, 163, 74, 0.08))',
   
   // Warning - Amber/Orange
-  warning: '#F59E0B',
-  warningLight: '#FBBF24',
-  warningMuted: 'rgba(245, 158, 11, 0.1)',
-  warningBg: 'rgba(245, 158, 11, 0.08)',
+  warning: 'var(--color-warning, #F59E0B)',
+  warningLight: 'var(--color-warning-light, #FBBF24)',
+  warningMuted: 'var(--color-warning-muted, rgba(245, 158, 11, 0.1))',
+  warningBg: 'var(--color-warning-bg, rgba(245, 158, 11, 0.08))',
   
   // Danger - Red
-  danger: '#DC2626',
-  dangerLight: '#EF4444',
-  dangerMuted: 'rgba(220, 38, 38, 0.1)',
-  dangerBg: 'rgba(220, 38, 38, 0.08)',
+  danger: 'var(--color-danger, #DC2626)',
+  dangerLight: 'var(--color-danger-light, #EF4444)',
+  dangerMuted: 'var(--color-danger-muted, rgba(220, 38, 38, 0.1))',
+  dangerBg: 'var(--color-danger-bg, rgba(220, 38, 38, 0.08))',
   
   // Info - Blue
-  info: '#0EA5E9',
-  infoMuted: 'rgba(14, 165, 233, 0.1)',
+  info: 'var(--color-info, #0EA5E9)',
+  infoMuted: 'var(--color-info-muted, rgba(14, 165, 233, 0.1))',
   
   // Neutral / Purple for variety
-  purple: '#8B5CF6',
-  purpleMuted: 'rgba(139, 92, 246, 0.1)',
+  purple: 'var(--color-purple, #8B5CF6)',
+  purpleMuted: 'var(--color-purple-muted, rgba(139, 92, 246, 0.1))',
   
   // ===========================================
   // BACKGROUND & SURFACE
   // ===========================================
   // Main backgrounds
-  bg: '#F9FAFB',
-  bgSecondary: '#F3F4F6',
-  bgTertiary: '#E5E7EB',
+  bg: 'var(--color-bg, #F9FAFB)',
+  bgSecondary: 'var(--color-bg-secondary, #F3F4F6)',
+  bgTertiary: 'var(--color-bg-tertiary, #E5E7EB)',
   
   // Surface (Cards, panels)
-  card: '#FFFFFF',
-  cardHover: '#F9FAFB',
-  surface: '#FFFFFF',
+  card: 'var(--color-card, #FFFFFF)',
+  cardHover: 'var(--color-card-hover, #F9FAFB)',
+  surface: 'var(--color-surface, #FFFFFF)',
   
   // Input backgrounds
-  input: '#FFFFFF',
-  inputBg: '#F9FAFB',
+  input: 'var(--color-input, #FFFFFF)',
+  inputBg: 'var(--color-input-bg, #F9FAFB)',
   
   // Header
-  header: '#FFFFFF',
+  header: 'var(--color-header, #FFFFFF)',
   
   // ===========================================
   // TEXT COLORS
   // ===========================================
   // Primary text - High contrast for readability
-  text: '#1F2937',
-  textPrimary: '#1F2937',
+  text: 'var(--color-text, #1F2937)',
+  textPrimary: 'var(--color-text-primary, #1F2937)',
   
   // Secondary text
-  textSecondary: '#4B5563',
-  textMuted: '#6B7280',
-  textLight: '#9CA3AF',
+  textSecondary: 'var(--color-text-secondary, #4B5563)',
+  textMuted: 'var(--color-text-muted, #6B7280)',
+  textLight: 'var(--color-text-light, #9CA3AF)',
   
   // Inverse/Light text (for dark backgrounds)
-  textInverse: '#FFFFFF',
-  textInverseMuted: 'rgba(255, 255, 255, 0.8)',
+  textInverse: 'var(--color-text-inverse, #FFFFFF)',
+  textInverseMuted: 'var(--color-text-inverse-muted, rgba(255, 255, 255, 0.8))',
   
   // ===========================================
   // BORDER COLORS
   // ===========================================
-  border: '#E5E7EB',
-  borderLight: '#F3F4F6',
-  borderDark: '#D1D5DB',
+  border: 'var(--color-border, #E5E7EB)',
+  borderLight: 'var(--color-border-light, #F3F4F6)',
+  borderDark: 'var(--color-border-dark, #D1D5DB)',
   
   // Focus/Active borders
-  focus: '#2563EB',
-  focusRing: 'rgba(37, 99, 235, 0.4)',
+  focus: 'var(--color-focus, #2563EB)',
+  focusRing: 'var(--color-focus-ring, rgba(37, 99, 235, 0.4))',
   
   // ===========================================
   // LEGACY COMPATIBILITY - Mapped to new palette
   // ===========================================
   // Legacy accent colors (for backward compatibility)
-  accent: '#1E3A8A',
-  accentLight: '#2563EB',
-  accentMuted: 'rgba(30, 58, 138, 0.1)',
+  accent: 'var(--color-accent, #1E3A8A)',
+  accentLight: 'var(--color-accent-light, #2563EB)',
+  accentMuted: 'var(--color-accent-muted, rgba(30, 58, 138, 0.1))',
   
   // Legacy status colors (mapped to new palette)
-  gold: '#D97706',
-  green: '#16A34A',
-  greenMuted: 'rgba(22, 163, 74, 0.1)',
-  red: '#DC2626',
-  redMuted: 'rgba(220, 38, 38, 0.1)',
-  teal: '#0D9488',
-  orange: '#F97316',
-  orangeMuted: 'rgba(249, 115, 22, 0.1)',
+  gold: 'var(--color-gold, #D97706)',
+  green: 'var(--color-green, #16A34A)',
+  greenMuted: 'var(--color-green-muted, rgba(22, 163, 74, 0.1))',
+  red: 'var(--color-red, #DC2626)',
+  redMuted: 'var(--color-red-muted, rgba(220, 38, 38, 0.1))',
+  teal: 'var(--color-teal, #0D9488)',
+  orange: 'var(--color-orange, #F97316)',
+  orangeMuted: 'var(--color-orange-muted, rgba(249, 115, 22, 0.1))',
   
   // Legacy text colors (already defined above - kept for compatibility)
-  textDim: '#9CA3AF',
-  textDark: '#374151',
-  textDark2: '#4B5563',
-  textMutedLegacy: '#6B7280',
+  textDim: 'var(--color-text-dim, #9CA3AF)',
+  textDark: 'var(--color-text-dark, #374151)',
+  textDark2: 'var(--color-text-dark2, #4B5563)',
+  textMutedLegacy: 'var(--color-text-muted-legacy, #6B7280)',
   
   // ===========================================
   // HOVER & INTERACTION STATES
   // ===========================================
-  hover: 'rgba(30, 58, 138, 0.05)',
-  hoverLight: 'rgba(30, 58, 138, 0.03)',
-  active: 'rgba(30, 58, 138, 0.1)',
+  hover: 'var(--color-hover, rgba(30, 58, 138, 0.05))',
+  hoverLight: 'var(--color-hover-light, rgba(30, 58, 138, 0.03))',
+  active: 'var(--color-active, rgba(30, 58, 138, 0.1))',
   
   // ===========================================
   // SIDEBAR GRADIENT (Professional subtle)
   // ===========================================
-  sidebarGradient: 'linear-gradient(180deg, #1E3A8A 0%, #1E40AF 50%, #1D4ED8 100%)',
-  sidebarGradientSubtle: 'linear-gradient(180deg, #1E3A8A 0%, #1E3A8A 100%)',
-  sidebarBg: '#1E3A8A',
-  sidebarText: '#FFFFFF',
-  sidebarTextMuted: 'rgba(255, 255, 255, 0.7)',
-  sidebarBorder: 'rgba(255, 255, 255, 0.1)',
+  sidebarGradient: 'var(--color-sidebar-gradient, linear-gradient(180deg, #1E3A8A 0%, #1E40AF 50%, #1D4ED8 100%))',
+  sidebarGradientSubtle: 'var(--color-sidebar-gradient-subtle, linear-gradient(180deg, #1E3A8A 0%, #1E3A8A 100%))',
+  sidebarBg: 'var(--color-sidebar-bg, #1E3A8A)',
+  sidebarText: 'var(--color-sidebar-text, #FFFFFF)',
+  sidebarTextMuted: 'var(--color-sidebar-text-muted, rgba(255, 255, 255, 0.7))',
+  sidebarBorder: 'var(--color-sidebar-border, rgba(255, 255, 255, 0.1))',
   
   // ===========================================
   // SHADOWS
   // ===========================================
-  shadow: 'rgba(0, 0, 0, 0.1)',
-  shadowLight: 'rgba(0, 0, 0, 0.05)',
-  shadowMedium: 'rgba(0, 0, 0, 0.1)',
-  shadowHeavy: 'rgba(0, 0, 0, 0.15)',
+  shadow: 'var(--shadow-card, rgba(0, 0, 0, 0.1))',
+  shadowLight: 'var(--shadow-card-light, rgba(0, 0, 0, 0.05))',
+  shadowMedium: 'var(--shadow-card-medium, rgba(0, 0, 0, 0.1))',
+  shadowHeavy: 'var(--shadow-card-heavy, rgba(0, 0, 0, 0.15))',
 } as const;
 
 // ===========================================
@@ -178,26 +180,260 @@ export const BorderRadius = {
 } as const;
 
 // ===========================================
-// FONT SIZES - Optimized for B2B readability
+// FONT SIZES - Optimized for B2B Enterprise ERP
+// Professional readability for prolonged daily use
 // ===========================================
 export const FontSizes = {
-  xs: 11,
-  sm: 12,
-  md: 13,
-  lg: 14,
-  xl: 15,
-  xxl: 16,
-  xxxl: 18,
-  title: 20,
-  hero: 24,
+  // Base sizes
+  xs: 11,      // Overline, tiny labels
+  sm: 12,      // Small labels, badges
+  base: 13,    // Table cells, secondary text
+  md: 14,      // Body text (default)
+  lg: 15,      // Large body, important text
+  xl: 16,      // Lead text, large body
+  xxl: 18,     // H4, card titles
+  xxxl: 20,    // H3, subsection titles
+  title: 24,   // H2, section titles
+  hero: 32,    // H1, page titles
 } as const;
 
 // ===========================================
-// FONT FAMILIES
+// FONT WEIGHTS - Optimal for readability
+// ===========================================
+export const FontWeights = {
+  light: 300,
+  regular: 400,
+  medium: 500,
+  semibold: 600,
+  bold: 700,
+} as const;
+
+// ===========================================
+// LINE HEIGHTS - For optimal readability
+// ===========================================
+export const LineHeights = {
+  tight: 1.2,   // Headings
+  snug: 1.3,    // Subheadings
+  normal: 1.4, // Small text, labels
+  relaxed: 1.5, // Body text
+  loose: 1.6,   // Large body, long text
+} as const;
+
+// ===========================================
+// LETTER SPACING - Professional refinement
+// ===========================================
+export const LetterSpacing = {
+  tighter: '-0.02em',
+  tight: '-0.01em',
+  normal: '0',
+  wide: '0.01em',
+  wider: '0.025em',
+  widest: '0.05em',  // Uppercase labels
+} as const;
+
+// ===========================================
+// TYPOGRAPHY CONFIGURATION
+// Complete typography system for Enterprise ERP
+// ===========================================
+export const Typography = {
+  // Font Families
+  fontFamily: {
+    display: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    body: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    mono: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+  },
+  
+  // Font Sizes
+  fontSize: FontSizes,
+  
+  // Font Weights
+  fontWeight: FontWeights,
+  
+  // Line Heights
+  lineHeight: LineHeights,
+  
+  // Letter Spacing
+  letterSpacing: LetterSpacing,
+  
+  // Heading configurations
+  headings: {
+    h1: {
+      fontSize: FontSizes.hero,
+      fontWeight: FontWeights.bold,
+      lineHeight: LineHeights.tight,
+      letterSpacing: LetterSpacing.tight,
+    },
+    h2: {
+      fontSize: FontSizes.title,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.snug,
+      letterSpacing: LetterSpacing.tight,
+    },
+    h3: {
+      fontSize: FontSizes.xxxl,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.snug,
+      letterSpacing: LetterSpacing.normal,
+    },
+    h4: {
+      fontSize: FontSizes.xxl,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.normal,
+      letterSpacing: LetterSpacing.normal,
+    },
+  },
+  
+  // Body text configurations
+  body: {
+    large: {
+      fontSize: FontSizes.xl,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.loose,
+    },
+    default: {
+      fontSize: FontSizes.md,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.relaxed,
+    },
+    small: {
+      fontSize: FontSizes.base,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.normal,
+    },
+  },
+  
+  // Label configurations
+  label: {
+    default: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.medium,
+      lineHeight: LineHeights.normal,
+      letterSpacing: LetterSpacing.wide,
+    },
+    small: {
+      fontSize: FontSizes.xs,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.normal,
+      letterSpacing: LetterSpacing.widest,
+      textTransform: 'uppercase' as const,
+    },
+  },
+  
+  // Button text
+  button: {
+    default: {
+      fontSize: FontSizes.md,
+      fontWeight: FontWeights.medium,
+      lineHeight: LineHeights.normal,
+      letterSpacing: LetterSpacing.normal,
+    },
+    small: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.medium,
+      lineHeight: LineHeights.normal,
+    },
+    large: {
+      fontSize: FontSizes.lg,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.normal,
+    },
+  },
+  
+  // Table text
+  table: {
+    header: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.normal,
+      letterSpacing: LetterSpacing.widest,
+      textTransform: 'uppercase' as const,
+    },
+    cell: {
+      fontSize: FontSizes.base,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.relaxed,
+    },
+  },
+  
+  // Sidebar
+  sidebar: {
+    section: {
+      fontSize: FontSizes.xs,
+      fontWeight: FontWeights.semibold,
+      letterSpacing: LetterSpacing.widest,
+      textTransform: 'uppercase' as const,
+    },
+    item: {
+      fontSize: FontSizes.md,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.normal,
+    },
+    itemActive: {
+      fontSize: FontSizes.md,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.normal,
+    },
+  },
+  
+  // Header
+  header: {
+    title: {
+      fontSize: FontSizes.xxl,
+      fontWeight: FontWeights.bold,
+      lineHeight: LineHeights.snug,
+    },
+    subtitle: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.normal,
+    },
+  },
+  
+  // KPI / Dashboard numbers
+  kpi: {
+    value: {
+      fontSize: FontSizes.hero,
+      fontWeight: FontWeights.bold,
+      lineHeight: LineHeights.tight,
+    },
+    label: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.medium,
+      lineHeight: LineHeights.normal,
+    },
+    trend: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.semibold,
+      lineHeight: LineHeights.normal,
+    },
+  },
+  
+  // Form elements
+  form: {
+    label: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.medium,
+      lineHeight: LineHeights.normal,
+    },
+    input: {
+      fontSize: FontSizes.md,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.relaxed,
+    },
+    helper: {
+      fontSize: FontSizes.sm,
+      fontWeight: FontWeights.regular,
+      lineHeight: LineHeights.normal,
+    },
+  },
+} as const;
+
+// ===========================================
+// LEGACY COMPATIBILITY - Mapped to new system
 // ===========================================
 export const FontFamilies = {
-  display: "'DM Serif Display', Georgia, serif",
-  body: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  display: Typography.fontFamily.display,
+  body: Typography.fontFamily.body,
 } as const;
 
 // ===========================================
@@ -459,6 +695,10 @@ export default {
   Spacing,
   BorderRadius,
   FontSizes,
+  FontWeights,
+  LineHeights,
+  LetterSpacing,
+  Typography,
   FontFamilies,
   Shadows,
   Transitions,
