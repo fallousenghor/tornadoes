@@ -1,11 +1,12 @@
 // Departments Page - RH & ORG Module
 // Complete department management with search, filters, budget tracking and modal
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput, Modal, Input } from '../../components/common';
 import { Colors } from '../../constants/theme';
-import { deptPerformance, employeesData } from '../../data/mockData';
-import type { Department } from '../../types';
+import departmentService from '../../services/departmentService';
+import employeeService from '../../services/employeeService';
+import type { Department, Employee } from '../../types';
 
 // Extended department type for display
 interface DepartmentDisplay extends Department {
@@ -23,6 +24,9 @@ const getBudgetStatus = (spent: number, budget: number) => {
 
 export const Departments: React.FC = () => {
   // State
+  const [departmentsData, setDepartmentsData] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [budgetFilter, setBudgetFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -30,25 +34,47 @@ export const Departments: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDisplay | null>(null);
   const itemsPerPage = 6;
 
+  // Fetch departments from API
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const response = await departmentService.getDepartments({ active: true });
+      setDepartmentsData(response.data);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  }, []);
+
+  // Fetch employees for counting
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await employeeService.getEmployees();
+      setEmployees(response.data);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchDepartments(), fetchEmployees()]);
+      setLoading(false);
+    };
+    loadData();
+  }, [fetchDepartments, fetchEmployees]);
+
   // Enrich departments with employee counts
   const departments: DepartmentDisplay[] = useMemo(() => {
-    return deptPerformance.map(dept => {
-      const employeeCount = employeesData.filter(emp => emp.departmentId === dept.id).length;
-      // Generate a mock manager name based on department
-      const managerNames: Record<string, string> = {
-        '1': 'Sara Mendy',
-        '2': 'Fatou Diallo',
-        '3': 'Moussa Sow',
-        '4': 'Ibou Gaye',
-        '5': 'Rokhaya Fall',
-      };
+    return departmentsData.map(dept => {
+      const employeeCount = employees.filter(emp => emp.departmentId === dept.id).length;
       return { 
         ...dept, 
         employeeCount,
-        managerName: managerNames[dept.id] || 'À assigner'
+        managerName: dept.headId || 'À assigner'
       };
     });
-  }, []);
+  }, [departmentsData, employees]);
 
   // Filter departments
   const filteredDepartments = useMemo(() => {
@@ -60,11 +86,11 @@ export const Departments: React.FC = () => {
       
       let matchesBudget = true;
       if (budgetFilter === 'critical') {
-        matchesBudget = (dept.spent / dept.budget) >= 0.95;
+        matchesBudget = dept.budget > 0 && (dept.spent / dept.budget) >= 0.95;
       } else if (budgetFilter === 'warning') {
-        matchesBudget = (dept.spent / dept.budget) >= 0.8 && (dept.spent / dept.budget) < 0.95;
+        matchesBudget = dept.budget > 0 && (dept.spent / dept.budget) >= 0.8 && (dept.spent / dept.budget) < 0.95;
       } else if (budgetFilter === 'normal') {
-        matchesBudget = (dept.spent / dept.budget) < 0.8;
+        matchesBudget = dept.budget === 0 || (dept.spent / dept.budget) < 0.8;
       }
       
       return matchesSearch && matchesBudget;
@@ -112,7 +138,7 @@ export const Departments: React.FC = () => {
             Gestion des Départements
           </h1>
           <p style={{ fontSize: 13, color: Colors.textMuted }}>
-            {filteredDepartments.length} département(s) trouvé(s)
+            {loading ? 'Chargement...' : `${filteredDepartments.length} département(s) trouvé(s)`}
           </p>
         </div>
         <Button variant="primary" onClick={handleNewDepartment}>
@@ -206,12 +232,12 @@ export const Departments: React.FC = () => {
               width: 48, 
               height: 48, 
               borderRadius: 12, 
-              background: totals.totalSpent / totals.totalBudget >= 0.9 ? 'rgba(224, 80, 80, 0.15)' : 'rgba(251, 146, 60, 0.15)', 
+              background: totals.totalBudget > 0 && totals.totalSpent / totals.totalBudget >= 0.9 ? 'rgba(224, 80, 80, 0.15)' : 'rgba(251, 146, 60, 0.15)', 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
               fontSize: 20,
-              color: totals.totalSpent / totals.totalBudget >= 0.9 ? '#e05050' : '#fb923c',
+              color: totals.totalBudget > 0 && totals.totalSpent / totals.totalBudget >= 0.9 ? '#e05050' : '#fb923c',
             }}>
               ◇
             </div>
@@ -220,7 +246,7 @@ export const Departments: React.FC = () => {
                 Budget Consumé
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {((totals.totalSpent / totals.totalBudget) * 100).toFixed(1)}%
+                {totals.totalBudget > 0 ? ((totals.totalSpent / totals.totalBudget) * 100).toFixed(1) : 0}%
               </div>
             </div>
           </div>
@@ -262,121 +288,127 @@ export const Departments: React.FC = () => {
       </Card>
 
       {/* Departments Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>
-        {paginatedDepartments.map((dept) => {
-          const budgetPercent = (dept.spent / dept.budget) * 100;
-          const budgetStatus = getBudgetStatus(dept.spent, dept.budget);
-          const remaining = dept.budget - dept.spent;
-          
-          return (
-            <Card key={dept.id} style={{ padding: 0, overflow: 'hidden' }}>
-              {/* Card Header */}
-              <div style={{ 
-                padding: '16px 20px', 
-                borderBottom: `1px solid ${Colors.border}`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-              }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <span style={{ 
-                      fontSize: 18, 
-                      fontWeight: 700, 
-                      color: Colors.text 
-                    }}>
-                      {dept.name}
-                    </span>
-                    <Badge color={Colors.accent}>{dept.code}</Badge>
-                  </div>
-                  <div style={{ fontSize: 12, color: Colors.textMuted }}>
-                    Responsable: <span style={{ color: Colors.text }}>{dept.managerName}</span>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => handleEditDepartment(dept)}
-                  style={{ 
-                    padding: '6px 10px', 
-                    borderRadius: 6, 
-                    border: `1px solid ${Colors.border}`, 
-                    background: 'transparent', 
-                    color: Colors.textMuted, 
-                    fontSize: 11, 
-                    cursor: 'pointer',
-                  }}
-                >
-                  ✎ Éditer
-                </button>
-              </div>
-              
-              {/* Card Body */}
-              <div style={{ padding: 20 }}>
-                {/* Employee Count */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+      {loading ? (
+        <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+          Chargement des départements...
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>
+          {paginatedDepartments.map((dept) => {
+            const budgetPercent = dept.budget > 0 ? (dept.spent / dept.budget) * 100 : 0;
+            const budgetStatus = getBudgetStatus(dept.spent, dept.budget);
+            const remaining = dept.budget - dept.spent;
+            
+            return (
+              <Card key={dept.id} style={{ padding: 0, overflow: 'hidden' }}>
+                {/* Card Header */}
+                <div style={{ 
+                  padding: '16px 20px', 
+                  borderBottom: `1px solid ${Colors.border}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                }}>
                   <div>
-                    <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 2 }}>EMPLOYÉS</div>
-                    <div style={{ fontSize: 20, fontWeight: 600, color: Colors.text }}>
-                      {dept.employeeCount}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <span style={{ 
+                        fontSize: 18, 
+                        fontWeight: 700, 
+                        color: Colors.text 
+                      }}>
+                        {dept.name}
+                      </span>
+                      <Badge color={Colors.accent}>{dept.code}</Badge>
+                    </div>
+                    <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                      Responsable: <span style={{ color: Colors.text }}>{dept.managerName}</span>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 2 }}>BUDGET</div>
-                    <div style={{ fontSize: 20, fontWeight: 600, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                      {dept.budget.toLocaleString()} €
-                    </div>
-                  </div>
+                  <button 
+                    onClick={() => handleEditDepartment(dept)}
+                    style={{ 
+                      padding: '6px 10px', 
+                      borderRadius: 6, 
+                      border: `1px solid ${Colors.border}`, 
+                      background: 'transparent', 
+                      color: Colors.textMuted, 
+                      fontSize: 11, 
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✎ Éditer
+                  </button>
                 </div>
                 
-                {/* Budget Progress */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, color: Colors.textMuted }}>
-                      Budget utilisé: {dept.spent.toLocaleString()} €
-                    </span>
-                    <span style={{ 
-                      fontSize: 11, 
-                      fontWeight: 600, 
-                      color: budgetStatus.color,
-                    }}>
-                      {budgetPercent.toFixed(1)}%
-                    </span>
+                {/* Card Body */}
+                <div style={{ padding: 20 }}>
+                  {/* Employee Count */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 2 }}>EMPLOYÉS</div>
+                      <div style={{ fontSize: 20, fontWeight: 600, color: Colors.text }}>
+                        {dept.employeeCount}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 2 }}>BUDGET</div>
+                      <div style={{ fontSize: 20, fontWeight: 600, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
+                        {dept.budget.toLocaleString()} €
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ 
-                    height: 8, 
-                    background: 'rgba(100, 140, 255, 0.1)', 
-                    borderRadius: 4, 
-                    overflow: 'hidden',
-                    marginBottom: 8,
-                  }}>
+                  
+                  {/* Budget Progress */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, color: Colors.textMuted }}>
+                        Budget utilisé: {dept.spent.toLocaleString()} €
+                      </span>
+                      <span style={{ 
+                        fontSize: 11, 
+                        fontWeight: 600, 
+                        color: budgetStatus.color,
+                      }}>
+                        {budgetPercent.toFixed(1)}%
+                      </span>
+                    </div>
                     <div style={{ 
-                      width: `${Math.min(budgetPercent, 100)}%`, 
-                      height: '100%', 
-                      background: budgetStatus.color,
-                      borderRadius: 4,
-                      transition: 'width 0.3s ease',
-                    }} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 11, color: Colors.textMuted }}>
-                      Restant: {remaining.toLocaleString()} €
-                    </span>
-                    <span style={{ 
-                      padding: '3px 8px', 
+                      height: 8, 
+                      background: 'rgba(100, 140, 255, 0.1)', 
                       borderRadius: 4, 
-                      fontSize: 10, 
-                      fontWeight: 500,
-                      background: budgetStatus.bg, 
-                      color: budgetStatus.color,
+                      overflow: 'hidden',
+                      marginBottom: 8,
                     }}>
-                      {budgetStatus.label}
-                    </span>
+                      <div style={{ 
+                        width: `${Math.min(budgetPercent, 100)}%`, 
+                        height: '100%', 
+                        background: budgetStatus.color,
+                        borderRadius: 4,
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: Colors.textMuted }}>
+                        Restant: {remaining.toLocaleString()} €
+                      </span>
+                      <span style={{ 
+                        padding: '3px 8px', 
+                        borderRadius: 4, 
+                        fontSize: 10, 
+                        fontWeight: 500,
+                        background: budgetStatus.bg, 
+                        color: budgetStatus.color,
+                      }}>
+                        {budgetStatus.label}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -521,7 +553,7 @@ export const Departments: React.FC = () => {
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Responsable</label>
               <select 
-                defaultValue={selectedDepartment?.managerName || ''}
+                defaultValue={selectedDepartment?.headId || ''}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -533,11 +565,9 @@ export const Departments: React.FC = () => {
                 }}
               >
                 <option value="">Sélectionner un responsable</option>
-                <option value="Sara Mendy">Sara Mendy - Tech</option>
-                <option value="Fatou Diallo">Fatou Diallo - RH</option>
-                <option value="Moussa Sow">Moussa Sow - Finance</option>
-                <option value="Ibou Gaye">Ibou Gaye - Ventes</option>
-                <option value="Rokhaya Fall">Rokhaya Fall - Formation</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                ))}
               </select>
             </div>
             <div style={{ gridColumn: '1 / -1' }}>

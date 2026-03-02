@@ -20,12 +20,18 @@ const Login: React.FC = () => {
     setError('');
     setIsLoading(true);
 
-    const success = await login(email, password);
-    
-    if (!success) {
-      setError('Email ou mot de passe incorrect');
+    try {
+      const success = await login(email, password);
+      
+      if (!success) {
+        setError('Email ou mot de passe incorrect');
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Une erreur est survenue lors de la connexion';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   // Quick login buttons for demo
@@ -137,7 +143,7 @@ const Login: React.FC = () => {
           }}>Connexion à votre compte</h2>
 
           <form onSubmit={handleSubmit}>
-            {/* Email */}
+            {/* Username */}
             <div style={{ marginBottom: 16 }}>
               <label style={{
                 display: 'block',
@@ -148,12 +154,12 @@ const Login: React.FC = () => {
                 fontFamily: "'DM Sans', sans-serif",
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-              }}>Email</label>
+              }}>Nom d'utilisateur</label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="vous@entreprise.sn"
+                placeholder="admin"
                 required
                 style={{
                   width: '100%',
@@ -320,11 +326,11 @@ const Login: React.FC = () => {
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
             textAlign: 'center',
-          }}>Accès rapide (Demo)</p>
+          }}>Accès rapide (Backend)</p>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
-              onClick={() => quickLogin('dg@nexus-erp.sn', 'admin123')}
+              onClick={() => quickLogin('admin', 'Admin@123')}
               disabled={isLoading}
               style={{
                 display: 'flex',
@@ -350,66 +356,8 @@ const Login: React.FC = () => {
               }}
             >
               <span style={{ fontSize: 14 }}>👔</span>
-              <span style={{ flex: 1, textAlign: 'left' }}>Directeur Général</span>
-              <span style={{ color: colors.textMuted, fontSize: 10 }}>DG</span>
-            </button>
-
-            <button
-              onClick={() => quickLogin('rh@nexus-erp.sn', 'rh123')}
-              disabled={isLoading}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                background: colors.successBg,
-                border: `1px solid ${colors.successMuted}`,
-                borderRadius: BorderRadius.lg,
-                color: colors.textSecondary,
-                fontSize: 12,
-                fontFamily: "'DM Sans', sans-serif",
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = colors.successMuted;
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = colors.successBg;
-              }}
-            >
-              <span style={{ fontSize: 14 }}>👥</span>
-              <span style={{ flex: 1, textAlign: 'left' }}>Responsable RH</span>
-              <span style={{ color: colors.textMuted, fontSize: 10 }}>RH</span>
-            </button>
-
-            <button
-              onClick={() => quickLogin('finance@nexus-erp.sn', 'finance123')}
-              disabled={isLoading}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                background: colors.warningBg,
-                border: `1px solid ${colors.warningMuted}`,
-                borderRadius: BorderRadius.lg,
-                color: colors.textSecondary,
-                fontSize: 12,
-                fontFamily: "'DM Sans', sans-serif",
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = colors.warningMuted;
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = colors.warningBg;
-              }}
-            >
-              <span style={{ fontSize: 14 }}>💰</span>
-              <span style={{ flex: 1, textAlign: 'left' }}>Directeur Financier</span>
-              <span style={{ color: colors.textMuted, fontSize: 10 }}>Finance</span>
+              <span style={{ flex: 1, textAlign: 'left' }}>Administrateur</span>
+              <span style={{ color: colors.textMuted, fontSize: 10 }}>ADMIN</span>
             </button>
           </div>
         </div>

@@ -1,10 +1,12 @@
 // Performance Page - RH & ORG Module
 // Complete performance management with reviews, objectives, and analytics
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
-import { employeesData, deptPerformance } from '../../data/mockData';
+import performanceService from '../../services/performanceService';
+import employeeService from '../../services/employeeService';
+import type { Employee } from '../../types';
 
 // Performance review type
 interface PerformanceReviewDisplay {
@@ -35,81 +37,22 @@ interface ObjectiveDisplay {
   dueDate: Date;
 }
 
-// Generate mock performance reviews
-const generatePerformanceReviews = (): PerformanceReviewDisplay[] => {
-  const periods = ['Q1 2025', 'Q4 2024', 'Q3 2024', 'Q2 2024'];
-  const reviewers = ['Fatou Diallo', 'Moussa Sow', 'Aïcha Ndiaye'];
-  
-  return employeesData.map((emp, idx) => {
-    const dept = deptPerformance.find(d => d.id === emp.departmentId);
-    const rating = Math.floor(Math.random() * 3) + 2; // 2-5 rating
-    const objectivesTotal = 4 + Math.floor(Math.random() * 3); // 4-6 objectives
-    const objectivesCompleted = Math.floor(Math.random() * (objectivesTotal + 1));
-    
-    return {
-      id: `review-${emp.id}`,
-      employeeId: emp.id,
-      employeeName: `${emp.firstName} ${emp.lastName}`,
-      department: dept?.name || 'N/A',
-      period: periods[Math.floor(Math.random() * periods.length)],
-      rating,
-      objectivesCompleted,
-      objectivesTotal,
-      feedback: rating >= 4 ? 'Excellente performance cette période. Continuez vos efforts.' : 
-                rating >= 3 ? 'Bonne performance globale. Des améliorations possibles sur certains points.' :
-                'Performance à améliorer. Un plan d\'action est nécessaire.',
-      reviewer: reviewers[Math.floor(Math.random() * reviewers.length)],
-      reviewedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-      status: Math.random() > 0.3 ? 'completed' : Math.random() > 0.5 ? 'pending' : 'in_progress',
-    };
-  });
-};
-
-// Generate mock objectives
-const generateObjectives = (): ObjectiveDisplay[] => {
-  const objectiveTemplates = [
-    { title: 'Augmenter les ventes', description: 'Atteindre les objectifs de vente trimestriels', target: 100 },
-    { title: 'Terminer le projet CRM', description: 'Finaliser le déploiement du nouveau CRM', target: 100 },
-    { title: 'Formation équipe', description: 'Organiser 2 sessions de formation pour l\'équipe', target: 2 },
-    { title: 'Réduire les coûts', description: 'Réduire les coûts opérationnels de 15%', target: 15 },
-    { title: 'Améliorer la satisfaction client', description: 'Atteindre un score NPS de 8+', target: 8 },
-    { title: 'Livrer les features', description: 'Livrer 10 nouvelles fonctionnalités', target: 10 },
-  ];
-  
-  const objectives: ObjectiveDisplay[] = [];
-  
-  employeesData.forEach((emp) => {
-    const numObjectives = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < numObjectives; i++) {
-      const template = objectiveTemplates[Math.floor(Math.random() * objectiveTemplates.length)];
-      const target = template.target;
-      const achieved = Math.floor(Math.random() * (target + 20));
-      const status = achieved >= target ? 'exceeded' : 
-                   achieved >= target * 0.8 ? 'achieved' : 
-                   achieved >= target * 0.5 ? 'at_risk' : 'pending';
-      
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 60) - 10);
-      
-      objectives.push({
-        id: `obj-${emp.id}-${i}`,
-        employeeId: emp.id,
-        employeeName: `${emp.firstName} ${emp.lastName}`,
-        title: template.title,
-        description: template.description,
-        target,
-        achieved,
-        status,
-        dueDate,
-      });
-    }
-  });
-  
-  return objectives;
-};
+// Department performance type
+interface DepartmentPerformance {
+  departmentId: string;
+  departmentName: string;
+  avgRating: number;
+  employeeCount: number;
+}
 
 export const Performance: React.FC = () => {
   // State
+  const [performanceReviews, setPerformanceReviews] = useState<PerformanceReviewDisplay[]>([]);
+  const [objectives, setObjectives] = useState<ObjectiveDisplay[]>([]);
+  const [departmentPerformance, setDepartmentPerformance] = useState<DepartmentPerformance[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [currentTab, setCurrentTab] = useState<'reviews' | 'objectives'>('reviews');
@@ -117,9 +60,64 @@ export const Performance: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const itemsPerPage = 10;
 
-  // Generate mock data
-  const performanceReviews = useMemo(() => generatePerformanceReviews(), []);
-  const objectives = useMemo(() => generateObjectives(), []);
+  // Fetch performance reviews
+  const fetchPerformanceReviews = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await performanceService.getPerformanceReviews({ pageSize: 100 });
+      setPerformanceReviews(response.data || []);
+    } catch (err) {
+      console.error('Error fetching performance reviews:', err);
+      // Don't show error - just use empty data when API fails
+      setPerformanceReviews([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch objectives
+  const fetchObjectives = useCallback(async () => {
+    try {
+      const response = await performanceService.getObjectives({ pageSize: 100 });
+      setObjectives(response.data || []);
+    } catch (err) {
+      console.error('Error fetching objectives:', err);
+      // Don't show error - just use empty data when API fails
+      setObjectives([]);
+    }
+  }, []);
+
+  // Fetch department performance
+  const fetchDepartmentPerformance = useCallback(async () => {
+    try {
+      const data = await performanceService.getDepartmentPerformance();
+      setDepartmentPerformance(data);
+    } catch (err) {
+      console.error('Error fetching department performance:', err);
+    }
+  }, []);
+
+  // Fetch employees
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await employeeService.getEmployees({ pageSize: 100 });
+      setEmployees(response.data);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
+  useEffect(() => {
+    fetchPerformanceReviews();
+    fetchObjectives();
+    fetchDepartmentPerformance();
+  }, [fetchPerformanceReviews, fetchObjectives, fetchDepartmentPerformance]);
 
   // Filter reviews
   const filteredReviews = useMemo(() => {
@@ -147,7 +145,9 @@ export const Performance: React.FC = () => {
   // Calculate statistics
   const stats = useMemo(() => {
     const totalReviews = performanceReviews.length;
-    const avgRating = (performanceReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1);
+    const avgRating = totalReviews > 0 
+      ? (performanceReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+      : '0.0';
     const excellentReviews = performanceReviews.filter(r => r.rating >= 4).length;
     const pendingReviews = performanceReviews.filter(r => r.status === 'pending' || r.status === 'in_progress').length;
     
@@ -167,7 +167,7 @@ export const Performance: React.FC = () => {
   }, [performanceReviews, objectives]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredReviews.length / itemsPerPage) || 1;
   const paginatedReviews = filteredReviews.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -206,6 +206,31 @@ export const Performance: React.FC = () => {
     return styles[status] || styles.pending;
   };
 
+  // Rating distribution data
+  const ratingDistribution = useMemo(() => {
+    return [5, 4, 3, 2, 1].map(rating => ({
+      rating,
+      count: performanceReviews.filter(r => r.rating === rating).length,
+      percentage: stats.totalReviews > 0 
+        ? (performanceReviews.filter(r => r.rating === rating).length / stats.totalReviews) * 100 
+        : 0,
+    }));
+  }, [performanceReviews, stats.totalReviews]);
+
+  // Department performance display
+  const displayDeptPerformance = useMemo(() => {
+    if (departmentPerformance.length > 0) {
+      return departmentPerformance.map(dept => ({
+        id: dept.departmentId,
+        name: dept.departmentName,
+        avgRating: dept.avgRating,
+        employeeCount: dept.employeeCount,
+      }));
+    }
+    // No fallback - show empty state when no backend data
+    return [];
+  }, [departmentPerformance]);
+
   return (
     <div style={{ padding: 24 }}>
       {/* Header */}
@@ -223,6 +248,21 @@ export const Performance: React.FC = () => {
         </Button>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div style={{ 
+          padding: '12px 16px', 
+          background: 'rgba(224, 80, 80, 0.1)', 
+          border: '1px solid rgba(224, 80, 80, 0.3)',
+          borderRadius: 8,
+          marginBottom: 20,
+          color: '#e05050',
+          fontSize: 13,
+        }}>
+          {error}
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, marginBottom: 24 }}>
         <Card style={{ padding: 20 }}>
@@ -238,14 +278,14 @@ export const Performance: React.FC = () => {
               fontSize: 20,
               color: '#6490ff',
             }}>
-              ☰
+            ☰
             </div>
             <div>
               <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Évaluations
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text }}>
-                {stats.totalReviews}
+                {loading ? '...' : stats.totalReviews}
               </div>
             </div>
           </div>
@@ -271,7 +311,7 @@ export const Performance: React.FC = () => {
                 Note Moyenne
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text }}>
-                {stats.avgRating}
+                {loading ? '...' : stats.avgRating}
               </div>
             </div>
           </div>
@@ -297,7 +337,7 @@ export const Performance: React.FC = () => {
                 Excellents
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text }}>
-                {stats.excellentReviews}
+                {loading ? '...' : stats.excellentReviews}
               </div>
             </div>
           </div>
@@ -323,7 +363,7 @@ export const Performance: React.FC = () => {
                 En attente
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text }}>
-                {stats.pendingReviews}
+                {loading ? '...' : stats.pendingReviews}
               </div>
             </div>
           </div>
@@ -349,7 +389,7 @@ export const Performance: React.FC = () => {
                 Objectifs
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text }}>
-                {stats.totalObjectives}
+                {loading ? '...' : stats.totalObjectives}
               </div>
             </div>
           </div>
@@ -375,7 +415,7 @@ export const Performance: React.FC = () => {
                 À risque
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text }}>
-                {stats.atRiskObjectives}
+                {loading ? '...' : stats.atRiskObjectives}
               </div>
             </div>
           </div>
@@ -388,18 +428,20 @@ export const Performance: React.FC = () => {
           <h3 style={{ fontSize: 14, fontWeight: 600, color: Colors.text, marginBottom: 16 }}>
             Distribution des Notes
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[5, 4, 3, 2, 1].map(rating => {
-              const count = performanceReviews.filter(r => r.rating === rating).length;
-              const percentage = (count / stats.totalReviews) * 100;
-              return (
-                <div key={rating}>
+          {loading ? (
+            <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>
+              Chargement...
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {ratingDistribution.map((item) => (
+                <div key={item.rating}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ color: '#fbbf24', fontSize: 12 }}>★</span>
-                      <span style={{ fontSize: 12, color: Colors.textMuted }}>{rating}</span>
+                      <span style={{ fontSize: 12, color: Colors.textMuted }}>{item.rating}</span>
                     </div>
-                    <span style={{ fontSize: 12, color: Colors.textMuted }}>{count}</span>
+                    <span style={{ fontSize: 12, color: Colors.textMuted }}>{item.count}</span>
                   </div>
                   <div style={{ 
                     height: 8, 
@@ -408,28 +450,29 @@ export const Performance: React.FC = () => {
                     overflow: 'hidden',
                   }}>
                     <div style={{ 
-                      width: `${percentage}%`, 
+                      width: `${item.percentage}%`, 
                       height: '100%', 
-                      background: rating >= 4 ? '#3ecf8e' : rating >= 3 ? '#6490ff' : '#fb923c',
+                      background: item.rating >= 4 ? '#3ecf8e' : item.rating >= 3 ? '#6490ff' : '#fb923c',
                       borderRadius: 4,
                     }} />
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
         
         <Card style={{ padding: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: Colors.text, marginBottom: 16 }}>
             Performance par Département
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
-            {deptPerformance.map((dept) => {
-              const deptEmployees = employeesData.filter(e => e.departmentId === dept.id);
-              const avgRating = 2 + Math.random() * 3;
-              
-              return (
+          {loading ? (
+            <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>
+              Chargement...
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+              {displayDeptPerformance.map((dept) => (
                 <div key={dept.id} style={{ 
                   padding: 16, 
                   background: 'rgba(100, 140, 255, 0.03)', 
@@ -440,16 +483,16 @@ export const Performance: React.FC = () => {
                   <div style={{ fontSize: 18, fontWeight: 700, color: Colors.text, marginBottom: 4 }}>
                     {dept.name}
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: avgRating >= 4 ? '#3ecf8e' : '#6490ff', marginBottom: 4 }}>
-                    {avgRating.toFixed(1)}
+                  <div style={{ fontSize: 24, fontWeight: 700, color: dept.avgRating >= 4 ? '#3ecf8e' : '#6490ff', marginBottom: 4 }}>
+                    {dept.avgRating.toFixed(1)}
                   </div>
                   <div style={{ fontSize: 10, color: Colors.textMuted }}>
-                    {deptEmployees.length} employés
+                    {dept.employeeCount} employés
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
@@ -525,254 +568,268 @@ export const Performance: React.FC = () => {
       {/* Reviews Table */}
       {currentTab === 'reviews' && (
         <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employé</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Période</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Note</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Objectifs</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Évaluateur</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedReviews.map((review, index) => {
-                  const ratingBadge = getRatingBadge(review.rating);
-                  return (
-                    <tr 
-                      key={review.id} 
-                      style={{ 
-                        borderBottom: `1px solid ${Colors.border}`,
-                        background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Chargement des évaluations...
+            </div>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employé</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Période</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Note</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Objectifs</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Évaluateur</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedReviews.map((review, index) => {
+                      const ratingBadge = getRatingBadge(review.rating);
+                      return (
+                        <tr 
+                          key={review.id} 
+                          style={{ 
+                            borderBottom: `1px solid ${Colors.border}`,
+                            background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+                          }}
+                        >
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <div style={{ 
+                                width: 36, 
+                                height: 36, 
+                                borderRadius: '50%', 
+                                background: 'rgba(100, 140, 255, 0.15)', 
+                                border: '1px solid rgba(100, 140, 255, 0.3)',
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                fontSize: 12, 
+                                fontWeight: 600, 
+                                color: Colors.accent,
+                              }}>
+                                {review.employeeName.split(' ').map(n => n[0]).join('')}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
+                                  {review.employeeName}
+                                </div>
+                                <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                                  {review.department}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
+                            {review.period}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+                              {renderStars(review.rating)}
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'center', fontSize: 13, color: Colors.text }}>
+                            <span style={{ color: review.objectivesCompleted >= review.objectivesTotal * 0.8 ? '#3ecf8e' : Colors.text }}>
+                              {review.objectivesCompleted}
+                            </span>
+                            <span style={{ color: Colors.textMuted }}>/{review.objectivesTotal}</span>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
+                            {review.reviewer}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <span style={{ 
+                              padding: '4px 10px', 
+                              borderRadius: 6, 
+                              fontSize: 11, 
+                              fontWeight: 500,
+                              background: ratingBadge.bg, 
+                              color: ratingBadge.color 
+                            }}>
+                              {ratingBadge.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <button style={{ 
+                              padding: '6px 12px', 
+                              borderRadius: 6, 
+                              border: `1px solid ${Colors.border}`, 
+                              background: 'transparent', 
+                              color: Colors.textMuted, 
+                              fontSize: 11, 
+                              cursor: 'pointer',
+                            }}>
+                              ✎ Détails
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '16px 20px',
+                borderTop: `1px solid ${Colors.border}`,
+              }}>
+                <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                  Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredReviews.length)} sur {filteredReviews.length}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 6,
+                      border: `1px solid ${Colors.border}`,
+                      background: 'transparent',
+                      color: currentPage === 1 ? Colors.textMuted : Colors.text,
+                      fontSize: 12,
+                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === 1 ? 0.5 : 1,
+                    }}
+                  >
+                    ← Précédent
+                  </button>
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 6,
+                        border: page === currentPage ? `1px solid ${Colors.accent}` : `1px solid ${Colors.border}`,
+                        background: page === currentPage ? 'rgba(100, 140, 255, 0.15)' : 'transparent',
+                        color: page === currentPage ? Colors.accent : Colors.text,
+                        fontSize: 12,
+                        cursor: 'pointer',
                       }}
                     >
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{ 
-                            width: 36, 
-                            height: 36, 
-                            borderRadius: '50%', 
-                            background: 'rgba(100, 140, 255, 0.15)', 
-                            border: '1px solid rgba(100, 140, 255, 0.3)',
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            fontSize: 12, 
-                            fontWeight: 600, 
-                            color: Colors.accent,
-                          }}>
-                            {review.employeeName.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
-                              {review.employeeName}
-                            </div>
-                            <div style={{ fontSize: 12, color: Colors.textMuted }}>
-                              {review.department}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
-                        {review.period}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-                          {renderStars(review.rating)}
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center', fontSize: 13, color: Colors.text }}>
-                        <span style={{ color: review.objectivesCompleted >= review.objectivesTotal * 0.8 ? '#3ecf8e' : Colors.text }}>
-                          {review.objectivesCompleted}
-                        </span>
-                        <span style={{ color: Colors.textMuted }}>/{review.objectivesTotal}</span>
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                        {review.reviewer}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <span style={{ 
-                          padding: '4px 10px', 
-                          borderRadius: 6, 
-                          fontSize: 11, 
-                          fontWeight: 500,
-                          background: ratingBadge.bg, 
-                          color: ratingBadge.color 
-                        }}>
-                          {ratingBadge.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <button style={{ 
-                          padding: '6px 12px', 
-                          borderRadius: 6, 
-                          border: `1px solid ${Colors.border}`, 
-                          background: 'transparent', 
-                          color: Colors.textMuted, 
-                          fontSize: 11, 
-                          cursor: 'pointer',
-                        }}>
-                          ✎ Détails
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            padding: '16px 20px',
-            borderTop: `1px solid ${Colors.border}`,
-          }}>
-            <div style={{ fontSize: 12, color: Colors.textMuted }}>
-              Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredReviews.length)} sur {filteredReviews.length}
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 6,
-                  border: `1px solid ${Colors.border}`,
-                  background: 'transparent',
-                  color: currentPage === 1 ? Colors.textMuted : Colors.text,
-                  fontSize: 12,
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                  opacity: currentPage === 1 ? 0.5 : 1,
-                }}
-              >
-                ← Précédent
-              </button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: page === currentPage ? `1px solid ${Colors.accent}` : `1px solid ${Colors.border}`,
-                    background: page === currentPage ? 'rgba(100, 140, 255, 0.15)' : 'transparent',
-                    color: page === currentPage ? Colors.accent : Colors.text,
-                    fontSize: 12,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {page}
-                </button>
-              ))}
-              <button 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 6,
-                  border: `1px solid ${Colors.border}`,
-                  background: 'transparent',
-                  color: currentPage === totalPages ? Colors.textMuted : Colors.text,
-                  fontSize: 12,
-                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                  opacity: currentPage === totalPages ? 0.5 : 1,
-                }}
-              >
-                Suivant →
-              </button>
-            </div>
-          </div>
+                      {page}
+                    </button>
+                  ))}
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 6,
+                      border: `1px solid ${Colors.border}`,
+                      background: 'transparent',
+                      color: currentPage === totalPages ? Colors.textMuted : Colors.text,
+                      fontSize: 12,
+                      cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === totalPages ? 0.5 : 1,
+                    }}
+                  >
+                    Suivant →
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </Card>
       )}
 
       {/* Objectives Table */}
       {currentTab === 'objectives' && (
         <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Objectif</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employé</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progression</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Échéance</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredObjectives.map((objective, index) => {
-                  const statusStyle = getObjectiveStatus(objective.status);
-                  const progress = Math.min((objective.achieved / objective.target) * 100, 100);
-                  
-                  return (
-                    <tr 
-                      key={objective.id} 
-                      style={{ 
-                        borderBottom: `1px solid ${Colors.border}`,
-                        background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                      }}
-                    >
-                      <td style={{ padding: '14px 16px' }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
-                            {objective.title}
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Chargement des objectifs...
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Objectif</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employé</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progression</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Échéance</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredObjectives.map((objective, index) => {
+                    const statusStyle = getObjectiveStatus(objective.status);
+                    const progress = Math.min((objective.achieved / objective.target) * 100, 100);
+                    
+                    return (
+                      <tr 
+                        key={objective.id} 
+                        style={{ 
+                          borderBottom: `1px solid ${Colors.border}`,
+                          background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+                        }}
+                      >
+                        <td style={{ padding: '14px 16px' }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
+                              {objective.title}
+                            </div>
+                            <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                              {objective.description}
+                            </div>
                           </div>
-                          <div style={{ fontSize: 12, color: Colors.textMuted }}>
-                            {objective.description}
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
-                        {objective.employeeName}
-                      </td>
-                      <td style={{ padding: '14px 16px', width: 200 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ 
-                            flex: 1,
-                            height: 8, 
-                            background: 'rgba(100, 140, 255, 0.1)', 
-                            borderRadius: 4, 
-                            overflow: 'hidden',
-                          }}>
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
+                          {objective.employeeName}
+                        </td>
+                        <td style={{ padding: '14px 16px', width: 200 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ 
-                              width: `${progress}%`, 
-                              height: '100%', 
-                              background: statusStyle.color,
-                              borderRadius: 4,
-                            }} />
+                              flex: 1,
+                              height: 8, 
+                              background: 'rgba(100, 140, 255, 0.1)', 
+                              borderRadius: 4, 
+                              overflow: 'hidden',
+                            }}>
+                              <div style={{ 
+                                width: `${progress}%`, 
+                                height: '100%', 
+                                background: statusStyle.color,
+                                borderRadius: 4,
+                              }} />
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 500, color: Colors.text, minWidth: 40 }}>
+                              {objective.achieved}/{objective.target}
+                            </span>
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 500, color: Colors.text, minWidth: 40 }}>
-                            {objective.achieved}/{objective.target}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
+                          {objective.dueDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <span style={{ 
+                            padding: '4px 10px', 
+                            borderRadius: 6, 
+                            fontSize: 11, 
+                            fontWeight: 500,
+                            background: statusStyle.bg, 
+                            color: statusStyle.color 
+                          }}>
+                            {statusStyle.label}
                           </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                        {objective.dueDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <span style={{ 
-                          padding: '4px 10px', 
-                          borderRadius: 6, 
-                          fontSize: 11, 
-                          fontWeight: 500,
-                          background: statusStyle.bg, 
-                          color: statusStyle.color 
-                        }}>
-                          {statusStyle.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
@@ -786,7 +843,7 @@ export const Performance: React.FC = () => {
         <form onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Employé</label>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Employé *</label>
               <select 
                 style={{
                   width: '100%',
@@ -797,15 +854,16 @@ export const Performance: React.FC = () => {
                   color: Colors.text,
                   fontSize: 13,
                 }}
+                required
               >
                 <option value="">Sélectionner un employé</option>
-                {employeesData.map(emp => (
+                {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Période</label>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Période *</label>
               <select 
                 style={{
                   width: '100%',
@@ -816,6 +874,7 @@ export const Performance: React.FC = () => {
                   color: Colors.text,
                   fontSize: 13,
                 }}
+                required
               >
                 <option value="Q1 2025">Q1 2025</option>
                 <option value="Q4 2024">Q4 2024</option>
@@ -824,7 +883,7 @@ export const Performance: React.FC = () => {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Note globale</label>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Note globale *</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[1, 2, 3, 4, 5].map(rating => (
                   <button

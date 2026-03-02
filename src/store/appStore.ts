@@ -3,6 +3,8 @@
 
 import { create } from 'zustand';
 import type { NavSection } from '@/types';
+import { authService } from '@/services/authService';
+import type { AuthResponse } from '@/types/auth';
 
 interface AppState {
   // Authentication state
@@ -39,7 +41,7 @@ interface AppState {
   setNavSections: (sections: NavSection[]) => void;
 }
 
-// Mock users for authentication
+// Mock users for authentication (fallback for demo)
 const mockUsers = [
   { email: 'dg@nexus-erp.sn', password: 'admin123', name: 'Directeur Général', role: 'DG' },
   { email: 'rh@nexus-erp.sn', password: 'rh123', name: 'Responsable RH', role: 'RH' },
@@ -52,30 +54,46 @@ export const useAppStore = create<AppState>((set) => ({
   currentUser: null,
   
   login: async (email: string, password: string) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const user = mockUsers.find(u => u.email === email && u.password === password);
-    if (user) {
+    try {
+      // Attempt to login via backend API
+      const authResponse: AuthResponse = await authService.login(email, password);
+      
+      // Store tokens
+      authService.saveTokens(authResponse);
+      
+      // Map permissions to role for the app
+      let role = 'DG';
+      if (authResponse.permissions.includes('RH_ACCESS')) {
+        role = 'RH';
+      } else if (authResponse.permissions.includes('FINANCE_ACCESS')) {
+        role = 'Finance';
+      }
+      
       set({ 
         isAuthenticated: true, 
         currentUser: { 
-          name: user.name, 
-          email: user.email, 
-          role: user.role 
+          name: authResponse.fullName, 
+          email: authResponse.email, 
+          role: role
         },
-        activeView: user.role === 'DG' ? 'DG' : user.role === 'RH' ? 'RH' : 'Finance'
+        activeView: role
       });
       return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
     }
-    return false;
   },
   
-  logout: () => set({ 
-    isAuthenticated: false, 
-    currentUser: null,
-    activeNav: 'dashboard'
-  }),
+  logout: () => {
+    // Clear tokens
+    authService.clearTokens();
+    set({ 
+      isAuthenticated: false, 
+      currentUser: null,
+      activeNav: 'dashboard'
+    });
+  },
   
   // Sidebar - expanded by default
   isSidebarOpen: true,

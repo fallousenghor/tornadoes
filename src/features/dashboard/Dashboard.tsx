@@ -1,7 +1,7 @@
 // Dashboard Feature - AEVUM Enterprise ERP
 // Main dashboard component with KPIs, charts, and analytics - Theme Support
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkline } from '../../components/charts';
 import { Spacing, BorderRadius } from '../../constants/theme';
 import { useAppStore } from '../../store';
@@ -25,8 +25,9 @@ import {
   ActivityFeed,
 } from './components';
 
-// Import mock data
-import { kpis } from '../../data/mockData';
+// Import services
+import dashboardService from '../../services/dashboardService';
+import type { KPI } from '@/types';
 
 // KPI Card Component with Theme Support
 interface KPICardLocalProps {
@@ -103,6 +104,30 @@ const Dashboard: React.FC = () => {
   const store = useAppStore();
   const { colors } = useTheme();
 
+  // State for KPIs from backend
+  const [kpis, setKpis] = useState<KPI[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch KPIs from backend
+  useEffect(() => {
+    const fetchKPIs = async () => {
+      try {
+        setLoading(true);
+        const data = await dashboardService.getKPIs();
+        setKpis(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching KPIs:', err);
+        setError('Erreur lors du chargement des KPIs');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchKPIs();
+  }, []);
+
   // Animation keyframes
   const keyframes = `
     @keyframes upfade {
@@ -122,12 +147,36 @@ const Dashboard: React.FC = () => {
     }
   `;
 
-  // Get AI alerts from mock data
+  // Get AI alerts - could be fetched from backend in the future
   const aiAlerts = [
     { icon: '⚡', text: '3 nouveaux employés en attente de validation', color: colors.primaryMuted, border: colors.primaryMuted, btn: 'Voir' },
     { icon: '💰', text: 'Facture #INV-2024-156 en retard de paiement', color: colors.warningBg, border: colors.warningMuted, btn: 'Relancer' },
     { icon: '📦', text: 'Alerte stock: 5 produits en rupture', color: colors.dangerBg, border: colors.dangerMuted, btn: 'Commander' },
   ];
+
+  // Show loading state
+  if (loading && kpis.length === 0) {
+    return (
+      <div style={{ fontFamily: "'DM Sans', sans-serif", padding: 40, textAlign: 'center' }}>
+        <div style={{ color: colors.textMuted }}>Chargement des données...</div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error && kpis.length === 0) {
+    return (
+      <div style={{ fontFamily: "'DM Sans', sans-serif", padding: 40, textAlign: 'center' }}>
+        <div style={{ color: colors.danger }}>{error}</div>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }}>

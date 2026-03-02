@@ -1,10 +1,11 @@
 // Invoicing Page - Finance Module
 // Complete invoice management with client tracking, payments, and analytics
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
-import { invoicesData } from '../../data/mockData';
+import invoiceService from '../../services/invoiceService';
+import type { Invoice, InvoiceStatus } from '../../types';
 
 // Invoice type
 interface InvoiceDisplay {
@@ -15,72 +16,64 @@ interface InvoiceDisplay {
   amount: number;
   date: Date;
   dueDate?: Date;
-  status: 'paye' | 'en_attente' | 'partiel';
+  status: InvoiceStatus;
   paidAmount?: number;
   items: { description: string; quantity: number; unitPrice: number; total: number }[];
 }
 
-// Generate mock invoices
-const generateInvoices = (): InvoiceDisplay[] => {
-  const clients = [
-    'Sonatel SA', 'BNK Group', 'CBAO', 'Dakar Airport', 'Orange SN',
-    'Free Senegal', 'Sukala Group', 'Manhattan Corp', 'Tigo', 'Expresso'
-  ];
-  
-  const invoices: InvoiceDisplay[] = [];
-  
-  for (let i = 0; i < 25; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - Math.floor(Math.random() * 60));
-    
-    const dueDate = new Date(date);
-    dueDate.setDate(dueDate.getDate() + 30);
-    
-    const amount = Math.floor(Math.random() * 200000) + 10000;
-    const statuses: InvoiceDisplay['status'][] = ['paye', 'en_attente', 'partiel'];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    
-    const paidAmount = status === 'paye' ? amount : 
-                      status === 'partiel' ? Math.floor(amount * (Math.random() * 0.5 + 0.3)) : 0;
-    
-    invoices.push({
-      id: `inv-${i}`,
-      reference: `INV-${2020 + i}`,
-      clientId: `c${i}`,
-      clientName: clients[Math.floor(Math.random() * clients.length)],
-      amount,
-      date,
-      dueDate,
-      status,
-      paidAmount,
-      items: [
-        { description: 'Services de consultation', quantity: Math.floor(Math.random() * 10) + 1, unitPrice: 15000, total: 0 },
-        { description: 'Formation équipes', quantity: Math.floor(Math.random() * 5) + 1, unitPrice: 25000, total: 0 },
-      ],
-    });
-  }
-  
-  // Calculate item totals
-  invoices.forEach(inv => {
-    inv.items.forEach(item => {
-      item.total = item.quantity * item.unitPrice;
-    });
-  });
-  
-  return invoices.sort((a, b) => b.date.getTime() - a.date.getTime());
-};
-
 export const Invoices: React.FC = () => {
   // State
+  const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDisplay | null>(null);
+  const [formData, setFormData] = useState({
+    clientName: '',
+    clientEmail: '',
+    dueDate: '',
+    description: '',
+    amount: 0,
+    taxRate: 18,
+  });
   const itemsPerPage = 10;
 
-  // Generate mock data
-  const invoices = useMemo(() => generateInvoices(), []);
+  // Fetch invoices from API
+  const fetchInvoices = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await invoiceService.getInvoices({ pageSize: 50 });
+      
+      const mappedInvoices: InvoiceDisplay[] = response.data.map(inv => ({
+        id: inv.id,
+        reference: inv.reference,
+        clientId: inv.clientId,
+        clientName: inv.clientName,
+        amount: inv.amount,
+        date: inv.date,
+        dueDate: inv.dueDate,
+        status: inv.status,
+        paidAmount: 0,
+        items: inv.items || [],
+      }));
+      
+      setInvoices(mappedInvoices);
+    } catch (err) {
+      console.error('Error fetching invoices:', err);
+      setError('Erreur lors du chargement des factures');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   // Filter invoices
   const filteredInvoices = useMemo(() => {
@@ -107,7 +100,7 @@ export const Invoices: React.FC = () => {
   }, [invoices]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage) || 1;
   const paginatedInvoices = filteredInvoices.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -124,7 +117,7 @@ export const Invoices: React.FC = () => {
   };
 
   // Status badge
-  const getStatusBadge = (status: InvoiceDisplay['status']) => {
+  const getStatusBadge = (status: InvoiceStatus) => {
     const styles: Record<string, { bg: string; color: string; label: string }> = {
       paye: { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Payé' },
       en_attente: { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', label: 'En attente' },
@@ -134,10 +127,79 @@ export const Invoices: React.FC = () => {
   };
 
   // Handle view details
-  const handleViewDetails = (invoice: InvoiceDisplay) => {
-    setSelectedInvoice(invoice);
-    setIsModalOpen(true);
+  const handleViewDetails = async (invoice: InvoiceDisplay) => {
+    try {
+      const fullInvoice = await invoiceService.getInvoice(invoice.id);
+      setSelectedInvoice({
+        ...fullInvoice,
+        reference: fullInvoice.reference,
+      });
+      setIsModalOpen(true);
+    } catch (err) {
+      console.error('Error fetching invoice details:', err);
+      setSelectedInvoice(invoice);
+      setIsModalOpen(true);
+    }
   };
+
+  // Handle create invoice
+  const handleCreateInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await invoiceService.createInvoice({
+        clientName: formData.clientName,
+        clientEmail: formData.clientEmail,
+        items: [
+          { description: formData.description, quantity: 1, unitPrice: formData.amount }
+        ],
+        dueDate: formData.dueDate || undefined,
+      });
+      fetchInvoices();
+      setIsModalOpen(false);
+      setSelectedInvoice(null);
+      setFormData({
+        clientName: '',
+        clientEmail: '',
+        dueDate: '',
+        description: '',
+        amount: 0,
+        taxRate: 18,
+      });
+    } catch (err) {
+      console.error('Error creating invoice:', err);
+      alert('Erreur lors de la création de la facture');
+    }
+  };
+
+  // Handle payment
+  const handlePayment = async (invoiceId: string) => {
+    try {
+      await invoiceService.processPayment(invoiceId, {
+        amount: invoices.find(inv => inv.id === invoiceId)?.amount || 0,
+        paymentMethod: 'bank_transfer',
+      });
+      fetchInvoices();
+      setIsModalOpen(false);
+      setSelectedInvoice(null);
+    } catch (err) {
+      console.error('Error processing payment:', err);
+      alert('Erreur lors du traitement du paiement');
+    }
+  };
+
+  // Handle form change
+  const handleFormChange = (field: string, value: string | number) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Top clients (mock for now)
+  const topClients = [
+    { name: 'Sonatel SA', amount: 245000, invoices: 12 },
+    { name: 'BNK Group', amount: 189000, invoices: 8 },
+    { name: 'CBAO', amount: 156000, invoices: 6 },
+    { name: 'Dakar Airport', amount: 134000, invoices: 5 },
+    { name: 'Orange SN', amount: 98000, invoices: 4 },
+  ];
 
   return (
     <div style={{ padding: 24 }}>
@@ -151,10 +213,25 @@ export const Invoices: React.FC = () => {
             Facturation · Paiements · Suivi
           </p>
         </div>
-        <Button variant="primary" onClick={() => setIsModalOpen(true)}>
+        <Button variant="primary" onClick={() => { setSelectedInvoice(null); setIsModalOpen(true); }}>
           + Nouvelle facture
         </Button>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div style={{ 
+          padding: '12px 16px', 
+          background: 'rgba(224, 80, 80, 0.1)', 
+          border: '1px solid rgba(224, 80, 80, 0.3)',
+          borderRadius: 8,
+          marginBottom: 20,
+          color: '#e05050',
+          fontSize: 13,
+        }}>
+          {error}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
@@ -178,7 +255,7 @@ export const Invoices: React.FC = () => {
                 Total
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {formatCurrency(stats.total)}
+                {loading ? '...' : formatCurrency(stats.total)}
               </div>
             </div>
           </div>
@@ -204,7 +281,7 @@ export const Invoices: React.FC = () => {
                 Payé
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {formatCurrency(stats.paid)}
+                {loading ? '...' : formatCurrency(stats.paid)}
               </div>
             </div>
           </div>
@@ -230,7 +307,7 @@ export const Invoices: React.FC = () => {
                 En attente
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {formatCurrency(stats.pending)}
+                {loading ? '...' : formatCurrency(stats.pending)}
               </div>
             </div>
           </div>
@@ -256,7 +333,7 @@ export const Invoices: React.FC = () => {
                 Partiel
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {formatCurrency(stats.partial)}
+                {loading ? '...' : formatCurrency(stats.partial)}
               </div>
             </div>
           </div>
@@ -282,7 +359,7 @@ export const Invoices: React.FC = () => {
                 En retard
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text }}>
-                {stats.overdue}
+                {loading ? '...' : stats.overdue}
               </div>
             </div>
           </div>
@@ -301,7 +378,7 @@ export const Invoices: React.FC = () => {
               { label: 'En attente', value: stats.pending, total: stats.total, color: '#fb923c' },
               { label: 'Partiel', value: stats.partial, total: stats.total, color: '#6490ff' },
             ].map((item, idx) => {
-              const percentage = (item.value / item.total) * 100;
+              const percentage = stats.total > 0 ? (item.value / stats.total) * 100 : 0;
               return (
                 <div key={idx}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -334,13 +411,7 @@ export const Invoices: React.FC = () => {
             Top Clients
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-            {[
-              { name: 'Sonatel SA', amount: 245000, invoices: 12 },
-              { name: 'BNK Group', amount: 189000, invoices: 8 },
-              { name: 'CBAO', amount: 156000, invoices: 6 },
-              { name: 'Dakar Airport', amount: 134000, invoices: 5 },
-              { name: 'Orange SN', amount: 98000, invoices: 4 },
-            ].map((client, idx) => (
+            {topClients.map((client, idx) => (
               <div key={idx} style={{ 
                 padding: 16, 
                 background: 'rgba(100, 140, 255, 0.03)', 
@@ -398,162 +469,173 @@ export const Invoices: React.FC = () => {
 
       {/* Invoices Table */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Référence</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Échéance</th>
-                <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Montant</th>
-                <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
-                <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedInvoices.map((invoice, index) => {
-                const statusStyle = getStatusBadge(invoice.status);
-                const isOverdue = invoice.status !== 'paye' && invoice.dueDate && invoice.dueDate < new Date();
-                
-                return (
-                  <tr 
-                    key={invoice.id} 
-                    style={{ 
-                      borderBottom: `1px solid ${Colors.border}`,
-                      background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+            Chargement des factures...
+          </div>
+        ) : (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Référence</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Échéance</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Montant</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedInvoices.map((invoice, index) => {
+                    const statusStyle = getStatusBadge(invoice.status);
+                    const isOverdue = invoice.status !== 'paye' && invoice.dueDate && invoice.dueDate < new Date();
+                    
+                    return (
+                      <tr 
+                        key={invoice.id} 
+                        style={{ 
+                          borderBottom: `1px solid ${Colors.border}`,
+                          background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+                        }}
+                      >
+                        <td style={{ padding: '14px 16px', fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
+                          {invoice.reference}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
+                          {invoice.clientName}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
+                          {invoice.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: 13, color: isOverdue ? '#e05050' : Colors.textMuted }}>
+                          {invoice.dueDate ? invoice.dueDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                          {isOverdue && <span style={{ marginLeft: 6, fontSize: 10, color: '#e05050' }}>(En retard)</span>}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: Colors.text }}>
+                          {formatCurrency(invoice.amount)}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <span style={{ 
+                            padding: '4px 10px', 
+                            borderRadius: 6, 
+                            fontSize: 11, 
+                            fontWeight: 500,
+                            background: statusStyle.bg, 
+                            color: statusStyle.color,
+                          }}>
+                            {statusStyle.label}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                            <button 
+                              onClick={() => handleViewDetails(invoice)}
+                              style={{ 
+                                padding: '6px 12px', 
+                                borderRadius: 6, 
+                                border: `1px solid ${Colors.border}`, 
+                                background: 'transparent', 
+                                color: Colors.textMuted, 
+                                fontSize: 11, 
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✎ Détails
+                            </button>
+                            {invoice.status !== 'paye' && (
+                              <button 
+                                onClick={() => handlePayment(invoice.id)}
+                                style={{ 
+                                  padding: '6px 12px', 
+                                  borderRadius: 6, 
+                                  border: 'none', 
+                                  background: 'rgba(62, 207, 142, 0.15)', 
+                                  color: '#3ecf8e', 
+                                  fontSize: 11, 
+                                  cursor: 'pointer',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Payer
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              padding: '16px 20px',
+              borderTop: `1px solid ${Colors.border}`,
+            }}>
+              <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredInvoices.length)} sur {filteredInvoices.length}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    border: `1px solid ${Colors.border}`,
+                    background: 'transparent',
+                    color: currentPage === 1 ? Colors.textMuted : Colors.text,
+                    fontSize: 12,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                  }}
+                >
+                  ← Précédent
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      border: page === currentPage ? `1px solid ${Colors.accent}` : `1px solid ${Colors.border}`,
+                      background: page === currentPage ? 'rgba(100, 140, 255, 0.15)' : 'transparent',
+                      color: page === currentPage ? Colors.accent : Colors.text,
+                      fontSize: 12,
+                      cursor: 'pointer',
                     }}
                   >
-                    <td style={{ padding: '14px 16px', fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
-                      {invoice.reference}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
-                      {invoice.clientName}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                      {invoice.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: isOverdue ? '#e05050' : Colors.textMuted }}>
-                      {invoice.dueDate ? invoice.dueDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-                      {isOverdue && <span style={{ marginLeft: 6, fontSize: 10, color: '#e05050' }}>(En retard)</span>}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: Colors.text }}>
-                      {formatCurrency(invoice.amount)}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                      <span style={{ 
-                        padding: '4px 10px', 
-                        borderRadius: 6, 
-                        fontSize: 11, 
-                        fontWeight: 500,
-                        background: statusStyle.bg, 
-                        color: statusStyle.color,
-                      }}>
-                        {statusStyle.label}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                        <button 
-                          onClick={() => handleViewDetails(invoice)}
-                          style={{ 
-                            padding: '6px 12px', 
-                            borderRadius: 6, 
-                            border: `1px solid ${Colors.border}`, 
-                            background: 'transparent', 
-                            color: Colors.textMuted, 
-                            fontSize: 11, 
-                            cursor: 'pointer',
-                          }}
-                        >
-                          ✎ Détails
-                        </button>
-                        {invoice.status !== 'paye' && (
-                          <button style={{ 
-                            padding: '6px 12px', 
-                            borderRadius: 6, 
-                            border: 'none', 
-                            background: 'rgba(62, 207, 142, 0.15)', 
-                            color: '#3ecf8e', 
-                            fontSize: 11, 
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                          }}>
-                            Payer
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          padding: '16px 20px',
-          borderTop: `1px solid ${Colors.border}`,
-        }}>
-          <div style={{ fontSize: 12, color: Colors.textMuted }}>
-            Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredInvoices.length)} sur {filteredInvoices.length}
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              style={{
-                padding: '8px 14px',
-                borderRadius: 6,
-                border: `1px solid ${Colors.border}`,
-                background: 'transparent',
-                color: currentPage === 1 ? Colors.textMuted : Colors.text,
-                fontSize: 12,
-                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                opacity: currentPage === 1 ? 0.5 : 1,
-              }}
-            >
-              ← Précédent
-            </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 6,
-                  border: page === currentPage ? `1px solid ${Colors.accent}` : `1px solid ${Colors.border}`,
-                  background: page === currentPage ? 'rgba(100, 140, 255, 0.15)' : 'transparent',
-                  color: page === currentPage ? Colors.accent : Colors.text,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                }}
-              >
-                {page}
-              </button>
-            ))}
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              style={{
-                padding: '8px 14px',
-                borderRadius: 6,
-                border: `1px solid ${Colors.border}`,
-                background: 'transparent',
-                color: currentPage === totalPages ? Colors.textMuted : Colors.text,
-                fontSize: 12,
-                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                opacity: currentPage === totalPages ? 0.5 : 1,
-              }}
-            >
-              Suivant →
-            </button>
-          </div>
-        </div>
+                    {page}
+                  </button>
+                ))}
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    border: `1px solid ${Colors.border}`,
+                    background: 'transparent',
+                    color: currentPage === totalPages ? Colors.textMuted : Colors.text,
+                    fontSize: 12,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                  }}
+                >
+                  Suivant →
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </Card>
 
       {/* Invoice Details / New Invoice Modal */}
@@ -642,7 +724,7 @@ export const Invoices: React.FC = () => {
                 Fermer
               </Button>
               {selectedInvoice.status !== 'paye' && (
-                <Button variant="primary">
+                <Button variant="primary" onClick={() => handlePayment(selectedInvoice.id)}>
                   Enregistrer paiement
                 </Button>
               )}
@@ -650,11 +732,17 @@ export const Invoices: React.FC = () => {
           </div>
         ) : (
           // New Invoice Form
-          <form onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+          <form onSubmit={handleCreateInvoice}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Client</label>
-                <select 
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Client *</label>
+                <input 
+                  type="text"
+                  name="clientName"
+                  value={formData.clientName}
+                  onChange={(e) => handleFormChange('clientName', e.target.value)}
+                  placeholder="Nom du client"
+                  required
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -664,20 +752,16 @@ export const Invoices: React.FC = () => {
                     color: Colors.text,
                     fontSize: 13,
                   }}
-                >
-                  <option value="">Sélectionner un client</option>
-                  <option value="c1">Sonatel SA</option>
-                  <option value="c2">BNK Group</option>
-                  <option value="c3">CBAO</option>
-                  <option value="c4">Dakar Airport</option>
-                  <option value="c5">Orange SN</option>
-                </select>
+                />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Date de facturation</label>
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Email client</label>
                 <input 
-                  type="date" 
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                  type="email"
+                  name="clientEmail"
+                  value={formData.clientEmail}
+                  onChange={(e) => handleFormChange('clientEmail', e.target.value)}
+                  placeholder="client@exemple.com"
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -693,6 +777,9 @@ export const Invoices: React.FC = () => {
                 <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Date d'échéance</label>
                 <input 
                   type="date" 
+                  name="dueDate"
+                  value={formData.dueDate}
+                  onChange={(e) => handleFormChange('dueDate', e.target.value)}
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -705,10 +792,14 @@ export const Invoices: React.FC = () => {
                 />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Description</label>
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Description *</label>
                 <textarea 
+                  name="description"
+                  value={formData.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
                   placeholder="Description des services..."
                   rows={3}
+                  required
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -723,10 +814,14 @@ export const Invoices: React.FC = () => {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Montant (€)</label>
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Montant (€) *</label>
                 <input 
                   type="number" 
+                  name="amount"
+                  value={formData.amount}
+                  onChange={(e) => handleFormChange('amount', parseFloat(e.target.value) || 0)}
                   placeholder="0"
+                  required
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -742,6 +837,9 @@ export const Invoices: React.FC = () => {
                 <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>TVA (%)</label>
                 <input 
                   type="number" 
+                  name="taxRate"
+                  value={formData.taxRate}
+                  onChange={(e) => handleFormChange('taxRate', parseFloat(e.target.value) || 0)}
                   defaultValue={18}
                   style={{
                     width: '100%',
@@ -756,7 +854,7 @@ export const Invoices: React.FC = () => {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-              <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>
+              <Button variant="secondary" type="button" onClick={() => { setIsModalOpen(false); setSelectedInvoice(null); }}>
                 Annuler
               </Button>
               <Button variant="primary" type="submit">

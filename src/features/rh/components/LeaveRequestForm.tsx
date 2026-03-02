@@ -1,10 +1,11 @@
 // Leave Request Form Component - RH Module
 // Reusable form for creating and editing leave requests
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button } from '../../../components/common';
 import { Colors } from '../../../constants/theme';
-import { employeesData } from '../../../data/mockData';
+import employeeService from '../../../services/employeeService';
+import type { Employee, LeaveType } from '../../../types';
 
 interface LeaveRequestFormProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ interface LeaveRequestFormProps {
 
 export interface LeaveRequestFormData {
   employeeId: string;
-  type: 'annuel' | 'maladie' | 'maternite' | 'sans_solde' | 'exceptionnel';
+  type: LeaveType;
   days: number;
   startDate: string;
   endDate: string;
@@ -26,16 +27,45 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch employees on mount
+  useEffect(() => {
+    if (isOpen) {
+      const fetchEmployees = async () => {
+        try {
+          setLoading(true);
+          const response = await employeeService.getEmployees({ pageSize: 100 });
+          setEmployees(response.data);
+        } catch (err) {
+          console.error('Error fetching employees:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchEmployees();
+    }
+  }, [isOpen]);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
+    const startDate = formData.get('startDate') as string;
+    const endDate = formData.get('endDate') as string;
+    
+    // Calculate days between start and end
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
     const data: LeaveRequestFormData = {
       employeeId: formData.get('employeeId') as string,
-      type: formData.get('type') as LeaveRequestFormData['type'],
-      days: Number(formData.get('days')),
-      startDate: formData.get('startDate') as string,
-      endDate: formData.get('endDate') as string,
+      type: formData.get('type') as LeaveType,
+      days: days,
+      startDate: startDate,
+      endDate: endDate,
       reason: formData.get('reason') as string,
     };
     
@@ -76,9 +106,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({
               name="employeeId"
               style={inputStyle}
               required
+              disabled={loading}
             >
               <option value="">Sélectionner un employé</option>
-              {employeesData.map(emp => (
+              {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
               ))}
             </select>
@@ -96,17 +127,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({
               <option value="sans_solde">Congé sans solde</option>
               <option value="exceptionnel">Congé exceptionnel</option>
             </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Nombre de jours *</label>
-            <input 
-              name="days"
-              type="number"
-              min="1"
-              style={inputStyle}
-              placeholder="Nombre de jours"
-              required
-            />
           </div>
           <div>
             <label style={labelStyle}>Date de début *</label>
@@ -143,7 +163,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({
           <Button variant="secondary" type="button" onClick={onClose}>
             Annuler
           </Button>
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" disabled={loading}>
             Soumettre la demande
           </Button>
         </div>

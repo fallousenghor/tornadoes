@@ -4,14 +4,14 @@
 import React from 'react';
 import { Modal, Button } from '../../../components/common';
 import { Colors } from '../../../constants/theme';
-import { deptPerformance } from '../../../data/mockData';
-import type { Employee, ContractType } from '../../../types';
+import type { Employee, ContractType, Department } from '../../../types';
 
 interface EmployeeFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: EmployeeFormData) => void;
   employee?: Employee | null;
+  departments?: Department[];
 }
 
 export interface EmployeeFormData {
@@ -32,6 +32,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
   onClose,
   onSubmit,
   employee,
+  departments = [],
 }) => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -139,7 +140,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               defaultValue={employee?.departmentId || '1'}
               style={inputStyle}
             >
-              {deptPerformance.map(dept => (
+              {(departments.length > 0 ? departments : []).map(dept => (
                 <option key={dept.id} value={dept.id}>{dept.name}</option>
               ))}
             </select>
@@ -155,6 +156,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               <option value="CDD">CDD</option>
               <option value="Freelance">Freelance</option>
               <option value="Stage">Stage</option>
+              <option value="Part_time">Part Time</option>
             </select>
           </div>
           <div>

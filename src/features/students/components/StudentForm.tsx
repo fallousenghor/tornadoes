@@ -13,6 +13,7 @@ interface StudentFormProps {
 }
 
 export interface StudentFormData {
+  id?: string;
   firstName: string;
   lastName: string;
   email: string;

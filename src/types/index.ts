@@ -94,7 +94,7 @@ export interface Employee {
   notes?: string;
 }
 
-export type ContractType = 'CDI' | 'CDD' | 'Freelance' | 'Stage';
+export type ContractType = 'CDI' | 'CDD' | 'Freelance' | 'Stage' | 'Part_time';
 
 export type EmployeeStatus = 'Actif' | 'Congé' | 'Inactif' | 'Suspendu';
 
