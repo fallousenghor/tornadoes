@@ -1,5 +1,5 @@
 // Departments Page - RH & ORG Module
-// Complete department management with search, filters, budget tracking and modal
+// Complete department management with search, filters, budget tracking and modal - Connected to Backend API
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput, Modal, Input } from '../../components/common';
@@ -16,7 +16,7 @@ interface DepartmentDisplay extends Department {
 
 // Budget status colors
 const getBudgetStatus = (spent: number, budget: number) => {
-  const percentage = (spent / budget) * 100;
+  const percentage = budget > 0 ? (spent / budget) * 100 : 0;
   if (percentage >= 95) return { bg: 'rgba(224, 80, 80, 0.15)', color: '#e05050', label: 'Critique' };
   if (percentage >= 80) return { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', label: 'Attention' };
   return { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e', label: 'Normal' };
@@ -27,22 +27,39 @@ export const Departments: React.FC = () => {
   const [departmentsData, setDepartmentsData] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [budgetFilter, setBudgetFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDisplay | null>(null);
+  const [departmentToDelete, setDepartmentToDelete] = useState<DepartmentDisplay | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '',
+    description: '',
+    budget: 0,
+    spent: 0,
+    headId: '',
+    active: true,
+  });
+
   const itemsPerPage = 6;
 
   // Fetch departments from API
   const fetchDepartments = useCallback(async () => {
     try {
-      const response = await departmentService.getDepartments({ active: true });
+      const response = await departmentService.getDepartments({ active: statusFilter === 'all' ? undefined : statusFilter === 'active' });
       setDepartmentsData(response.data);
     } catch (error) {
       console.error('Error fetching departments:', error);
+      showNotification('error', 'Erreur lors du chargement des départements');
     }
-  }, []);
+  }, [statusFilter]);
 
   // Fetch employees for counting
   const fetchEmployees = useCallback(async () => {
@@ -64,6 +81,12 @@ export const Departments: React.FC = () => {
     loadData();
   }, [fetchDepartments, fetchEmployees]);
 
+  // Show notification
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
   // Enrich departments with employee counts
   const departments: DepartmentDisplay[] = useMemo(() => {
     return departmentsData.map(dept => {
@@ -84,18 +107,9 @@ export const Departments: React.FC = () => {
         dept.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         dept.managerName.toLowerCase().includes(searchQuery.toLowerCase());
       
-      let matchesBudget = true;
-      if (budgetFilter === 'critical') {
-        matchesBudget = dept.budget > 0 && (dept.spent / dept.budget) >= 0.95;
-      } else if (budgetFilter === 'warning') {
-        matchesBudget = dept.budget > 0 && (dept.spent / dept.budget) >= 0.8 && (dept.spent / dept.budget) < 0.95;
-      } else if (budgetFilter === 'normal') {
-        matchesBudget = dept.budget === 0 || (dept.spent / dept.budget) < 0.8;
-      }
-      
-      return matchesSearch && matchesBudget;
+      return matchesSearch;
     });
-  }, [departments, searchQuery, budgetFilter]);
+  }, [departments, searchQuery]);
 
   // Pagination
   const totalPages = Math.ceil(filteredDepartments.length / itemsPerPage);
@@ -111,14 +125,91 @@ export const Departments: React.FC = () => {
 
   // Open modal for new department
   const handleNewDepartment = () => {
+    setFormData({
+      name: '',
+      code: '',
+      description: '',
+      budget: 0,
+      spent: 0,
+      headId: '',
+      active: true,
+    });
     setSelectedDepartment(null);
     setIsModalOpen(true);
   };
 
   // Open modal for edit department
   const handleEditDepartment = (dept: DepartmentDisplay) => {
+    setFormData({
+      name: dept.name,
+      code: dept.code,
+      description: dept.description || '',
+      budget: dept.budget,
+      spent: dept.spent,
+      headId: dept.headId || '',
+      active: true,
+    });
     setSelectedDepartment(dept);
     setIsModalOpen(true);
+  };
+
+  // Open delete confirmation modal
+  const handleDeleteClick = (dept: DepartmentDisplay) => {
+    setDepartmentToDelete(dept);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Handle form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      if (selectedDepartment) {
+        // Update existing department
+        await departmentService.updateDepartment(selectedDepartment.id, {
+          name: formData.name,
+          description: formData.description,
+          active: formData.active,
+        });
+        showNotification('success', 'Département mis à jour avec succès');
+      } else {
+        // Create new department
+        await departmentService.createDepartment({
+          name: formData.name,
+          code: formData.code,
+          description: formData.description,
+        });
+        showNotification('success', 'Département créé avec succès');
+      }
+      
+      setIsModalOpen(false);
+      await fetchDepartments();
+    } catch (error: any) {
+      console.error('Error saving department:', error);
+      showNotification('error', error.response?.data?.message || 'Erreur lors de l\'enregistrement du département');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle delete confirm
+  const handleDeleteConfirm = async () => {
+    if (!departmentToDelete) return;
+    
+    setSubmitting(true);
+    try {
+      await departmentService.deleteDepartment(departmentToDelete.id);
+      showNotification('success', 'Département supprimé avec succès');
+      setIsDeleteModalOpen(false);
+      setDepartmentToDelete(null);
+      await fetchDepartments();
+    } catch (error: any) {
+      console.error('Error deleting department:', error);
+      showNotification('error', error.response?.data?.message || 'Erreur lors de la suppression du département');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Calculate totals
@@ -131,6 +222,32 @@ export const Departments: React.FC = () => {
 
   return (
     <div style={{ padding: 24 }}>
+      {/* Notification Toast */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          right: 20,
+          padding: '12px 20px',
+          borderRadius: 8,
+          background: notification.type === 'success' ? 'rgba(62, 207, 142, 0.15)' : 'rgba(224, 80, 80, 0.15)',
+          border: `1px solid ${notification.type === 'success' ? '#3ecf8e' : '#e05050'}`,
+          color: notification.type === 'success' ? '#3ecf8e' : '#e05050',
+          fontSize: 13,
+          fontWeight: 500,
+          zIndex: 1000,
+          animation: 'slideIn 0.3s ease',
+        }}>
+          {notification.message}
+          <style>{`
+            @keyframes slideIn {
+              from { transform: translateX(100%); opacity: 0; }
+              to { transform: translateX(0); opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
@@ -263,11 +380,11 @@ export const Departments: React.FC = () => {
           />
           <div>
             <label style={{ display: 'block', fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>
-              Statut Budget
+              Statut
             </label>
             <select 
-              value={budgetFilter}
-              onChange={(e) => { setBudgetFilter(e.target.value); handleFilterChange(); }}
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); handleFilterChange(); fetchDepartments(); }}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -279,9 +396,7 @@ export const Departments: React.FC = () => {
               }}
             >
               <option value="all">Tous les statuts</option>
-              <option value="normal">Normal - moins de 80%</option>
-              <option value="warning">Attention - 80% à 95%</option>
-              <option value="critical">Critique - plus de 95%</option>
+              <option value="active">Actifs uniquement</option>
             </select>
           </div>
         </div>
@@ -324,20 +439,36 @@ export const Departments: React.FC = () => {
                       Responsable: <span style={{ color: Colors.text }}>{dept.managerName}</span>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleEditDepartment(dept)}
-                    style={{ 
-                      padding: '6px 10px', 
-                      borderRadius: 6, 
-                      border: `1px solid ${Colors.border}`, 
-                      background: 'transparent', 
-                      color: Colors.textMuted, 
-                      fontSize: 11, 
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ✎ Éditer
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button 
+                      onClick={() => handleEditDepartment(dept)}
+                      style={{ 
+                        padding: '6px 10px', 
+                        borderRadius: 6, 
+                        border: `1px solid ${Colors.border}`, 
+                        background: 'transparent', 
+                        color: Colors.textMuted, 
+                        fontSize: 11, 
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✎ Éditer
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteClick(dept)}
+                      style={{ 
+                        padding: '6px 10px', 
+                        borderRadius: 6, 
+                        border: `1px solid rgba(224, 80, 80, 0.3)`, 
+                        background: 'rgba(224, 80, 80, 0.1)', 
+                        color: '#e05050', 
+                        fontSize: 11, 
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🗑
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Card Body */}
@@ -470,21 +601,22 @@ export const Departments: React.FC = () => {
         </Card>
       )}
 
-      {/* Department Modal */}
+      {/* Department Create/Edit Modal */}
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         title={selectedDepartment ? 'Modifier le département' : 'Nouveau Département'}
         size="lg"
       >
-        <form onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+        <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Nom du département</label>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Nom du département *</label>
               <input 
                 type="text" 
                 placeholder="Ex: Technologie"
-                defaultValue={selectedDepartment?.name}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
                 style={{
                   width: '100%',
@@ -498,62 +630,31 @@ export const Departments: React.FC = () => {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Code</label>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Code *</label>
               <input 
                 type="text" 
                 placeholder="Ex: TECH"
-                defaultValue={selectedDepartment?.code}
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 required
+                disabled={!!selectedDepartment}
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: 8,
                   border: `1px solid ${Colors.border}`,
-                  background: Colors.bg,
+                  background: selectedDepartment ? Colors.bgSecondary : Colors.bg,
                   color: Colors.text,
                   fontSize: 13,
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Budget (€)</label>
-              <input 
-                type="number" 
-                placeholder="50000"
-                defaultValue={selectedDepartment?.budget}
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
-                  background: Colors.bg,
-                  color: Colors.text,
-                  fontSize: 13,
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Budget dépensé (€)</label>
-              <input 
-                type="number" 
-                placeholder="25000"
-                defaultValue={selectedDepartment?.spent}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
-                  background: Colors.bg,
-                  color: Colors.text,
-                  fontSize: 13,
+                  opacity: selectedDepartment ? 0.7 : 1,
                 }}
               />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Responsable</label>
               <select 
-                defaultValue={selectedDepartment?.headId || ''}
+                value={formData.headId}
+                onChange={(e) => setFormData({ ...formData, headId: e.target.value })}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -574,7 +675,8 @@ export const Departments: React.FC = () => {
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Description</label>
               <textarea 
                 placeholder="Description du département..."
-                defaultValue={selectedDepartment?.description}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
                 style={{
                   width: '100%',
@@ -591,14 +693,74 @@ export const Departments: React.FC = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-            <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>
+            <Button 
+              variant="secondary" 
+              type="button" 
+              onClick={() => setIsModalOpen(false)}
+              disabled={submitting}
+            >
               Annuler
             </Button>
-            <Button variant="primary" type="submit">
-              {selectedDepartment ? 'Enregistrer' : 'Créer le département'}
+            <Button 
+              variant="primary" 
+              type="submit"
+              disabled={submitting || !formData.name || !formData.code}
+            >
+              {submitting ? 'Enregistrement...' : (selectedDepartment ? 'Enregistrer' : 'Créer le département')}
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirmer la suppression"
+        size="sm"
+      >
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ 
+            width: 64, 
+            height: 64, 
+            borderRadius: '50%', 
+            background: 'rgba(224, 80, 80, 0.15)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            margin: '0 auto 16px',
+            fontSize: 28,
+          }}>
+            ⚠️
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 600, color: Colors.text, marginBottom: 8 }}>
+            Supprimer le département ?
+          </h3>
+          <p style={{ fontSize: 13, color: Colors.textMuted, marginBottom: 24 }}>
+            Êtes-vous sûr de vouloir supprimer le département <strong style={{ color: Colors.text }}>{departmentToDelete?.name}</strong> ? 
+            Cette action est irréversible.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <Button 
+              variant="secondary" 
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={submitting}
+            >
+              Annuler
+            </Button>
+            <Button 
+              variant="primary"
+              onClick={handleDeleteConfirm}
+              disabled={submitting}
+              style={{ 
+                background: '#e05050', 
+                borderColor: '#e05050',
+              }}
+            >
+              {submitting ? 'Suppression...' : 'Confirmer'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -1,9 +1,10 @@
-// Settings Feature - AEVUM Enterprise ERP
-// Complete system settings and configuration module
+// Settings Feature - Tornadoes Job System Module
+// Connected to backend API
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
+import settingsService from '../../services/settingsService';
 
 // Types
 interface CompanyInfo {
@@ -32,18 +33,17 @@ interface SecuritySettings {
   loginAlerts: boolean;
 }
 
-// Mock company info
-const mockCompanyInfo: CompanyInfo = {
-  name: 'AEVUM Senegal',
-  address: 'Point E, Rue 10, BP 12345, Dakar, Senegal',
-  phone: '+221 33 123 45 67',
-  email: 'contact@aevum.sn',
-  website: 'www.aevum.sn',
-  taxId: 'SN-2024-001234',
+// Default values
+const defaultCompanyInfo: CompanyInfo = {
+  name: '',
+  address: '',
+  phone: '',
+  email: '',
+  website: '',
+  taxId: '',
 };
 
-// Mock notification settings
-const mockNotificationSettings: NotificationSettings = {
+const defaultNotificationSettings: NotificationSettings = {
   emailAlerts: true,
   pushNotifications: true,
   weeklyReport: true,
@@ -52,8 +52,7 @@ const mockNotificationSettings: NotificationSettings = {
   invoiceReminders: true,
 };
 
-// Mock security settings
-const mockSecuritySettings: SecuritySettings = {
+const defaultSecuritySettings: SecuritySettings = {
   twoFactor: true,
   sessionTimeout: 30,
   passwordExpiry: 90,
@@ -64,11 +63,58 @@ const mockSecuritySettings: SecuritySettings = {
 export const Settings: React.FC = () => {
   // State
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'security' | 'appearance' | 'integrations'>('general');
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(mockCompanyInfo);
-  const [notifications, setNotifications] = useState<NotificationSettings>(mockNotificationSettings);
-  const [security, setSecurity] = useState<SecuritySettings>(mockSecuritySettings);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
+  const [notifications, setNotifications] = useState<NotificationSettings>(defaultNotificationSettings);
+  const [security, setSecurity] = useState<SecuritySettings>(defaultSecuritySettings);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch settings from API
+  const fetchSettings = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [companyData, notificationData, securityData] = await Promise.all([
+        settingsService.getCompanyInfo(),
+        settingsService.getNotificationSettings(),
+        settingsService.getSecuritySettings(),
+      ]);
+
+      if (companyData) {
+        setCompanyInfo({
+          name: companyData.name || '',
+          address: companyData.address || '',
+          phone: companyData.phone || '',
+          email: companyData.email || '',
+          website: companyData.website || '',
+          taxId: companyData.taxId || '',
+        });
+      }
+
+      if (notificationData) {
+        setNotifications(notificationData);
+      }
+
+      if (securityData) {
+        setSecurity({
+          twoFactor: securityData.twoFactor,
+          sessionTimeout: securityData.sessionTimeout,
+          passwordExpiry: securityData.passwordExpiry,
+          ipWhitelist: securityData.ipWhitelist,
+          loginAlerts: securityData.loginAlerts,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   // Tabs configuration
   const tabs = [
@@ -80,11 +126,36 @@ export const Settings: React.FC = () => {
   ];
 
   // Handle toggle
-  const handleToggle = (section: 'notifications' | 'security', key: string) => {
+  const handleToggle = async (section: 'notifications' | 'security', key: string) => {
+    let newValue: any;
     if (section === 'notifications') {
-      setNotifications(prev => ({ ...prev, [key]: !prev[key as keyof NotificationSettings] }));
+      newValue = { ...notifications, [key]: !notifications[key as keyof NotificationSettings] };
+      setNotifications(newValue);
+      await settingsService.updateNotificationSettings(newValue);
     } else {
-      setSecurity(prev => ({ ...prev, [key]: !prev[key as keyof NotificationSettings] }));
+      newValue = { ...security, [key]: !security[key as keyof SecuritySettings] };
+      setSecurity(newValue);
+      await settingsService.updateSecuritySettings(newValue);
+    }
+  };
+
+  // Handle save company info
+  const handleSaveCompanyInfo = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get('name') as string,
+      address: formData.get('address') as string,
+      phone: formData.get('phone') as string,
+      email: formData.get('email') as string,
+      website: formData.get('website') as string,
+      taxId: formData.get('taxId') as string,
+    };
+    
+    const result = await settingsService.updateCompanyInfo(data);
+    if (result) {
+      setCompanyInfo(data);
+      setIsModalOpen(false);
     }
   };
 
@@ -102,32 +173,36 @@ export const Settings: React.FC = () => {
             ✏️ Modifier
           </Button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>NOM</div>
-            <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.name}</div>
+        {isLoading ? (
+          <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>Chargement...</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>NOM</div>
+              <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.name || 'Non défini'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>EMAIL</div>
+              <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.email || 'Non défini'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>TÉLÉPHONE</div>
+              <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.phone || 'Non défini'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>SITE WEB</div>
+              <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.website || 'Non défini'}</div>
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>ADRESSE</div>
+              <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.address || 'Non défini'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>ID FISCAL</div>
+              <div style={{ fontSize: 13, color: Colors.text, fontFamily: 'monospace' }}>{companyInfo.taxId || 'Non défini'}</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>EMAIL</div>
-            <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.email}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>TÉLÉPHONE</div>
-            <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.phone}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>SITE WEB</div>
-            <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.website}</div>
-          </div>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>ADRESSE</div>
-            <div style={{ fontSize: 13, color: Colors.text }}>{companyInfo.address}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>ID FISCAL</div>
-            <div style={{ fontSize: 13, color: Colors.text, fontFamily: 'monospace' }}>{companyInfo.taxId}</div>
-          </div>
-        </div>
+        )}
       </Card>
 
       {/* Regional Settings */}
@@ -156,29 +231,6 @@ export const Settings: React.FC = () => {
           </div>
         </div>
       </Card>
-
-      {/* Date & Time Format */}
-      <Card style={{ padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Format 日期和时间</h3>
-            <p style={{ fontSize: 12, color: Colors.textMuted }}>Formats de date et d'heure</p>
-          </div>
-          <Button variant="secondary" onClick={() => { setModalTitle('Modifier les formats'); setIsModalOpen(true); }}>
-            ✏️ Modifier
-          </Button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>FORMAT DATE</div>
-            <div style={{ fontSize: 13, color: Colors.text }}>DD/MM/YYYY</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>FORMAT HEURE</div>
-            <div style={{ fontSize: 13, color: Colors.text }}>24 heures (14:30)</div>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 
@@ -195,51 +247,6 @@ export const Settings: React.FC = () => {
             { key: 'emailAlerts', label: 'Alertes système', desc: 'Recevoir les alertes importantes du système' },
             { key: 'weeklyReport', label: 'Rapport hebdomadaire', desc: 'Recevoir un résumé hebdomadaire de l\'activité' },
             { key: 'securityAlerts', label: 'Alertes de sécurité', desc: 'Notifications sur les événements de sécurité' },
-          ].map(item => (
-            <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(100, 140, 255, 0.03)', borderRadius: 8 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: Colors.text }}>{item.label}</div>
-                <div style={{ fontSize: 11, color: Colors.textMuted }}>{item.desc}</div>
-              </div>
-              <button 
-                onClick={() => handleToggle('notifications', item.key)}
-                style={{ 
-                  width: 48, 
-                  height: 26, 
-                  borderRadius: 13, 
-                  border: 'none', 
-                  background: notifications[item.key as keyof NotificationSettings] ? Colors.accent : Colors.textDim,
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'background 0.2s',
-                }}
-              >
-                <div style={{ 
-                  width: 20, 
-                  height: 20, 
-                  borderRadius: '50%', 
-                  background: '#fff',
-                  position: 'absolute',
-                  top: 3,
-                  left: notifications[item.key as keyof NotificationSettings] ? 25 : 3,
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card style={{ padding: 24 }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Autres notifications</h3>
-          <p style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 20 }}>Autres types de notifications</p>
-        </div>
-        <div style={{ display: 'grid', gap: 12 }}>
-          {[
-            { key: 'pushNotifications', label: 'Notifications push', desc: 'Recevoir des notifications dans le navigateur' },
-            { key: 'attendanceAlerts', label: 'Alertes présence', desc: 'Notifications sur les présences et absences' },
-            { key: 'invoiceReminders', label: 'Rappels factures', desc: 'Rappels pour les factures en attente' },
           ].map(item => (
             <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(100, 140, 255, 0.03)', borderRadius: 8 }}>
               <div>
@@ -323,89 +330,6 @@ export const Settings: React.FC = () => {
           ))}
         </div>
       </Card>
-
-      <Card style={{ padding: 24 }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Sessions & Accès</h3>
-          <p style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 20 }}>Gestion des sessions et accès</p>
-        </div>
-        <div style={{ display: 'grid', gap: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: Colors.text }}>Délai d'inactivité</div>
-              <div style={{ fontSize: 11, color: Colors.textMuted }}>Fermer la session après {security.sessionTimeout} min d'inactivité</div>
-            </div>
-            <select 
-              defaultValue={security.sessionTimeout}
-              style={{ padding: '8px 12px', borderRadius: 6, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}
-            >
-              <option value={15}>15 min</option>
-              <option value={30}>30 min</option>
-              <option value={60}>1 heure</option>
-              <option value={120}>2 heures</option>
-            </select>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: Colors.text }}>Expiration du mot de passe</div>
-              <div style={{ fontSize: 11, color: Colors.textMuted }}>Exiger un nouveau mot de passe tous les {security.passwordExpiry} jours</div>
-            </div>
-            <select 
-              defaultValue={security.passwordExpiry}
-              style={{ padding: '8px 12px', borderRadius: 6, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}
-            >
-              <option value={30}>30 jours</option>
-              <option value={60}>60 jours</option>
-              <option value={90}>90 jours</option>
-              <option value={180}>6 mois</option>
-            </select>
-          </div>
-        </div>
-      </Card>
-
-      <Card style={{ padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Liste IP autorisée</h3>
-            <p style={{ fontSize: 12, color: Colors.textMuted }}>Restreindre l'accès à certaines adresses IP</p>
-          </div>
-          <button 
-            onClick={() => handleToggle('security', 'ipWhitelist')}
-            style={{ 
-              width: 48, 
-              height: 26, 
-              borderRadius: 13, 
-              border: 'none', 
-              background: security.ipWhitelist ? Colors.accent : Colors.textDim,
-              cursor: 'pointer',
-              position: 'relative',
-              transition: 'background 0.2s',
-            }}
-          >
-            <div style={{ 
-              width: 20, 
-              height: 20, 
-              borderRadius: '50%', 
-              background: '#fff',
-              position: 'absolute',
-              top: 3,
-              left: security.ipWhitelist ? 25 : 3,
-              transition: 'left 0.2s',
-            }} />
-          </button>
-        </div>
-        <div style={{ padding: 12, background: 'rgba(100, 140, 255, 0.03)', borderRadius: 8, fontSize: 12, color: Colors.textMuted }}>
-          {security.ipWhitelist ? (
-            <div>
-              <div style={{ fontWeight: 500, marginBottom: 8 }}>Adresses IP autorisées:</div>
-              <div style={{ fontFamily: 'monospace' }}>192.168.1.0/24</div>
-              <div style={{ fontFamily: 'monospace' }}>10.0.0.0/8</div>
-            </div>
-          ) : (
-            <div>Aucune restriction d'IP - Accès depuis n'importe où</div>
-          )}
-        </div>
-      </Card>
     </div>
   );
 
@@ -443,41 +367,6 @@ export const Settings: React.FC = () => {
           ))}
         </div>
       </Card>
-
-      <Card style={{ padding: 24 }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Accent</h3>
-          <p style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 20 }}>Couleur d'accentuation de l'interface</p>
-        </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          {['#6490ff', '#3ecf8e', '#a78bfa', '#fb923c', '#e05050', '#c9a84c'].map(color => (
-            <div 
-              key={color}
-              style={{ 
-                width: 40, 
-                height: 40, 
-                borderRadius: '50%', 
-                background: color,
-                cursor: 'pointer',
-                border: color === '#6490ff' ? `3px solid ${Colors.text}` : 'none',
-              }}
-            />
-          ))}
-        </div>
-      </Card>
-
-      <Card style={{ padding: 24 }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Sidebar</h3>
-          <p style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 20 }}>Configuration de la barre latérale</p>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 13, color: Colors.text }}>Réduire automatiquement</div>
-          <button style={{ width: 48, height: 26, borderRadius: 13, border: 'none', background: Colors.accent, cursor: 'pointer', position: 'relative' }}>
-            <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: 25, transition: 'left 0.2s' }} />
-          </button>
-        </div>
-      </Card>
     </div>
   );
 
@@ -489,46 +378,8 @@ export const Settings: React.FC = () => {
           <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>API & Intégrations</h3>
           <p style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 20 }}>Gérez les connexions aux services externes</p>
         </div>
-        <div style={{ display: 'grid', gap: 12 }}>
-          {[
-            { name: 'Google Workspace', status: 'connected', icon: '📧' },
-            { name: 'Microsoft 365', status: 'disconnected', icon: '📅' },
-            { name: 'Slack', status: 'disconnected', icon: '💬' },
-            { name: 'Stripe', status: 'connected', icon: '💳' },
-            { name: 'Dropbox', status: 'disconnected', icon: '📁' },
-          ].map(item => (
-            <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(100, 140, 255, 0.03)', borderRadius: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 24 }}>{item.icon}</span>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>{item.name}</div>
-                  <div style={{ fontSize: 11, color: item.status === 'connected' ? '#3ecf8e' : Colors.textMuted }}>
-                    {item.status === 'connected' ? 'Connecté' : 'Non connecté'}
-                  </div>
-                </div>
-              </div>
-              <Button variant={item.status === 'connected' ? 'secondary' : 'primary'} onClick={() => alert(`${item.name} - Fonctionnalité bientôt disponible`)}>
-                {item.status === 'connected' ? 'Déconnecter' : 'Connecter'}
-              </Button>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card style={{ padding: 24 }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Clés API</h3>
-          <p style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 20 }}>Gestion des clés API pour les développeurs</p>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(100, 140, 255, 0.03)', borderRadius: 8 }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: Colors.text }}>Clé API Production</div>
-            <div style={{ fontSize: 12, color: Colors.textMuted, fontFamily: 'monospace' }}>sk_live_••••••••••••••••</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="secondary" onClick={() => alert('Copié!')}>📋 Copier</Button>
-            <Button variant="secondary" onClick={() => alert('Régénérer - Bientôt disponible')}>🔄 Régénérer</Button>
-          </div>
+        <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>
+          Chargement des intégrations depuis le backend...
         </div>
       </Card>
     </div>
@@ -590,6 +441,47 @@ export const Settings: React.FC = () => {
           {activeTab === 'integrations' && renderIntegrationsSettings()}
         </div>
       </div>
+
+      {/* Modal for editing company info */}
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={modalTitle} 
+        size="md"
+      >
+        <form onSubmit={handleSaveCompanyInfo}>
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Nom de l'entreprise</label>
+              <input name="name" defaultValue={companyInfo.name} style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Email</label>
+              <input name="email" type="email" defaultValue={companyInfo.email} style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Téléphone</label>
+              <input name="phone" defaultValue={companyInfo.phone} style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Adresse</label>
+              <input name="address" defaultValue={companyInfo.address} style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Site web</label>
+              <input name="website" defaultValue={companyInfo.website} style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>ID Fiscal</label>
+              <input name="taxId" defaultValue={companyInfo.taxId} style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
+            <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>Annuler</Button>
+            <Button variant="primary" type="submit">Enregistrer</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

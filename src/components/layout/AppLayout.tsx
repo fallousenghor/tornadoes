@@ -8,7 +8,7 @@ import { Colors, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { getNavItems, getNavSections } from '../../routes';
-import { navSections } from '../../data/mockData';
+import { navSections } from '../../constants/navigation';
 
 // Animation keyframes
 const keyframes = `

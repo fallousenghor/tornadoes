@@ -2,7 +2,6 @@
 // Service pour récupérer les KPIs globaux depuis le backend
 
 import api from './api';
-import { revenueData, cashFlowData, radarDeptData, activitiesData } from '../data/mockData';
 
 // Types de réponse backend
 export interface DashboardResponse {
@@ -47,6 +46,39 @@ export interface RadarDataPoint {
   A: number; // Réel
   B: number; // Objectif
 }
+
+// Mock data for fallback
+const mockRevenueData: RevenueDataPoint[] = [
+  { month: 'Jan', revenus: 45000, depenses: 32000, benefice: 13000 },
+  { month: 'Fév', revenus: 52000, depenses: 35000, benefice: 17000 },
+  { month: 'Mar', revenus: 48000, depenses: 31000, benefice: 17000 },
+  { month: 'Avr', revenus: 61000, depenses: 42000, benefice: 19000 },
+  { month: 'Mai', revenus: 55000, depenses: 38000, benefice: 17000 },
+  { month: 'Juin', revenus: 67000, depenses: 45000, benefice: 22000 },
+];
+
+const mockCashFlowData: CashFlowDataPoint[] = [
+  { month: 'Jan', incomes: 45000, expenses: 32000, balance: 13000 },
+  { month: 'Fév', incomes: 52000, expenses: 35000, balance: 17000 },
+  { month: 'Mar', incomes: 48000, expenses: 31000, balance: 17000 },
+  { month: 'Avr', incomes: 61000, expenses: 42000, balance: 19000 },
+  { month: 'Mai', incomes: 55000, expenses: 38000, balance: 17000 },
+  { month: 'Juin', incomes: 67000, expenses: 45000, balance: 22000 },
+];
+
+const mockRadarDeptData: RadarDataPoint[] = [
+  { subject: 'Productivité', A: 85, B: 90 },
+  { subject: 'Qualité', A: 78, B: 85 },
+  { subject: 'Efficacité', A: 92, B: 88 },
+  { subject: 'Collaboration', A: 70, B: 75 },
+  { subject: 'Innovation', A: 65, B: 80 },
+];
+
+const mockActivitiesData = [
+  { id: '1', type: 'leave', message: 'Nouveau demande de congés de Jean Dupont', timestamp: new Date() },
+  { id: '2', type: 'invoice', message: 'Facture #1234 créée', timestamp: new Date() },
+  { id: '3', type: 'employee', message: 'Nouvel employé ajouté: Marie Martin', timestamp: new Date() },
+];
 
 // Mapper les données backend vers le format KPI du frontend
 const mapToKPIs = (data: DashboardResponse) => {
@@ -180,7 +212,7 @@ const dashboardService = {
     } catch (error) {
       // Fallback to mock data if API fails
       console.warn('Using mock revenue data');
-      return revenueData;
+      return mockRevenueData;
     }
   },
 
@@ -194,7 +226,7 @@ const dashboardService = {
     } catch (error) {
       // Fallback to mock data if API fails
       console.warn('Using mock cashflow data');
-      return cashFlowData;
+      return mockCashFlowData;
     }
   },
 
@@ -208,7 +240,7 @@ const dashboardService = {
     } catch (error) {
       // Fallback to mock data if API fails
       console.warn('Using mock radar data');
-      return radarDeptData;
+      return mockRadarDeptData;
     }
   },
 
@@ -222,7 +254,7 @@ const dashboardService = {
     } catch (error) {
       // Fallback to mock data if API fails
       console.warn('Using mock activity data');
-      return activitiesData;
+      return mockActivitiesData;
     }
   },
 };

@@ -1,14 +1,15 @@
 // Projects Feature - AEVUM Enterprise ERP
-// Refactored with DRY & SOLID principles
+// Refactored with DRY & SOLID principles - Backend API Integration
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, ProgressBar, FilterBar, PaginationControls } from '../../components/common';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Colors } from '../../constants/theme';
-import { useFilterable } from '../../hooks/useFilterable';
-import { projectsData, employeesData } from '../../data/mockData';
+import projectService from '../../services/projectService';
+import employeeService from '../../services/employeeService';
 import { ProjectForm } from './components';
 import type { ProjectFormData } from './components/ProjectForm';
+import type { Project, Employee, ProjectStatus, ProjectPriority } from '@/types';
 
 // Filter options
 const priorityOptions = [
@@ -36,47 +37,76 @@ const statusColumns = [
 
 export const Projects: React.FC = () => {
   // State
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'gantt'>('board');
-  const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const itemsPerPage = 10;
 
-  // Use the filterable hook
-  const {
-    searchQuery,
-    setSearchQuery,
-    filters,
-    setFilter,
-    currentPage,
-    setCurrentPage,
-    totalPages,
-    paginatedData,
-    totalItems,
-    showingFrom,
-    showingTo,
-  } = useFilterable({
-    data: projectsData,
-    itemsPerPage: 10,
-    searchFields: ['name'],
-  });
+  // Fetch projects from API
+  const fetchProjects = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await projectService.getProjects({ pageSize: 100 });
+      setProjects(response.data);
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      setError('Erreur lors du chargement des projets');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Filter by priority
+  // Fetch employees for manager display
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await employeeService.getEmployees({ pageSize: 100 });
+      setEmployees(response.data);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    fetchProjects();
+    fetchEmployees();
+  }, [fetchProjects, fetchEmployees]);
+
+  // Filter projects
   const filteredProjects = useMemo(() => {
-    const priority = filters.priority || 'all';
-    if (priority === 'all') return paginatedData;
-    return paginatedData.filter((p: any) => p.priority === priority);
-  }, [paginatedData, filters.priority]);
+    return projects.filter(project => {
+      const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesPriority = priorityFilter === 'all' || project.priority === priorityFilter;
+      return matchesSearch && matchesPriority;
+    });
+  }, [projects, searchQuery, priorityFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
+  const paginatedProjects = filteredProjects.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Group projects by status for Kanban view
   const projectsByStatus = useMemo(() => {
-    const groups: Record<string, typeof projectsData> = {
+    const groups: Record<string, Project[]> = {
       demarrage: [],
       en_cours: [],
       finalisation: [],
       termine: [],
     };
-    filteredProjects.forEach((p: any) => {
+    filteredProjects.forEach((p) => {
       if (groups[p.status]) {
         groups[p.status].push(p);
       }
@@ -86,25 +116,57 @@ export const Projects: React.FC = () => {
 
   // Get employee name by ID
   const getEmployeeName = (id: string) => {
-    const emp = employeesData.find(e => e.id === id);
+    const emp = employees.find(e => e.id === id);
     return emp ? `${emp.firstName} ${emp.lastName}` : 'Non assigné';
   };
 
   // Calculate days remaining
-  const getDaysRemaining = (deadline: Date) => {
+  const getDaysRemaining = (deadline: Date | string) => {
     const today = new Date();
-    const diff = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const deadlineDate = typeof deadline === 'string' ? new Date(deadline) : deadline;
+    const diff = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return diff;
   };
 
   // Format date
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  // Handle filter change
+  const handleFilterChange = () => {
+    setCurrentPage(1);
   };
 
   // Handle form submission
-  const handleProjectSubmit = (data: ProjectFormData) => {
-    console.log('Project data submitted:', data);
+  const handleProjectSubmit = async (data: ProjectFormData) => {
+    try {
+      if (selectedProject) {
+        await projectService.updateProject(selectedProject.id, {
+          name: data.name,
+          description: data.description,
+          priority: data.priority as ProjectPriority,
+          status: data.status as ProjectStatus,
+          progress: data.progress,
+          deadline: data.deadline,
+        });
+      } else {
+        await projectService.createProject({
+          name: data.name,
+          description: data.description,
+          priority: (data.priority || 'moyenne') as ProjectPriority,
+          startDate: data.startDate || new Date().toISOString().split('T')[0],
+          deadline: data.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          managerId: data.managerId || '',
+          memberIds: data.memberIds,
+        });
+      }
+      fetchProjects();
+    } catch (err) {
+      console.error('Error saving project:', err);
+      alert('Erreur lors de l\'enregistrement du projet');
+    }
   };
 
   const handleNewProject = () => {
@@ -112,9 +174,15 @@ export const Projects: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleViewDetails = (project: any) => {
+  const handleViewDetails = (project: Project) => {
     setSelectedProject(project);
     setIsDetailsOpen(true);
+  };
+
+  const handleEditProject = (project: Project) => {
+    setSelectedProject(project);
+    setIsDetailsOpen(false);
+    setIsFormOpen(true);
   };
 
   // Drag and drop handlers
@@ -126,20 +194,46 @@ export const Projects: React.FC = () => {
     e.preventDefault();
   };
 
-  const handleDrop = (status: string) => {
+  const handleDrop = async (status: string) => {
     if (draggedTask) {
-      console.log(`Moving project ${draggedTask} to ${status}`);
+      try {
+        await projectService.updateProject(draggedTask, { status: status as Project['status'] });
+        fetchProjects();
+      } catch (err) {
+        console.error('Error updating project status:', err);
+      }
       setDraggedTask(null);
     }
   };
 
   // Summary stats
-  const summaryCards = [
-    { title: 'Total Projets', value: projectsData.length, icon: '📋', variant: 'info' as const },
-    { title: 'En Cours', value: projectsData.filter(p => p.status === 'en_cours').length, icon: '▶', variant: 'success' as const },
-    { title: 'Moyenne', value: '58%', icon: '⏱', variant: 'warning' as const },
-    { title: 'Échéance proche', value: projectsData.filter(p => getDaysRemaining(p.deadline) <= 14 && getDaysRemaining(p.deadline) > 0).length, icon: '⚠', variant: 'danger' as const },
-  ];
+  const summaryCards = useMemo(() => [
+    { title: 'Total Projets', value: projects.length, icon: '📋', variant: 'info' as const },
+    { title: 'En Cours', value: projects.filter(p => p.status === 'en_cours').length, icon: '▶', variant: 'success' as const },
+    { title: 'Moyenne', value: projects.length > 0 ? `${Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / projects.length)}%` : '0%', icon: '⏱', variant: 'warning' as const },
+    { title: 'Échéance proche', value: projects.filter(p => getDaysRemaining(p.deadline) <= 14 && getDaysRemaining(p.deadline) > 0).length, icon: '⚠', variant: 'danger' as const },
+  ], [projects]);
+
+  // Loading state
+  if (loading && projects.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: Colors.textMuted }}>
+        Chargement des projets...
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && projects.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <div style={{ color: Colors.danger }}>{error}</div>
+        <Button variant="primary" onClick={fetchProjects} style={{ marginTop: 16 }}>
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -198,22 +292,45 @@ export const Projects: React.FC = () => {
       {/* Filters & View Toggle */}
       <Card style={{ marginBottom: 20, padding: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <FilterBar
-            filters={[
-              { key: 'priority', type: 'select', options: priorityOptions, placeholder: 'Priorité' },
-            ]}
-            values={filters}
-            onChange={setFilter}
-            onSearch={setSearchQuery}
-            searchValue={searchQuery}
-            searchPlaceholder="Rechercher un projet..."
-          />
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Rechercher un projet..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); handleFilterChange(); }}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 8,
+                border: `1px solid ${Colors.border}`,
+                background: Colors.bg,
+                color: Colors.text,
+                fontSize: 13,
+                width: 250,
+              }}
+            />
+            <select
+              value={priorityFilter}
+              onChange={(e) => { setPriorityFilter(e.target.value); handleFilterChange(); }}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 8,
+                border: `1px solid ${Colors.border}`,
+                background: Colors.bg,
+                color: Colors.text,
+                fontSize: 13,
+              }}
+            >
+              {priorityOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           
           <div style={{ display: 'flex', gap: 4, background: 'rgba(100, 140, 255, 0.05)', padding: 4, borderRadius: 10 }}>
             {viewModes.map(mode => (
               <button
                 key={mode.id}
-                onClick={() => setViewMode(mode.id as any)}
+                onClick={() => setViewMode(mode.id as 'board' | 'list' | 'gantt')}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 8,
@@ -240,15 +357,15 @@ export const Projects: React.FC = () => {
       {viewMode === 'board' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           {statusColumns.map(column => {
-            const projects = projectsByStatus[column.id] || [];
+            const statusProjects = projectsByStatus[column.id] || [];
             return (
               <div key={column.id} onDragOver={handleDragOver} onDrop={() => handleDrop(column.id)} style={{ background: 'rgba(100, 140, 255, 0.03)', borderRadius: 12, padding: 12, minHeight: 400 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '8px 12px', background: 'rgba(100, 140, 255, 0.1)', borderRadius: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>{column.label}</span>
-                  <span style={{ fontSize: 11, color: Colors.textMuted, background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 10 }}>{projects.length}</span>
+                  <span style={{ fontSize: 11, color: Colors.textMuted, background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 10 }}>{statusProjects.length}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {projects.map((project: any) => {
+                  {statusProjects.map((project) => {
                     const daysRemaining = getDaysRemaining(project.deadline);
                     return (
                       <div key={project.id} draggable onDragStart={() => handleDragStart(project.id)} onClick={() => handleViewDetails(project)} style={{ background: Colors.card, border: `1px solid ${Colors.border}`, borderRadius: 10, padding: 14, cursor: 'grab', transition: 'all 0.2s' }}>
@@ -271,7 +388,7 @@ export const Projects: React.FC = () => {
                             </span>
                           </div>
                           <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(100, 140, 255, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: Colors.accent, fontWeight: 600 }}>
-                            {project.members.length}
+                            {project.members?.length || 0}
                           </div>
                         </div>
                       </div>
@@ -300,7 +417,7 @@ export const Projects: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredProjects.map((project: any, index: number) => {
+                {paginatedProjects.map((project, index) => {
                   const daysRemaining = getDaysRemaining(project.deadline);
                   return (
                     <tr key={project.id} style={{ borderBottom: `1px solid ${Colors.border}`, background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)', cursor: 'pointer' }} onClick={() => handleViewDetails(project)}>
@@ -309,7 +426,7 @@ export const Projects: React.FC = () => {
                       <td style={{ padding: '14px 16px' }}><StatusBadge status={project.priority} /></td>
                       <td style={{ padding: '14px 16px', width: 150 }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ flex: 1 }}><ProgressBar value={project.progress} color={project.progress >= 80 ? Colors.green : project.progress >= 50 ? Colors.accent : Colors.orange} height={6} /></div><span style={{ fontSize: 11, fontWeight: 600, color: Colors.text, minWidth: 35 }}>{project.progress}%</span></div></td>
                       <td style={{ padding: '14px 16px' }}><span style={{ fontSize: 12, color: daysRemaining < 0 ? Colors.red : daysRemaining < 7 ? Colors.orange : Colors.textMuted }}>{formatDate(project.deadline)}</span></td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}><div style={{ display: 'flex', justifyContent: 'center' }}><div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(100, 140, 255, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: Colors.accent, fontWeight: 600 }}>{project.members.length}</div></div></td>
+                      <td style={{ padding: '14px 16px', textAlign: 'center' }}><div style={{ display: 'flex', justifyContent: 'center' }}><div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(100, 140, 255, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: Colors.accent, fontWeight: 600 }}>{project.members?.length || 0}</div></div></td>
                     </tr>
                   );
                 })}
@@ -318,14 +435,24 @@ export const Projects: React.FC = () => {
           </div>
 
           {/* Pagination */}
-          <PaginationControls
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalItems}
-            showingFrom={showingFrom}
-            showingTo={showingTo}
-            onPageChange={setCurrentPage}
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: `1px solid ${Colors.border}` }}>
+            <div style={{ fontSize: 12, color: Colors.textMuted }}>
+              Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredProjects.length)} sur {filteredProjects.length}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '8px 14px', borderRadius: 6, border: `1px solid ${Colors.border}`, background: 'transparent', color: currentPage === 1 ? Colors.textMuted : Colors.text, fontSize: 12, cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}>
+                ← Précédent
+              </button>
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(page => (
+                <button key={page} onClick={() => setCurrentPage(page)} style={{ padding: '8px 12px', borderRadius: 6, border: page === currentPage ? `1px solid ${Colors.accent}` : `1px solid ${Colors.border}`, background: page === currentPage ? 'rgba(100, 140, 255, 0.15)' : 'transparent', color: page === currentPage ? Colors.accent : Colors.text, fontSize: 12, cursor: 'pointer' }}>
+                  {page}
+                </button>
+              ))}
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '8px 14px', borderRadius: 6, border: `1px solid ${Colors.border}`, background: 'transparent', color: currentPage === totalPages ? Colors.textMuted : Colors.text, fontSize: 12, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.5 : 1 }}>
+                Suivant →
+              </button>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -334,7 +461,7 @@ export const Projects: React.FC = () => {
         <Card style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: 16, borderBottom: `1px solid ${Colors.border}` }}><h3 style={{ fontSize: 14, fontWeight: 600, color: Colors.text }}>Diagramme de Gantt</h3></div>
           <div style={{ padding: 20 }}>
-            {filteredProjects.map((project: any, index: number) => {
+            {paginatedProjects.map((project) => {
               return (
                 <div key={project.id} style={{ marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>

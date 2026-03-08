@@ -1,12 +1,14 @@
 // Performance Page - RH & ORG Module
-// Complete performance management with reviews, objectives, and analytics
+// Complete performance management with reviews, objectives, and analytics - FULL CRUD
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import axios, { AxiosError } from 'axios';
 import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
 import performanceService from '../../services/performanceService';
 import employeeService from '../../services/employeeService';
-import type { Employee } from '../../types';
+import departmentService from '../../services/departmentService';
+import type { Employee, Department } from '../../types';
 
 // Performance review type
 interface PerformanceReviewDisplay {
@@ -45,20 +47,82 @@ interface DepartmentPerformance {
   employeeCount: number;
 }
 
+// Form data types
+interface ReviewFormData {
+  employeeId: string;
+  period: string;
+  rating: number;
+  objectivesCompleted: number;
+  objectivesTotal: number;
+  feedback: string;
+  improvementPoints: string;
+}
+
+interface ObjectiveFormData {
+  employeeId: string;
+  title: string;
+  description: string;
+  target: number;
+  dueDate: string;
+}
+
 export const Performance: React.FC = () => {
   // State
   const [performanceReviews, setPerformanceReviews] = useState<PerformanceReviewDisplay[]>([]);
   const [objectives, setObjectives] = useState<ObjectiveDisplay[]>([]);
   const [departmentPerformance, setDepartmentPerformance] = useState<DepartmentPerformance[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentTab, setCurrentTab] = useState<'reviews' | 'objectives'>('reviews');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Modal states
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [editingReview, setEditingReview] = useState<PerformanceReviewDisplay | null>(null);
+  const [editingObjective, setEditingObjective] = useState<ObjectiveDisplay | null>(null);
+  const [deletingItem, setDeletingItem] = useState<{ type: 'review' | 'objective'; id: string; name: string } | null>(null);
+  
+  // Form states
+  const [reviewForm, setReviewForm] = useState<ReviewFormData>({
+    employeeId: '',
+    period: 'Q1 2025',
+    rating: 3,
+    objectivesCompleted: 0,
+    objectivesTotal: 5,
+    feedback: '',
+    improvementPoints: '',
+  });
+  
+  const [objectiveForm, setObjectiveForm] = useState<ObjectiveFormData>({
+    employeeId: '',
+    title: '',
+    description: '',
+    target: 100,
+    dueDate: '',
+  });
+
   const itemsPerPage = 10;
+
+  // Show success message
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  // Show error message
+  const showError = (message: string) => {
+    setError(message);
+    setTimeout(() => setError(null), 5000);
+  };
 
   // Fetch performance reviews
   const fetchPerformanceReviews = useCallback(async () => {
@@ -67,9 +131,8 @@ export const Performance: React.FC = () => {
       setError(null);
       const response = await performanceService.getPerformanceReviews({ pageSize: 100 });
       setPerformanceReviews(response.data || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching performance reviews:', err);
-      // Don't show error - just use empty data when API fails
       setPerformanceReviews([]);
     } finally {
       setLoading(false);
@@ -81,9 +144,8 @@ export const Performance: React.FC = () => {
     try {
       const response = await performanceService.getObjectives({ pageSize: 100 });
       setObjectives(response.data || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching objectives:', err);
-      // Don't show error - just use empty data when API fails
       setObjectives([]);
     }
   }, []);
@@ -93,7 +155,7 @@ export const Performance: React.FC = () => {
     try {
       const data = await performanceService.getDepartmentPerformance();
       setDepartmentPerformance(data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching department performance:', err);
     }
   }, []);
@@ -102,16 +164,27 @@ export const Performance: React.FC = () => {
   const fetchEmployees = useCallback(async () => {
     try {
       const response = await employeeService.getEmployees({ pageSize: 100 });
-      setEmployees(response.data);
-    } catch (err) {
+      setEmployees(response.data || []);
+    } catch (err: unknown) {
       console.error('Error fetching employees:', err);
+    }
+  }, []);
+
+  // Fetch departments
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const response = await departmentService.getDepartments({ pageSize: 100 });
+      setDepartments(response.data || []);
+    } catch (err: unknown) {
+      console.error('Error fetching departments:', err);
     }
   }, []);
 
   // Load data on mount
   useEffect(() => {
     fetchEmployees();
-  }, [fetchEmployees]);
+    fetchDepartments();
+  }, [fetchEmployees, fetchDepartments]);
 
   useEffect(() => {
     fetchPerformanceReviews();
@@ -128,9 +201,11 @@ export const Performance: React.FC = () => {
       
       const matchesRating = ratingFilter === 'all' || review.rating === parseInt(ratingFilter);
       
-      return matchesSearch && matchesRating;
+      const matchesStatus = statusFilter === 'all' || review.status === statusFilter;
+      
+      return matchesSearch && matchesRating && matchesStatus;
     });
-  }, [performanceReviews, searchQuery, ratingFilter]);
+  }, [performanceReviews, searchQuery, ratingFilter, statusFilter]);
 
   // Filter objectives
   const filteredObjectives = useMemo(() => {
@@ -178,10 +253,236 @@ export const Performance: React.FC = () => {
     setCurrentPage(1);
   };
 
+  // Get employee name by ID
+  const getEmployeeName = (employeeId: string) => {
+    const emp = employees.find(e => e.id === employeeId);
+    return emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown';
+  };
+
+  // Get employee department by ID
+  const getEmployeeDepartment = (employeeId: string) => {
+    const emp = employees.find(e => e.id === employeeId);
+    // We don't have department name directly, so we'll use the ID or show a placeholder
+    return emp?.departmentId || 'N/A';
+  };
+
+  // Open review modal for create/edit
+  const openReviewModal = (review?: PerformanceReviewDisplay) => {
+    if (review) {
+      setEditingReview(review);
+      setReviewForm({
+        employeeId: review.employeeId,
+        period: review.period,
+        rating: review.rating,
+        objectivesCompleted: review.objectivesCompleted,
+        objectivesTotal: review.objectivesTotal,
+        feedback: review.feedback,
+        improvementPoints: '',
+      });
+    } else {
+      setEditingReview(null);
+      setReviewForm({
+        employeeId: '',
+        period: 'Q1 2025',
+        rating: 3,
+        objectivesCompleted: 0,
+        objectivesTotal: 5,
+        feedback: '',
+        improvementPoints: '',
+      });
+    }
+    setIsReviewModalOpen(true);
+  };
+
+  // Open objective modal for create/edit
+  const openObjectiveModal = (objective?: ObjectiveDisplay) => {
+    if (objective) {
+      setEditingObjective(objective);
+      setObjectiveForm({
+        employeeId: objective.employeeId,
+        title: objective.title,
+        description: objective.description,
+        target: objective.target,
+        dueDate: objective.dueDate instanceof Date 
+          ? objective.dueDate.toISOString().split('T')[0]
+          : new Date(objective.dueDate).toISOString().split('T')[0],
+      });
+    } else {
+      setEditingObjective(null);
+      setObjectiveForm({
+        employeeId: '',
+        title: '',
+        description: '',
+        target: 100,
+        dueDate: '',
+      });
+    }
+    setIsObjectiveModalOpen(true);
+  };
+
+  // Open delete confirmation
+  const openDeleteModal = (type: 'review' | 'objective', id: string, name: string) => {
+    setDeletingItem({ type, id, name });
+    setIsDeleteModalOpen(true);
+  };
+
+    // Submit review form
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    
+    try {
+      const employee = employees.find(emp => emp.id === reviewForm.employeeId);
+      
+      if (editingReview) {
+        // Update existing review
+        await performanceService.updatePerformanceReview(editingReview.id, {
+          period: reviewForm.period,
+          rating: reviewForm.rating,
+          objectivesCompleted: reviewForm.objectivesCompleted,
+          objectivesTotal: reviewForm.objectivesTotal,
+          feedback: reviewForm.feedback,
+        });
+        showSuccess('Évaluation mise à jour avec succès');
+      } else {
+        // Create new review
+        await performanceService.createPerformanceReview({
+          employeeId: reviewForm.employeeId,
+          employeeName: employee ? `${employee.firstName} ${employee.lastName}` : '',
+          departmentId: employee?.departmentId || '',
+          departmentName: departments.find(d => d.id === employee?.departmentId)?.name || '',
+          period: reviewForm.period,
+          rating: reviewForm.rating,
+          objectivesCompleted: reviewForm.objectivesCompleted,
+          objectivesTotal: reviewForm.objectivesTotal,
+          feedback: reviewForm.feedback,
+        });
+        showSuccess('Nouvelle évaluation créée avec succès');
+      }
+      
+      setIsReviewModalOpen(false);
+      fetchPerformanceReviews();
+    } catch (err: unknown) {
+      console.error('Error saving review:', err);
+      
+      // Extract more meaningful error message
+      let errorMessage = 'Erreur lors de la sauvegarde. Veuillez réessayer.';
+      
+      if (axios.isAxiosError(err)) {
+        const axiosError = err as AxiosError<{message?: string}>;
+        if (axiosError.response?.data?.message) {
+          // Try to parse validation errors
+          const backendMessage = axiosError.response.data.message;
+          if (backendMessage.includes('Validation failed') || backendMessage.includes('ConstraintViolationException')) {
+            errorMessage = 'Erreur de validation. Veuillez vérifier les champs obligatoires.';
+          } else {
+            errorMessage = backendMessage;
+          }
+        } else if (axiosError.response?.status === 400) {
+          errorMessage = 'Données invalides. Veuillez vérifier le formulaire.';
+        } else if (axiosError.response?.status === 401) {
+          errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+        } else if (axiosError.response?.status === 403) {
+          errorMessage = 'Accès refusé. Vous n\'avez pas les permissions nécessaires.';
+        } else if (axiosError.response?.status === 500) {
+          errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+        }
+      }
+      
+      showError(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Submit objective form
+  const handleObjectiveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    
+    try {
+      const employee = employees.find(emp => emp.id === objectiveForm.employeeId);
+      
+      if (editingObjective) {
+        // Update existing objective
+        await performanceService.updateObjective(editingObjective.id, {
+          title: objectiveForm.title,
+          description: objectiveForm.description,
+          target: objectiveForm.target,
+          dueDate: objectiveForm.dueDate,
+        });
+        showSuccess('Objectif mis à jour avec succès');
+      } else {
+        // Create new objective
+        await performanceService.createObjective({
+          employeeId: objectiveForm.employeeId,
+          employeeName: employee ? `${employee.firstName} ${employee.lastName}` : '',
+          title: objectiveForm.title,
+          description: objectiveForm.description,
+          target: objectiveForm.target,
+          dueDate: objectiveForm.dueDate,
+        });
+        showSuccess('Nouvel objectif créé avec succès');
+      }
+      
+      setIsObjectiveModalOpen(false);
+      fetchObjectives();
+    } catch (err: unknown) {
+      console.error('Error saving objective:', err);
+      showError('Erreur lors de la sauvegarde. Veuillez réessayer.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!deletingItem) return;
+    
+    setSubmitting(true);
+    try {
+      if (deletingItem.type === 'review') {
+        await performanceService.deletePerformanceReview(deletingItem.id);
+        showSuccess('Évaluation supprimée avec succès');
+        fetchPerformanceReviews();
+      } else {
+        await performanceService.deleteObjective(deletingItem.id);
+        showSuccess('Objectif supprimé avec succès');
+        fetchObjectives();
+      }
+      setIsDeleteModalOpen(false);
+    } catch (err: unknown) {
+      console.error('Error deleting:', err);
+      showError('Erreur lors de la suppression. Veuillez réessayer.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Update objective progress
+  const handleUpdateProgress = async (objectiveId: string, achieved: number) => {
+    try {
+      await performanceService.updateObjectiveProgress(objectiveId, achieved);
+      showSuccess('Progression mise à jour');
+      fetchObjectives();
+    } catch (err: unknown) {
+      console.error('Error updating progress:', err);
+      showError('Erreur lors de la mise à jour');
+    }
+  };
+
   // Rating stars
-  const renderStars = (rating: number) => {
+  const renderStars = (rating: number, interactive = false, onChange?: (rating: number) => void) => {
     return Array.from({ length: 5 }, (_, i) => (
-      <span key={i} style={{ color: i < rating ? '#fbbf24' : Colors.border, fontSize: 14 }}>
+      <span 
+        key={i} 
+        onClick={() => interactive && onChange?.(i + 1)}
+        style={{ 
+          color: i < rating ? '#fbbf24' : Colors.border, 
+          fontSize: 14,
+          cursor: interactive ? 'pointer' : 'default',
+        }}
+      >
         ★
       </span>
     ));
@@ -227,9 +528,14 @@ export const Performance: React.FC = () => {
         employeeCount: dept.employeeCount,
       }));
     }
-    // No fallback - show empty state when no backend data
     return [];
   }, [departmentPerformance]);
+
+  // Format date
+  const formatDate = (date: Date | string) => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
 
   return (
     <div style={{ padding: 24 }}>
@@ -243,9 +549,14 @@ export const Performance: React.FC = () => {
             Évaluations · Objectifs · Suivi
           </p>
         </div>
-        <Button variant="primary" onClick={() => setIsModalOpen(true)}>
-          + Nouvelle évaluation
-        </Button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Button variant="secondary" onClick={() => openObjectiveModal()}>
+            + Nouvel objectif
+          </Button>
+          <Button variant="primary" onClick={() => openReviewModal()}>
+            + Nouvelle évaluation
+          </Button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -260,6 +571,21 @@ export const Performance: React.FC = () => {
           fontSize: 13,
         }}>
           {error}
+        </div>
+      )}
+
+      {/* Success Message */}
+      {successMessage && (
+        <div style={{ 
+          padding: '12px 16px', 
+          background: 'rgba(62, 207, 142, 0.1)', 
+          border: '1px solid rgba(62, 207, 142, 0.3)',
+          borderRadius: 8,
+          marginBottom: 20,
+          color: '#3ecf8e',
+          fontSize: 13,
+        }}>
+          {successMessage}
         </div>
       )}
 
@@ -470,7 +796,7 @@ export const Performance: React.FC = () => {
             <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>
               Chargement...
             </div>
-          ) : (
+          ) : displayDeptPerformance.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
               {displayDeptPerformance.map((dept) => (
                 <div key={dept.id} style={{ 
@@ -492,6 +818,10 @@ export const Performance: React.FC = () => {
                 </div>
               ))}
             </div>
+          ) : (
+            <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>
+              Aucune donnée de performance disponible
+            </div>
           )}
         </Card>
       </div>
@@ -511,7 +841,7 @@ export const Performance: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          Évaluations
+          Évaluations ({filteredReviews.length})
         </button>
         <button
           onClick={() => setCurrentTab('objectives')}
@@ -526,15 +856,15 @@ export const Performance: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          Objectifs
+          Objectifs ({filteredObjectives.length})
         </button>
       </div>
 
       {/* Filters Card */}
       <Card style={{ marginBottom: 20, padding: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, alignItems: 'end' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
           <SearchInput 
-            placeholder="Rechercher par employé, département..."
+            placeholder="Rechercher par employé, département, objectif..."
             value={searchQuery}
             onChange={(value: string) => { setSearchQuery(value); handleFilterChange(); }}
           />
@@ -562,6 +892,31 @@ export const Performance: React.FC = () => {
               <option value="2">2 ★</option>
             </select>
           </div>
+          {currentTab === 'reviews' && (
+            <div>
+              <label style={{ display: 'block', fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>
+                Statut
+              </label>
+              <select 
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); handleFilterChange(); }}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                }}
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="completed">Complété</option>
+                <option value="in_progress">En cours</option>
+                <option value="pending">En attente</option>
+              </select>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -571,6 +926,10 @@ export const Performance: React.FC = () => {
           {loading ? (
             <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
               Chargement des évaluations...
+            </div>
+          ) : filteredReviews.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Aucune évaluation trouvée. Cliquez sur "+ Nouvelle évaluation" pour commencer.
             </div>
           ) : (
             <>
@@ -655,17 +1014,36 @@ export const Performance: React.FC = () => {
                             </span>
                           </td>
                           <td style={{ padding: '14px 16px' }}>
-                            <button style={{ 
-                              padding: '6px 12px', 
-                              borderRadius: 6, 
-                              border: `1px solid ${Colors.border}`, 
-                              background: 'transparent', 
-                              color: Colors.textMuted, 
-                              fontSize: 11, 
-                              cursor: 'pointer',
-                            }}>
-                              ✎ Détails
-                            </button>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                              <button 
+                                onClick={() => openReviewModal(review)}
+                                style={{ 
+                                  padding: '6px 12px', 
+                                  borderRadius: 6, 
+                                  border: `1px solid ${Colors.border}`, 
+                                  background: 'transparent', 
+                                  color: Colors.textMuted, 
+                                  fontSize: 11, 
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                ✎
+                              </button>
+                              <button 
+                                onClick={() => openDeleteModal('review', review.id, review.employeeName)}
+                                style={{ 
+                                  padding: '6px 12px', 
+                                  borderRadius: 6, 
+                                  border: `1px solid rgba(224, 80, 80, 0.3)`, 
+                                  background: 'rgba(224, 80, 80, 0.05)', 
+                                  color: '#e05050', 
+                                  fontSize: 11, 
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -749,6 +1127,10 @@ export const Performance: React.FC = () => {
             <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
               Chargement des objectifs...
             </div>
+          ) : filteredObjectives.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Aucun objectif trouvé. Cliquez sur "+ Nouvel objectif" pour commencer.
+            </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -759,6 +1141,7 @@ export const Performance: React.FC = () => {
                     <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progression</th>
                     <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Échéance</th>
                     <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -809,7 +1192,7 @@ export const Performance: React.FC = () => {
                           </div>
                         </td>
                         <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                          {objective.dueDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {formatDate(objective.dueDate)}
                         </td>
                         <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                           <span style={{ 
@@ -823,6 +1206,38 @@ export const Performance: React.FC = () => {
                             {statusStyle.label}
                           </span>
                         </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                            <button 
+                              onClick={() => openObjectiveModal(objective)}
+                              style={{ 
+                                padding: '6px 12px', 
+                                borderRadius: 6, 
+                                border: `1px solid ${Colors.border}`, 
+                                background: 'transparent', 
+                                color: Colors.textMuted, 
+                                fontSize: 11, 
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✎
+                            </button>
+                            <button 
+                              onClick={() => openDeleteModal('objective', objective.id, objective.title)}
+                              style={{ 
+                                padding: '6px 12px', 
+                                borderRadius: 6, 
+                                border: `1px solid rgba(224, 80, 80, 0.3)`, 
+                                background: 'rgba(224, 80, 80, 0.05)', 
+                                color: '#e05050', 
+                                fontSize: 11, 
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -833,18 +1248,20 @@ export const Performance: React.FC = () => {
         </Card>
       )}
 
-      {/* New Evaluation Modal */}
+      {/* Review Modal */}
       <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        title="Nouvelle évaluation de performance"
+        isOpen={isReviewModalOpen} 
+        onClose={() => setIsReviewModalOpen(false)} 
+        title={editingReview ? 'Modifier l\'évaluation' : 'Nouvelle évaluation de performance'}
         size="lg"
       >
-        <form onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+        <form onSubmit={handleReviewSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Employé *</label>
               <select 
+                value={reviewForm.employeeId}
+                onChange={(e) => setReviewForm({ ...reviewForm, employeeId: e.target.value })}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -855,6 +1272,7 @@ export const Performance: React.FC = () => {
                   fontSize: 13,
                 }}
                 required
+                disabled={!!editingReview}
               >
                 <option value="">Sélectionner un employé</option>
                 {employees.map(emp => (
@@ -865,6 +1283,8 @@ export const Performance: React.FC = () => {
             <div>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Période *</label>
               <select 
+                value={reviewForm.period}
+                onChange={(e) => setReviewForm({ ...reviewForm, period: e.target.value })}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -889,12 +1309,13 @@ export const Performance: React.FC = () => {
                   <button
                     key={rating}
                     type="button"
+                    onClick={() => setReviewForm({ ...reviewForm, rating })}
                     style={{
                       flex: 1,
                       padding: '12px',
                       borderRadius: 8,
-                      border: `1px solid ${Colors.border}`,
-                      background: 'transparent',
+                      border: reviewForm.rating === rating ? `2px solid ${Colors.accent}` : `1px solid ${Colors.border}`,
+                      background: reviewForm.rating === rating ? 'rgba(100, 140, 255, 0.1)' : 'transparent',
                       color: '#fbbf24',
                       fontSize: 20,
                       cursor: 'pointer',
@@ -905,9 +1326,48 @@ export const Performance: React.FC = () => {
                 ))}
               </div>
             </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Objectifs atteints</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input 
+                  type="number"
+                  min="0"
+                  max={reviewForm.objectivesTotal}
+                  value={reviewForm.objectivesCompleted}
+                  onChange={(e) => setReviewForm({ ...reviewForm, objectivesCompleted: parseInt(e.target.value) || 0 })}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: 8,
+                    border: `1px solid ${Colors.border}`,
+                    background: Colors.bg,
+                    color: Colors.text,
+                    fontSize: 13,
+                  }}
+                />
+                <span style={{ alignSelf: 'center', color: Colors.textMuted }}>/</span>
+                <input 
+                  type="number"
+                  min="1"
+                  value={reviewForm.objectivesTotal}
+                  onChange={(e) => setReviewForm({ ...reviewForm, objectivesTotal: parseInt(e.target.value) || 1 })}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: 8,
+                    border: `1px solid ${Colors.border}`,
+                    background: Colors.bg,
+                    color: Colors.text,
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+            </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Feedback</label>
               <textarea 
+                value={reviewForm.feedback}
+                onChange={(e) => setReviewForm({ ...reviewForm, feedback: e.target.value })}
                 placeholder="Commentaires sur la performance..."
                 rows={4}
                 style={{
@@ -926,6 +1386,8 @@ export const Performance: React.FC = () => {
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Points d'amélioration</label>
               <textarea 
+                value={reviewForm.improvementPoints}
+                onChange={(e) => setReviewForm({ ...reviewForm, improvementPoints: e.target.value })}
                 placeholder="Points à améliorer..."
                 rows={3}
                 style={{
@@ -943,14 +1405,167 @@ export const Performance: React.FC = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-            <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>
+            <Button variant="secondary" type="button" onClick={() => setIsReviewModalOpen(false)}>
               Annuler
             </Button>
-            <Button variant="primary" type="submit">
-              Soumettre l'évaluation
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? 'Enregistrement...' : (editingReview ? 'Mettre à jour' : 'Créer l\'évaluation')}
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Objective Modal */}
+      <Modal 
+        isOpen={isObjectiveModalOpen} 
+        onClose={() => setIsObjectiveModalOpen(false)} 
+        title={editingObjective ? 'Modifier l\'objectif' : 'Nouvel objectif'}
+        size="lg"
+      >
+        <form onSubmit={handleObjectiveSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Employé *</label>
+              <select 
+                value={objectiveForm.employeeId}
+                onChange={(e) => setObjectiveForm({ ...objectiveForm, employeeId: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                }}
+                required
+                disabled={!!editingObjective}
+              >
+                <option value="">Sélectionner un employé</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Titre de l'objectif *</label>
+              <input 
+                type="text"
+                value={objectiveForm.title}
+                onChange={(e) => setObjectiveForm({ ...objectiveForm, title: e.target.value })}
+                placeholder="Ex: Augmenter les ventes de 20%"
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                }}
+              />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Description</label>
+              <textarea 
+                value={objectiveForm.description}
+                onChange={(e) => setObjectiveForm({ ...objectiveForm, description: e.target.value })}
+                placeholder="Décrivez l'objectif en détail..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Cible *</label>
+              <input 
+                type="number"
+                min="1"
+                value={objectiveForm.target}
+                onChange={(e) => setObjectiveForm({ ...objectiveForm, target: parseInt(e.target.value) || 1 })}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Date d'échéance *</label>
+              <input 
+                type="date"
+                value={objectiveForm.dueDate}
+                onChange={(e) => setObjectiveForm({ ...objectiveForm, dueDate: e.target.value })}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
+            <Button variant="secondary" type="button" onClick={() => setIsObjectiveModalOpen(false)}>
+              Annuler
+            </Button>
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? 'Enregistrement...' : (editingObjective ? 'Mettre à jour' : 'Créer l\'objectif')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        isOpen={isDeleteModalOpen} 
+        onClose={() => setIsDeleteModalOpen(false)} 
+        title="Confirmer la suppression"
+        size="sm"
+      >
+        <div style={{ padding: '20px 0' }}>
+          <p style={{ fontSize: 14, color: Colors.text, marginBottom: 8 }}>
+            Êtes-vous sûr de vouloir supprimer {deletingItem?.type === 'review' ? 'l\'évaluation' : 'l\'objectif'} suivant ?
+          </p>
+          <p style={{ fontSize: 16, fontWeight: 600, color: Colors.text }}>
+            {deletingItem?.name}
+          </p>
+          <p style={{ fontSize: 12, color: Colors.textMuted, marginTop: 12 }}>
+            Cette action est irréversible.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
+            Annuler
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleDelete}
+            disabled={submitting}
+            style={{ background: '#e05050', borderColor: '#e05050' }}
+          >
+            {submitting ? 'Suppression...' : 'Confirmer'}
+          </Button>
+        </div>
       </Modal>
     </div>
   );

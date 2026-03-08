@@ -14,8 +14,14 @@ interface ProjectFormProps {
 
 export interface ProjectFormData {
   name: string;
+  description?: string;
   priority: string;
-  status: string;
+  status?: string;
+  progress?: number;
+  startDate?: string;
+  deadline?: string;
+  managerId?: string;
+  memberIds?: string[];
 }
 
 const ProjectForm: React.FC<ProjectFormProps> = ({
@@ -30,8 +36,14 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
     
     const data: ProjectFormData = {
       name: formData.get('name') as string,
+      description: formData.get('description') as string || undefined,
       priority: formData.get('priority') as string,
-      status: formData.get('status') as string,
+      status: formData.get('status') as string || undefined,
+      progress: project?.progress || 0,
+      startDate: project?.startDate || new Date().toISOString().split('T')[0],
+      deadline: formData.get('deadline') as string || undefined,
+      managerId: project?.managerId || undefined,
+      memberIds: project?.members || [],
     };
     
     onSubmit(data);
@@ -56,6 +68,15 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
     marginBottom: 6,
   };
 
+  // Format date for input
+  const formatDateForInput = (date: Date | string | undefined) => {
+    if (!date) return '';
+    if (date instanceof Date) {
+      return date.toISOString().split('T')[0];
+    }
+    return date.split('T')[0];
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -76,6 +97,17 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
               required
             />
           </div>
+          
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>Description</label>
+            <textarea 
+              name="description"
+              style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
+              placeholder="Description du projet..."
+              defaultValue={project?.description}
+            />
+          </div>
+          
           <div>
             <label style={labelStyle}>Priorité *</label>
             <select name="priority" defaultValue={project?.priority || 'moyenne'} style={inputStyle} required>
@@ -85,14 +117,35 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
               <option value="critique">Critique</option>
             </select>
           </div>
+          
           <div>
-            <label style={labelStyle}>Statut *</label>
-            <select name="status" defaultValue={project?.status || 'demarrage'} style={inputStyle} required>
+            <label style={labelStyle}>Statut</label>
+            <select name="status" defaultValue={project?.status || 'demarrage'} style={inputStyle}>
               <option value="demarrage">Démarrage</option>
               <option value="en_cours">En cours</option>
               <option value="finalisation">Finalisation</option>
               <option value="termine">Terminé</option>
             </select>
+          </div>
+          
+          <div>
+            <label style={labelStyle}>Date de début</label>
+            <input 
+              name="startDate"
+              type="date"
+              style={inputStyle}
+              defaultValue={formatDateForInput(project?.startDate)}
+            />
+          </div>
+          
+          <div>
+            <label style={labelStyle}>Date limite</label>
+            <input 
+              name="deadline"
+              type="date"
+              style={inputStyle}
+              defaultValue={formatDateForInput(project?.deadline)}
+            />
           </div>
         </div>
         

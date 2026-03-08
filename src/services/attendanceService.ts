@@ -80,14 +80,23 @@ const attendanceService = {
     status: PresenceStatus;
     notes?: string;
   }): Promise<PresenceRecord> {
-    const response = await api.post<AttendanceResponse>('/v1/attendances', {
-      employeeId: data.employeeId,
-      date: data.date,
-      checkIn: data.checkIn,
-      checkOut: data.checkOut,
-      status: data.status.toUpperCase(),
-      notes: data.notes,
-    });
+    // Convert frontend status to backend status
+    const statusMap: Record<string, string> = {
+      'present': 'PRESENT',
+      'absent': 'ABSENT',
+      'late': 'LATE',
+      'leave': 'ON_LEAVE',
+    };
+    
+    const params = new URLSearchParams();
+    params.append('employeeId', data.employeeId);
+    params.append('date', data.date);
+    if (data.checkIn) params.append('checkIn', data.checkIn);
+    if (data.checkOut) params.append('checkOut', data.checkOut);
+    params.append('status', statusMap[data.status] || 'PRESENT');
+    if (data.notes) params.append('notes', data.notes);
+
+    const response = await api.post<AttendanceResponse>(`/v1/attendances?${params.toString()}`, null);
     return mapAttendance(response.data as unknown as AttendanceResponse);
   },
 

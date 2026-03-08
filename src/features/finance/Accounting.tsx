@@ -1,240 +1,43 @@
 // Accounting Page - Finance Module
-// Complete accounting module with General Ledger, Balance Sheet, Income Statement, and Journal
+// Complete accounting module with General Ledger, Balance Sheet, Income Statement, and Journal - Backend API Integration
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput } from '../../components/common';
 import { Colors } from '../../constants/theme';
-import { cashFlowData, invoicesData, employeesData, deptPerformance } from '../../data/mockData';
+import accountingService, { AccountingAccount, JournalEntry, JournalEntryLine } from '../../services/accountingService';
 import { JournalEntryForm } from './components';
 import type { JournalEntryFormData } from './components/JournalEntryForm';
 
-// Account types (local interface for accounting)
-interface AccountingAccount {
-  id: string;
-  code: string;
-  name: string;
-  type: 'actif' | 'passif' | 'charge' | 'produit';
-  parentCode?: string;
-  balance: number;
-  debit: number;
-  credit: number;
-}
-
-interface JournalEntry {
-  id: string;
-  date: Date;
-  reference: string;
-  description: string;
-  accounts: { code: string; name: string; debit: number; credit: number }[];
-  totalDebit: number;
-  totalCredit: number;
-}
-
-// Generate mock chart of accounts
-const generateAccounts = (): AccountingAccount[] => [
-  // Passif (Liabilities)
-  { id: '1', code: '101', name: 'Capital', type: 'passif', balance: 5000000, debit: 0, credit: 0 },
-  { id: '2', code: '110', name: 'Report à nouveau', type: 'passif', balance: 850000, debit: 0, credit: 0 },
-  { id: '3', code: '120', name: 'Résultat de l\'exercice', type: 'passif', balance: 3100000, debit: 0, credit: 0 },
-  { id: '4', code: '160', name: 'Emprunts', type: 'passif', balance: 1200000, debit: 0, credit: 0 },
-  { id: '5', code: '401', name: 'Fournisseurs', type: 'passif', balance: 450000, debit: 0, credit: 0 },
-  // Actif (Assets)
-  { id: '6', code: '411', name: 'Clients', type: 'actif', balance: 1850000, debit: 0, credit: 0 },
-  { id: '7', code: '420', name: 'Personnel - Rémunérations', type: 'actif', balance: 0, debit: 0, credit: 0 },
-  { id: '8', code: '430', name: 'Sécurité sociale', type: 'actif', balance: 125000, debit: 0, credit: 0 },
-  { id: '9', code: '501', name: 'Caisse', type: 'actif', balance: 75000, debit: 0, credit: 0 },
-  { id: '10', code: '512', name: 'Banque', type: 'actif', balance: 4250000, debit: 0, credit: 0 },
-  { id: '11', code: '521', name: 'Virements internes', type: 'actif', balance: 0, debit: 0, credit: 0 },
-  // Charges (Expenses)
-  { id: '12', code: '601', name: 'Achats de marchandises', type: 'charge', balance: 1250000, debit: 1250000, credit: 0 },
-  { id: '13', code: '602', name: 'Achats de matières premières', type: 'charge', balance: 380000, debit: 380000, credit: 0 },
-  { id: '14', code: '604', name: 'Achats non stockés', type: 'charge', balance: 245000, debit: 245000, credit: 0 },
-  { id: '15', code: '606', name: 'Fournitures', type: 'charge', balance: 180000, debit: 180000, credit: 0 },
-  { id: '16', code: '621', name: 'Salaires et appointements', type: 'charge', balance: 4200000, debit: 4200000, credit: 0 },
-  { id: '17', code: '623', name: 'Charges sociales', type: 'charge', balance: 1680000, debit: 1680000, credit: 0 },
-  { id: '18', code: '626', name: 'Loyer', type: 'charge', balance: 480000, debit: 480000, credit: 0 },
-  { id: '19', code: '627', name: 'Assurances', type: 'charge', balance: 95000, debit: 95000, credit: 0 },
-  { id: '20', code: '628', name: 'Transports', type: 'charge', balance: 215000, debit: 215000, credit: 0 },
-  { id: '21', code: '630', name: 'Impôts et taxes', type: 'charge', balance: 320000, debit: 320000, credit: 0 },
-  { id: '22', code: '635', name: 'Taxe professionnelle', type: 'charge', balance: 180000, debit: 180000, credit: 0 },
-  { id: '23', code: '640', name: 'Services extérieurs', type: 'charge', balance: 145000, debit: 145000, credit: 0 },
-  { id: '24', code: '661', name: 'Frais bancaires', type: 'charge', balance: 45000, debit: 45000, credit: 0 },
-  { id: '25', code: '671', name: 'Intérêts bancaires', type: 'charge', balance: 85000, debit: 85000, credit: 0 },
-  { id: '26', code: '681', name: 'Dotations aux amortissements', type: 'charge', balance: 520000, debit: 520000, credit: 0 },
-  { id: '27', code: '691', name: 'Dotations aux provisions', type: 'charge', balance: 0, debit: 0, credit: 0 },
-  // Produits (Revenue)
-  { id: '28', code: '701', name: 'Ventes de marchandises', type: 'produit', balance: 8500000, debit: 0, credit: 8500000 },
-  { id: '29', code: '706', name: 'Prestations de services', type: 'produit', balance: 3200000, debit: 0, credit: 3200000 },
-  { id: '30', code: '708', name: 'Produits des activités annexes', type: 'produit', balance: 450000, debit: 0, credit: 450000 },
-  { id: '31', code: '740', name: 'Subventions d\'exploitation', type: 'produit', balance: 0, debit: 0, credit: 0 },
-  { id: '32', code: '751', name: 'Redevances', type: 'produit', balance: 180000, debit: 0, credit: 180000 },
-  { id: '33', code: '761', name: 'Produits financiers', type: 'produit', balance: 125000, debit: 0, credit: 125000 },
-  { id: '34', code: '771', name: 'Excédents d\'apport', type: 'produit', balance: 0, debit: 0, credit: 0 },
-  { id: '35', code: '781', name: 'Reprises sur amortissements', type: 'produit', balance: 0, debit: 0, credit: 0 },
-  { id: '36', code: '791', name: 'Transferts de charges', type: 'produit', balance: 0, debit: 0, credit: 0 },
-];
-
-// Generate mock journal entries
-const generateJournalEntries = (): JournalEntry[] => {
-  const entries: JournalEntry[] = [
-    {
-      id: '1',
-      date: new Date('2025-01-05'),
-      reference: 'OD-001',
-      description: 'Acompte fournisseurs - Acquisition équipement',
-      accounts: [
-        { code: '238', name: 'Avances acomptes versés', debit: 250000, credit: 0 },
-        { code: '512', name: 'Banque', debit: 0, credit: 250000 },
-      ],
-      totalDebit: 250000,
-      totalCredit: 250000,
-    },
-    {
-      id: '2',
-      date: new Date('2025-01-10'),
-      reference: 'OD-002',
-      description: 'Paiement salaire janvier',
-      accounts: [
-        { code: '421', name: 'Personnel - Rémunérations dues', debit: 3500000, credit: 0 },
-        { code: '431', name: 'URSSAF', debit: 0, credit: 1400000 },
-        { code: '437', name: 'Autres organismes sociaux', debit: 0, credit: 350000 },
-        { code: '512', name: 'Banque', debit: 0, credit: 1750000 },
-      ],
-      totalDebit: 3500000,
-      totalCredit: 3500000,
-    },
-    {
-      id: '3',
-      date: new Date('2025-01-15'),
-      reference: 'VT-001',
-      description: 'Facture #INV-2045 - Sonatel SA',
-      accounts: [
-        { code: '411', name: 'Clients', debit: 1220000, credit: 0 },
-        { code: '701', name: 'Ventes de marchandises', debit: 0, credit: 1000000 },
-        { code: '445', name: 'TVA collectée', debit: 0, credit: 220000 },
-      ],
-      totalDebit: 1220000,
-      totalCredit: 1220000,
-    },
-    {
-      id: '4',
-      date: new Date('2025-01-20'),
-      reference: 'AC-001',
-      description: 'Achat fournitures bureau',
-      accounts: [
-        { code: '606', name: 'Fournitures', debit: 45000, credit: 0 },
-        { code: '445', name: 'TVA déductible', debit: 9000, credit: 0 },
-        { code: '401', name: 'Fournisseurs', debit: 0, credit: 54000 },
-      ],
-      totalDebit: 54000,
-      totalCredit: 54000,
-    },
-    {
-      id: '5',
-      date: new Date('2025-01-25'),
-      reference: 'BQ-001',
-      description: 'Frais bancaires - Janvier',
-      accounts: [
-        { code: '661', name: 'Frais bancaires', debit: 3500, credit: 0 },
-        { code: '512', name: 'Banque', debit: 0, credit: 3500 },
-      ],
-      totalDebit: 3500,
-      totalCredit: 3500,
-    },
-    {
-      id: '6',
-      date: new Date('2025-02-01'),
-      reference: 'OD-003',
-      description: 'Loyer février',
-      accounts: [
-        { code: '626', name: 'Loyer', debit: 240000, credit: 0 },
-        { code: '445', name: 'TVA déductible', debit: 48000, credit: 0 },
-        { code: '512', name: 'Banque', debit: 0, credit: 288000 },
-      ],
-      totalDebit: 288000,
-      totalCredit: 288000,
-    },
-    {
-      id: '7',
-      date: new Date('2025-02-05'),
-      reference: 'VT-002',
-      description: 'Facture #INV-2046 - BNK Group',
-      accounts: [
-        { code: '411', name: 'Clients', debit: 610000, credit: 0 },
-        { code: '706', name: 'Prestations de services', debit: 0, credit: 500000 },
-        { code: '445', name: 'TVA collectée', debit: 0, credit: 110000 },
-      ],
-      totalDebit: 610000,
-      totalCredit: 610000,
-    },
-    {
-      id: '8',
-      date: new Date('2025-02-10'),
-      reference: 'AC-002',
-      description: 'Achat matière première',
-      accounts: [
-        { code: '601', name: 'Achats de marchandises', debit: 380000, credit: 0 },
-        { code: '445', name: 'TVA déductible', debit: 76000, credit: 0 },
-        { code: '401', name: 'Fournisseurs', debit: 0, credit: 456000 },
-      ],
-      totalDebit: 456000,
-      totalCredit: 456000,
-    },
-    {
-      id: '9',
-      date: new Date('2025-02-15'),
-      reference: 'OD-004',
-      description: 'Charges sociales janvier',
-      accounts: [
-        { code: '645', name: 'Charges sociales', debit: 1400000, credit: 0 },
-        { code: '431', name: 'URSSAF', debit: 0, credit: 980000 },
-        { code: '437', name: 'Autres organismes', debit: 0, credit: 420000 },
-      ],
-      totalDebit: 1400000,
-      totalCredit: 1400000,
-    },
-    {
-      id: '10',
-      date: new Date('2025-02-20'),
-      reference: 'VT-003',
-      description: 'Facture #INV-2047 - Dakar Airport',
-      accounts: [
-        { code: '411', name: 'Clients', debit: 427500, credit: 0 },
-        { code: '708', name: 'Produits des activités', debit: 0, credit: 350000 },
-        { code: '445', name: 'TVA collectée', debit: 0, credit: 77500 },
-      ],
-      totalDebit: 427500,
-      totalCredit: 427500,
-    },
-    {
-      id: '11',
-      date: new Date('2025-02-25'),
-      reference: 'OD-005',
-      description: 'Amortissement équipements',
-      accounts: [
-        { code: '681', name: 'Dotations aux amortissements', debit: 125000, credit: 0 },
-        { code: '281', name: 'Amortissements', debit: 0, credit: 125000 },
-      ],
-      totalDebit: 125000,
-      totalCredit: 125000,
-    },
-    {
-      id: '12',
-      date: new Date('2025-02-28'),
-      reference: 'CA-001',
-      description: 'Règlement client Sonatel',
-      accounts: [
-        { code: '512', name: 'Banque', debit: 1220000, credit: 0 },
-        { code: '411', name: 'Clients', debit: 0, credit: 1220000 },
-      ],
-      totalDebit: 1220000,
-      totalCredit: 1220000,
-    },
-  ];
-  return entries.sort((a, b) => b.date.getTime() - a.date.getTime());
-};
-
 export const Accounting: React.FC = () => {
+  // State for backend data
+  const [accounts, setAccounts] = useState<AccountingAccount[]>([]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch data from backend
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch accounting data from backend service
+      const accountingData = await accountingService.getAccountingData();
+      setAccounts(accountingData.accounts);
+      setJournalEntries(accountingData.journalEntries);
+    } catch (err) {
+      console.error('Error fetching accounting data:', err);
+      setError('Erreur lors du chargement des données');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   // State
   const [activeTab, setActiveTab] = useState<'journal' | 'ledger' | 'balance' | 'income'>('journal');
   const [searchQuery, setSearchQuery] = useState('');
@@ -244,10 +47,6 @@ export const Accounting: React.FC = () => {
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false);
   const itemsPerPage = 10;
-
-  // Generate mock data
-  const accounts = useMemo(() => generateAccounts(), []);
-  const journalEntries = useMemo(() => generateJournalEntries(), []);
 
   // Filter accounts
   const filteredAccounts = useMemo(() => {
@@ -320,7 +119,8 @@ export const Accounting: React.FC = () => {
 
   // Format date
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   // Account type badge
@@ -347,6 +147,30 @@ export const Accounting: React.FC = () => {
     { id: 'balance', label: 'Bilan', icon: '⚖️' },
     { id: 'income', label: 'Compte de Résultat', icon: '📊' },
   ];
+
+  // Loading state
+  if (loading) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: Colors.textMuted }}>
+        Chargement des données comptables...
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && accounts.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <div style={{ color: Colors.danger, marginBottom: 16 }}>{error}</div>
+        <Button variant="primary" onClick={fetchData}>
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
+
+  // No data state
+  const hasNoData = accounts.length === 0 && journalEntries.length === 0;
 
   return (
     <div style={{ padding: 24 }}>
@@ -398,8 +222,24 @@ export const Accounting: React.FC = () => {
         ))}
       </div>
 
+      {/* No Data Message */}
+      {hasNoData && (
+        <Card style={{ padding: 40, textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+          <h3 style={{ fontSize: 18, fontWeight: 600, color: Colors.text, marginBottom: 8 }}>
+            Aucune donnée comptable disponible
+          </h3>
+          <p style={{ fontSize: 14, color: Colors.textMuted, marginBottom: 16 }}>
+            Les données comptables apparaîtront ici une fois les factures et dépenses enregistrées.
+          </p>
+          <Button variant="primary" onClick={fetchData}>
+            Actualiser
+          </Button>
+        </Card>
+      )}
+
       {/* Journal des écritures */}
-      {activeTab === 'journal' && (
+      {activeTab === 'journal' && !hasNoData && (
         <>
           {/* Stats Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
@@ -509,134 +349,141 @@ export const Accounting: React.FC = () => {
           </div>
 
           {/* Journal Table */}
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Référence</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Libellé</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Débit</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Crédit</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedEntries.map((entry, index) => (
-                    <tr 
-                      key={entry.id} 
-                      style={{ 
-                        borderBottom: `1px solid ${Colors.border}`,
-                        background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                      }}
-                    >
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                        {formatDate(entry.date)}
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
-                        {entry.reference}
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text, maxWidth: 300 }}>
-                        {entry.description}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#e05050' }}>
-                        {formatCurrency(entry.totalDebit)}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#3ecf8e' }}>
-                        {formatCurrency(entry.totalCredit)}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <button 
-                          onClick={() => handleViewEntry(entry)}
-                          style={{ 
-                            padding: '6px 12px', 
-                            borderRadius: 6, 
-                            border: `1px solid ${Colors.border}`, 
-                            background: 'transparent', 
-                            color: Colors.textMuted, 
-                            fontSize: 11, 
-                            cursor: 'pointer',
-                          }}
-                        >
-                          ✎ Détails
-                        </button>
-                      </td>
+          {journalEntries.length === 0 ? (
+            <Card style={{ padding: 40, textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📒</div>
+              <p style={{ color: Colors.textMuted }}>Aucune écriture comptable trouvée</p>
+            </Card>
+          ) : (
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Référence</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Libellé</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Débit</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Crédit</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              padding: '16px 20px',
-              borderTop: `1px solid ${Colors.border}`,
-            }}>
-              <div style={{ fontSize: 12, color: Colors.textMuted }}>
-                Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, journalEntries.length)} sur {journalEntries.length}
+                  </thead>
+                  <tbody>
+                    {paginatedEntries.map((entry, index) => (
+                      <tr 
+                        key={entry.id} 
+                        style={{ 
+                          borderBottom: `1px solid ${Colors.border}`,
+                          background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+                        }}
+                      >
+                        <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
+                          {formatDate(entry.date)}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
+                          {entry.reference}
+                        </td>
+                        <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text, maxWidth: 300 }}>
+                          {entry.description}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#e05050' }}>
+                          {formatCurrency(entry.totalDebit)}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#3ecf8e' }}>
+                          {formatCurrency(entry.totalCredit)}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <button 
+                            onClick={() => handleViewEntry(entry)}
+                            style={{ 
+                              padding: '6px 12px', 
+                              borderRadius: 6, 
+                              border: `1px solid ${Colors.border}`, 
+                              background: 'transparent', 
+                              color: Colors.textMuted, 
+                              fontSize: 11, 
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✎ Détails
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 6,
-                    border: `1px solid ${Colors.border}`,
-                    background: 'transparent',
-                    color: currentPage === 1 ? Colors.textMuted : Colors.text,
-                    fontSize: 12,
-                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                    opacity: currentPage === 1 ? 0.5 : 1,
-                  }}
-                >
-                  ← Précédent
-                </button>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
+
+              {/* Pagination */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '16px 20px',
+                borderTop: `1px solid ${Colors.border}`,
+              }}>
+                <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                  Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, journalEntries.length)} sur {journalEntries.length}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
                     style={{
-                      padding: '8px 12px',
+                      padding: '8px 14px',
                       borderRadius: 6,
-                      border: page === currentPage ? `1px solid ${Colors.accent}` : `1px solid ${Colors.border}`,
-                      background: page === currentPage ? 'rgba(100, 140, 255, 0.15)' : 'transparent',
-                      color: page === currentPage ? Colors.accent : Colors.text,
+                      border: `1px solid ${Colors.border}`,
+                      background: 'transparent',
+                      color: currentPage === 1 ? Colors.textMuted : Colors.text,
                       fontSize: 12,
-                      cursor: 'pointer',
+                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === 1 ? 0.5 : 1,
                     }}
                   >
-                    {page}
+                    ← Précédent
                   </button>
-                ))}
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 6,
-                    border: `1px solid ${Colors.border}`,
-                    background: 'transparent',
-                    color: currentPage === totalPages ? Colors.textMuted : Colors.text,
-                    fontSize: 12,
-                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                    opacity: currentPage === totalPages ? 0.5 : 1,
-                  }}
-                >
-                  Suivant →
-                </button>
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 6,
+                        border: page === currentPage ? `1px solid ${Colors.accent}` : `1px solid ${Colors.border}`,
+                        background: page === currentPage ? 'rgba(100, 140, 255, 0.15)' : 'transparent',
+                        color: page === currentPage ? Colors.accent : Colors.text,
+                        fontSize: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 6,
+                      border: `1px solid ${Colors.border}`,
+                      background: 'transparent',
+                      color: currentPage === totalPages ? Colors.textMuted : Colors.text,
+                      fontSize: 12,
+                      cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === totalPages ? 0.5 : 1,
+                    }}
+                  >
+                    Suivant →
+                  </button>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
         </>
       )}
 
       {/* Grand Livre (General Ledger) */}
-      {activeTab === 'ledger' && (
+      {activeTab === 'ledger' && !hasNoData && (
         <>
           {/* Filters */}
           <Card style={{ marginBottom: 20, padding: 16 }}>
@@ -674,64 +521,71 @@ export const Accounting: React.FC = () => {
           </Card>
 
           {/* Ledger Table */}
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Compte</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nom</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Débit</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Crédit</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Solde</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAccounts.map((account, index) => {
-                    const typeStyle = getAccountTypeBadge(account.type);
-                    return (
-                      <tr 
-                        key={account.id} 
-                        style={{ 
-                          borderBottom: `1px solid ${Colors.border}`,
-                          background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                        }}
-                      >
-                        <td style={{ padding: '14px 16px', fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
-                          {account.code}
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
-                          {account.name}
-                        </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                          <span style={{ 
-                            padding: '4px 10px', 
-                            borderRadius: 6, 
-                            fontSize: 11, 
-                            fontWeight: 500,
-                            background: typeStyle.bg, 
-                            color: typeStyle.color,
-                          }}>
-                            {typeStyle.label}
-                          </span>
-                        </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#e05050' }}>
-                          {formatCurrency(account.debit)}
-                        </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#3ecf8e' }}>
-                          {formatCurrency(account.credit)}
-                        </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: account.balance >= 0 ? Colors.text : '#e05050' }}>
-                          {formatCurrency(account.balance)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          {filteredAccounts.length === 0 ? (
+            <Card style={{ padding: 40, textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📗</div>
+              <p style={{ color: Colors.textMuted }}>Aucun compte trouvé</p>
+            </Card>
+          ) : (
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Compte</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nom</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Débit</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Crédit</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Solde</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAccounts.map((account, index) => {
+                      const typeStyle = getAccountTypeBadge(account.type);
+                      return (
+                        <tr 
+                          key={account.id} 
+                          style={{ 
+                            borderBottom: `1px solid ${Colors.border}`,
+                            background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+                          }}
+                        >
+                          <td style={{ padding: '14px 16px', fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
+                            {account.code}
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
+                            {account.name}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <span style={{ 
+                              padding: '4px 10px', 
+                              borderRadius: 6, 
+                              fontSize: 11, 
+                              fontWeight: 500,
+                              background: typeStyle.bg, 
+                              color: typeStyle.color,
+                            }}>
+                              {typeStyle.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#e05050' }}>
+                            {formatCurrency(account.debit)}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: '#3ecf8e' }}>
+                            {formatCurrency(account.credit)}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: account.balance >= 0 ? Colors.text : '#e05050' }}>
+                            {formatCurrency(account.balance)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
 
           {/* Totals */}
           <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
@@ -764,7 +618,7 @@ export const Accounting: React.FC = () => {
       )}
 
       {/* Bilan (Balance Sheet) */}
-      {activeTab === 'balance' && (
+      {activeTab === 'balance' && !hasNoData && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
           {/* Actif */}
           <Card style={{ padding: 24 }}>
@@ -873,7 +727,7 @@ export const Accounting: React.FC = () => {
       )}
 
       {/* Compte de Résultat (Income Statement) */}
-      {activeTab === 'income' && (
+      {activeTab === 'income' && !hasNoData && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
           {/* Charges */}
           <Card style={{ padding: 24 }}>

@@ -192,14 +192,23 @@ export const Invoices: React.FC = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Top clients (mock for now)
-  const topClients = [
-    { name: 'Sonatel SA', amount: 245000, invoices: 12 },
-    { name: 'BNK Group', amount: 189000, invoices: 8 },
-    { name: 'CBAO', amount: 156000, invoices: 6 },
-    { name: 'Dakar Airport', amount: 134000, invoices: 5 },
-    { name: 'Orange SN', amount: 98000, invoices: 4 },
-  ];
+  // Calculate top clients from real data
+  const topClients = useMemo(() => {
+    const clientMap = new Map<string, { amount: number; count: number }>();
+    
+    invoices.forEach(inv => {
+      const existing = clientMap.get(inv.clientName) || { amount: 0, count: 0 };
+      clientMap.set(inv.clientName, {
+        amount: existing.amount + inv.amount,
+        count: existing.count + 1,
+      });
+    });
+    
+    return Array.from(clientMap.entries())
+      .map(([name, data]) => ({ name, amount: data.amount, invoices: data.count }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+  }, [invoices]);
 
   return (
     <div style={{ padding: 24 }}>

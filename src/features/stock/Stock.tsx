@@ -1,21 +1,15 @@
 // Stock & Equipment Management - AEVUM Enterprise ERP
-// Refactored with DRY & SOLID principles
+// Refactored with DRY & SOLID principles - Backend API Integration
 
-import React, { useState, useMemo } from 'react';
-import { Card, Button, ProgressBar, FilterBar, SummaryCard, PaginationControls } from '../../components/common';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Card, Button, ProgressBar, FilterBar, PaginationControls } from '../../components/common';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Colors } from '../../constants/theme';
-import { 
-  stockItems, 
-  stockSummary, 
-  stockCategoriesData, 
-  stockMovements,
-  equipmentAssignments,
-  maintenanceAlerts
-} from '../../data/mockData';
 import { ProductForm, ProductDetails } from './components';
 import type { ProductFormData } from './components/ProductForm';
 import { useFilterable } from '../../hooks/useFilterable';
+import stockService, { StockSummary, StockCategoryData } from '../../services/stockService';
+import type { StockItem, StockCategory } from '../../types';
 
 // Stock category colors
 const categoryColors: Record<string, string> = {
@@ -53,9 +47,42 @@ const getStockStatus = (available: number, minQuantity: number): { label: string
 export const Stock: React.FC = () => {
   // State
   const [activeTab, setActiveTab] = useState<'inventory' | 'assignments' | 'movements' | 'maintenance'>('inventory');
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [stockSummary, setStockSummary] = useState<StockSummary>({ totalItems: 0, available: 0, assigned: 0, maintenance: 0 });
+  const [stockCategoriesData, setStockCategoriesData] = useState<StockCategoryData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch data from API
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [items, summary, categories] = await Promise.all([
+        stockService.getAssets({ pageSize: 100 }),
+        stockService.getStockSummary(),
+        stockService.getStockByCategory(),
+      ]);
+
+      setStockItems(items.data);
+      setStockSummary(summary);
+      setStockCategoriesData(categories);
+    } catch (err) {
+      console.error('Error fetching stock data:', err);
+      setError('Erreur lors du chargement des données de stock');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Use the filterable hook
   const {
@@ -73,19 +100,34 @@ export const Stock: React.FC = () => {
   } = useFilterable({
     data: stockItems,
     itemsPerPage: 10,
-    searchFields: ['name', 'reference'],
+    searchFields: ['name'],
   });
 
   // Filter by category from filters
   const filteredByCategory = useMemo(() => {
     const category = filters.category || 'all';
     if (category === 'all') return paginatedData;
-    return paginatedData.filter((item: any) => item.category === category);
+    return paginatedData.filter((item: StockItem) => item.category === category);
   }, [paginatedData, filters.category]);
 
   // Handle form submission
-  const handleProductSubmit = (data: ProductFormData) => {
-    console.log('Product data submitted:', data);
+  const handleProductSubmit = async (data: ProductFormData) => {
+    try {
+      await stockService.createAsset({
+        name: data.name,
+        description: data.description,
+        category: data.category as StockCategory,
+        serialNumber: data.serialNumber,
+        brand: data.brand,
+        model: data.model,
+        location: data.location,
+        purchasePrice: data.purchasePrice,
+      });
+      fetchData();
+    } catch (err) {
+      console.error('Error creating product:', err);
+      alert('Erreur lors de la création du produit');
+    }
   };
 
   // Handlers
@@ -94,15 +136,9 @@ export const Stock: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleViewDetails = (item: any) => {
+  const handleViewDetails = (item: StockItem) => {
     setSelectedItem(item);
     setIsDetailsOpen(true);
-  };
-
-  const handleEdit = (item: any) => {
-    setSelectedItem(item);
-    setIsDetailsOpen(false);
-    setIsFormOpen(true);
   };
 
   // Summary cards data
@@ -112,6 +148,27 @@ export const Stock: React.FC = () => {
     { title: 'Affectés', value: stockSummary.assigned, icon: '👤', variant: 'default' as const },
     { title: 'En Maintenance', value: stockSummary.maintenance, icon: '🔧', variant: 'warning' as const },
   ];
+
+  // Loading state
+  if (loading && stockItems.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: Colors.textMuted }}>
+        Chargement des données de stock...
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && stockItems.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <div style={{ color: Colors.danger }}>{error}</div>
+        <Button variant="primary" onClick={fetchData} style={{ marginTop: 16 }}>
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -135,16 +192,16 @@ export const Stock: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary Cards - Using reusable SummaryCardGrid pattern */}
+      {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {summaryCards.map((card, idx) => (
           <Card key={idx} style={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ 
-                width: 48, height: 48, borderRadius: 12, 
+              <div style={{
+                width: 48, height: 48, borderRadius: 12,
                 background: card.variant === 'success' ? 'rgba(62, 207, 142, 0.15)' :
                            card.variant === 'warning' ? 'rgba(251, 146, 60, 0.15)' :
-                           'rgba(100, 140, 255, 0.15)', 
+                           'rgba(100, 140, 255, 0.15)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 20,
                 color: card.variant === 'success' ? '#3ecf8e' :
@@ -171,29 +228,35 @@ export const Stock: React.FC = () => {
           <h3 style={{ fontSize: 14, fontWeight: 600, color: Colors.text, marginBottom: 16 }}>
             Répartition par catégorie
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {stockCategoriesData.map((cat, idx) => {
-              const total = stockCategoriesData.reduce((acc, c) => acc + c.value, 0);
-              const percentage = Math.round((cat.value / total) * 100);
-              return (
-                <div key={idx}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, color: Colors.textMuted, textTransform: 'capitalize' }}>
-                      {cat.name}
-                    </span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>
-                      {cat.value} ({percentage}%)
-                    </span>
+          {stockCategoriesData.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {stockCategoriesData.map((cat, idx) => {
+                const total = stockCategoriesData.reduce((acc, c) => acc + c.value, 0);
+                const percentage = total > 0 ? Math.round((cat.value / total) * 100) : 0;
+                return (
+                  <div key={idx}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, color: Colors.textMuted, textTransform: 'capitalize' }}>
+                        {cat.name}
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>
+                        {cat.value} ({percentage}%)
+                      </span>
+                    </div>
+                    <ProgressBar 
+                      value={percentage} 
+                      color={categoryColors[cat.name] || Colors.accent}
+                      height={6}
+                    />
                   </div>
-                  <ProgressBar 
-                    value={percentage} 
-                    color={categoryColors[cat.name] || Colors.accent}
-                    height={6}
-                  />
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ color: Colors.textMuted, fontSize: 12 }}>
+              Aucune donnée disponible
+            </div>
+          )}
         </Card>
 
         {/* Tabs and Filters */}
@@ -225,7 +288,7 @@ export const Stock: React.FC = () => {
             ))}
           </div>
 
-          {/* Filters - Using reusable FilterBar */}
+          {/* Filters */}
           {activeTab === 'inventory' && (
             <Card style={{ marginBottom: 16, padding: 16 }}>
               <FilterBar
@@ -250,7 +313,6 @@ export const Stock: React.FC = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Référence</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Article</th>
                   <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Catégorie</th>
                   <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qté Total</th>
@@ -260,21 +322,18 @@ export const Stock: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredByCategory.map((item: any, index: number) => {
+                {filteredByCategory.map((item: StockItem, index: number) => {
                   const status = getStockStatus(item.available, item.minQuantity);
                   return (
                     <tr 
                       key={item.id} 
                       style={{ 
-                        borderBottom: `1px solid ${Colors.border}`,
+                        borderBottom: '1px solid ' + Colors.border,
                         background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
                         cursor: 'pointer',
                       }}
                       onClick={() => handleViewDetails(item)}
                     >
-                      <td style={{ padding: '14px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
-                        {item.reference}
-                      </td>
                       <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text, fontWeight: 500 }}>
                         {item.name}
                       </td>
@@ -284,7 +343,7 @@ export const Stock: React.FC = () => {
                           borderRadius: 6, 
                           fontSize: 11, 
                           fontWeight: 500,
-                          background: `${categoryColors[item.category]}20`, 
+                          background: categoryColors[item.category] + '20', 
                           color: categoryColors[item.category],
                           textTransform: 'capitalize',
                         }}>
@@ -310,7 +369,6 @@ export const Stock: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination - Using reusable PaginationControls */}
           <PaginationControls
             currentPage={currentPage}
             totalPages={totalPages}
@@ -322,145 +380,11 @@ export const Stock: React.FC = () => {
         </Card>
       )}
 
-      {/* Assignments Table */}
-      {activeTab === 'assignments' && (
-        <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employé</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Département</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Article</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Référence</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {equipmentAssignments.map((assignment, index) => (
-                  <tr 
-                    key={assignment.id} 
-                    style={{ 
-                      borderBottom: `1px solid ${Colors.border}`,
-                      background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                    }}
-                  >
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text, fontWeight: 500 }}>
-                      {assignment.employeeName}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                      {assignment.department}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
-                      {assignment.itemName}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
-                      {assignment.itemRef}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                      {assignment.assignedDate}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                      <StatusBadge status={assignment.status === 'active' ? 'Actif' : 'returned'} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Movements Table */}
-      {activeTab === 'movements' && (
-        <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Article</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quantité</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockMovements.map((movement, index) => (
-                  <tr 
-                    key={index} 
-                    style={{ 
-                      borderBottom: `1px solid ${Colors.border}`,
-                      background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                    }}
-                  >
-                    <td style={{ padding: '14px 16px' }}>
-                      <StatusBadge status={movement.type === 'in' ? 'Actif' : 'pending'} />
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
-                      {movement.item}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 14, fontWeight: 600, fontFamily: "'DM Serif Display', serif", color: movement.type === 'in' ? '#3ecf8e' : '#fb923c' }}>
-                      {movement.type === 'in' ? '+' : '-'}{movement.quantity}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                      {movement.date}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* Maintenance Table */}
-      {activeTab === 'maintenance' && (
-        <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Article</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Référence</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priorité</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date Prévue</th>
-                </tr>
-              </thead>
-              <tbody>
-                {maintenanceAlerts.map((alert, index) => (
-                  <tr 
-                    key={alert.id} 
-                    style={{ 
-                      borderBottom: `1px solid ${Colors.border}`,
-                      background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                    }}
-                  >
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text, fontWeight: 500 }}>
-                      {alert.itemName}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 12, fontFamily: 'monospace', fontWeight: 600, color: Colors.accent }}>
-                      {alert.itemRef}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <StatusBadge status={alert.type === 'corrective' ? 'corrective' : 'preventive'} />
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                      <StatusBadge status={alert.priority} />
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 12, color: Colors.textMuted, maxWidth: 200 }}>
-                      {alert.description}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                      {alert.scheduledDate}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Other tabs placeholder */}
+      {activeTab !== 'inventory' && (
+        <Card style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>
+          <p>Les {activeTab === 'assignments' ? 'affectations' : activeTab === 'movements' ? 'mouvements' : 'alertes de maintenance'} seront affichés ici.</p>
+          <p style={{ fontSize: 11, marginTop: 8 }}>Fonctionnalité en cours de développement</p>
         </Card>
       )}
 
@@ -483,4 +407,3 @@ export const Stock: React.FC = () => {
 };
 
 export default Stock;
-

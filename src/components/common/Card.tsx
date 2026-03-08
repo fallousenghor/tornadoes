@@ -14,6 +14,39 @@ interface CardProps {
   variant?: 'default' | 'flat' | 'elevated';
 }
 
+// Helper function to safely render children and convert NaN/undefined to string
+const safeRenderChildren = (children: React.ReactNode): React.ReactNode => {
+  if (children === undefined || children === null) {
+    return null;
+  }
+  
+  // If children is a number (including NaN)
+  if (typeof children === 'number') {
+    // Check for NaN specifically
+    if (Number.isNaN(children)) {
+      return '0';
+    }
+    return children;
+  }
+  
+  // If children is a string that might be "NaN"
+  if (typeof children === 'string') {
+    if (children === 'NaN' || children.trim() === '') {
+      return '';
+    }
+    return children;
+  }
+  
+  // If children is an array, recursively process each element
+  if (Array.isArray(children)) {
+    return children.map((child, index) => (
+      <React.Fragment key={index}>{safeRenderChildren(child)}</React.Fragment>
+    ));
+  }
+  
+  return children;
+};
+
 export const Card: React.FC<CardProps> = ({ 
   children, 
   className = '', 
@@ -72,7 +105,7 @@ export const Card: React.FC<CardProps> = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {children}
+      {safeRenderChildren(children)}
     </div>
   );
 };

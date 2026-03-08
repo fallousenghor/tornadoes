@@ -1,22 +1,11 @@
-// Schedule Feature - AEVUM Enterprise ERP
-// Complete scheduling module for the LMS
+// Schedule Feature - Tornadoes Job Education Module
+// Connected to backend API
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
-
-// Types
-interface ScheduleSlot {
-  id: string;
-  day: number;
-  startTime: string;
-  endTime: string;
-  course: string;
-  program: string;
-  teacher: string;
-  room: string;
-  group: string;
-}
+import scheduleService, { ScheduleSlot, mapScheduleToSlot } from '../../services/scheduleService';
+import type { Room } from '@/types';
 
 // Days of week
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -45,71 +34,117 @@ const programColors: Record<string, string> = {
   'Marketing Digital': '#fb923c',
 };
 
-// Mock schedule data
-const mockSchedule: ScheduleSlot[] = [
-  { id: '1', day: 0, startTime: '08:00', endTime: '10:00', course: 'React & Next.js', program: 'Développement Web', teacher: 'Mamadou Sall', room: 'Salle A', group: 'DW-2025' },
-  { id: '2', day: 0, startTime: '10:30', endTime: '12:30', course: 'Python pour Data Science', program: 'Data Science', teacher: 'Fatou Diallo', room: 'Salle B', group: 'DS-2025' },
-  { id: '3', day: 0, startTime: '14:00', endTime: '16:00', course: 'Sécurité Informatiques', program: 'Cybersécurité', teacher: 'Omar Ndiaye', room: 'Labo Info', group: 'CYB-2025' },
-  { id: '4', day: 1, startTime: '08:00', endTime: '10:00', course: 'SEO & Content Marketing', program: 'Marketing Digital', teacher: 'Aïcha Mendy', room: 'Salle C', group: 'MKD-2025' },
-  { id: '5', day: 1, startTime: '10:30', endTime: '12:30', course: 'Node.js Backend', program: 'Développement Web', teacher: 'Ibrahima Ba', room: 'Salle A', group: 'DW-2025' },
-  { id: '6', day: 1, startTime: '14:00', endTime: '16:00', course: 'Machine Learning', program: 'Data Science', teacher: 'Fatou Diallo', room: 'Salle B', group: 'DS-2025' },
-  { id: '7', day: 2, startTime: '08:00', endTime: '10:00', course: 'Bases de données', program: 'Développement Web', teacher: 'Mamadou Sall', room: 'Labo Info', group: 'DW-2025' },
-  { id: '8', day: 2, startTime: '10:30', endTime: '12:30', course: 'Ethical Hacking', program: 'Cybersécurité', teacher: 'Omar Ndiaye', room: 'Salle D', group: 'CYB-2025' },
-  { id: '9', day: 2, startTime: '14:00', endTime: '16:00', course: 'UI/UX Design', program: 'Marketing Digital', teacher: 'Aïcha Mendy', room: 'Salle C', group: 'MKD-2025' },
-  { id: '10', day: 3, startTime: '08:00', endTime: '10:00', course: 'React & Next.js', program: 'Développement Web', teacher: 'Mamadou Sall', room: 'Salle A', group: 'DW-2025' },
-  { id: '11', day: 3, startTime: '10:30', endTime: '12:30', course: 'Data Visualization', program: 'Data Science', teacher: 'Fatou Diallo', room: 'Salle B', group: 'DS-2025' },
-  { id: '12', day: 3, startTime: '14:00', endTime: '16:00', course: 'DevOps', program: 'Cybersécurité', teacher: 'Ibrahima Ba', room: 'Labo Info', group: 'CYB-2025' },
-  { id: '13', day: 4, startTime: '08:00', endTime: '10:00', course: 'Algorithmie', program: 'Développement Web', teacher: 'Mariama Gaye', room: 'Amphi', group: 'DW-2025' },
-  { id: '14', day: 4, startTime: '10:30', endTime: '12:30', course: 'Marketing Digital', program: 'Marketing Digital', teacher: 'Aïcha Mendy', room: 'Salle C', group: 'MKD-2025' },
-  { id: '15', day: 5, startTime: '09:00', endTime: '12:00', course: 'Projet Tutoré', program: 'Développement Web', teacher: 'Mamadou Sall', room: 'Salle A', group: 'DW-2025' },
-];
-
-// Mock rooms
-const mockRooms = [
-  { id: '1', name: 'Salle A', capacity: 30, equipment: ['Projecteur', 'Tableau interactif'] },
-  { id: '2', name: 'Salle B', capacity: 25, equipment: ['Projecteur', 'Tableau'] },
-  { id: '3', name: 'Salle C', capacity: 20, equipment: ['Projecteur'] },
-  { id: '4', name: 'Salle D', capacity: 15, equipment: ['Tableau', 'Wifi'] },
-  { id: '5', name: 'Labo Info', capacity: 20, equipment: ['Ordinateurs', 'Projecteur'] },
-  { id: '6', name: 'Amphi', capacity: 100, equipment: ['Projecteur', 'Micro', 'Enregistrement'] },
-];
-
 // Groups
 const groups = ['DW-2025', 'DS-2025', 'CYB-2025', 'MKD-2025'];
+
+// Programs for filter
+const programs = ['all', ...Object.keys(programColors)];
 
 export const Schedule: React.FC = () => {
   // State
   const [selectedProgram, setSelectedProgram] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<ScheduleSlot | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [schedules, setSchedules] = useState<ScheduleSlot[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [stats, setStats] = useState({ totalHours: 0, coursesCount: 0, roomsUsed: 0, teachersInvolved: 0 });
+
+  // Fetch schedules from API
+  const fetchSchedules = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await scheduleService.getSchedules();
+      const slots = result.data.map(mapScheduleToSlot);
+      setSchedules(slots);
+      
+      // Calculate stats
+      const totalHours = slots.reduce((acc, s) => {
+        const start = parseInt(s.startTime.split(':')[0]);
+        const end = parseInt(s.endTime.split(':')[0]);
+        return acc + (end - start);
+      }, 0);
+      const coursesCount = new Set(slots.map(s => s.course)).size;
+      const roomsUsed = new Set(slots.map(s => s.room)).size;
+      const teachersInvolved = new Set(slots.map(s => s.teacher)).size;
+      
+      setStats({ totalHours, coursesCount, roomsUsed, teachersInvolved });
+    } catch (error) {
+      console.error('Error fetching schedules:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch rooms
+  const fetchRooms = useCallback(async () => {
+    try {
+      const result = await scheduleService.getRooms();
+      setRooms(result);
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchSchedules();
+    fetchRooms();
+  }, [fetchSchedules, fetchRooms]);
 
   // Filter schedule by program
   const filteredSchedule = useMemo(() => {
-    if (selectedProgram === 'all') return mockSchedule;
-    return mockSchedule.filter(s => s.program === selectedProgram);
-  }, [selectedProgram]);
+    if (selectedProgram === 'all') return schedules;
+    return schedules.filter(s => s.program === selectedProgram);
+  }, [schedules, selectedProgram]);
 
   // Get schedule for a specific day and time slot
   const getSlotContent = (day: number, time: string) => {
     return filteredSchedule.find(s => s.day === day && s.startTime === time);
   };
 
-  // Summary stats
-  const stats = useMemo(() => {
-    return {
-      totalHours: mockSchedule.reduce((acc, s) => {
-        const start = parseInt(s.startTime.split(':')[0]);
-        const end = parseInt(s.endTime.split(':')[0]);
-        return acc + (end - start);
-      }, 0),
-      coursesCount: new Set(mockSchedule.map(s => s.course)).size,
-      roomsUsed: new Set(mockSchedule.map(s => s.room)).size,
-      teachersInvolved: new Set(mockSchedule.map(s => s.teacher)).size,
+  // Handle create/update schedule
+  const handleScheduleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const data = {
+      programId: formData.get('programId') as string,
+      moduleId: '1',
+      roomId: formData.get('roomId') as string,
+      teacherId: '1',
+      dayOfWeek: parseInt(formData.get('dayOfWeek') as string),
+      startTime: formData.get('startTime') as string,
+      endTime: formData.get('endTime') as string,
+      groupName: formData.get('groupName') as string,
     };
-  }, []);
 
-  // Programs for filter
-  const programs = ['all', ...Object.keys(programColors)];
+    try {
+      if (selectedSlot) {
+        await scheduleService.updateSchedule(selectedSlot.id, data);
+      } else {
+        await scheduleService.createSchedule(data);
+      }
+      setIsModalOpen(false);
+      setSelectedSlot(null);
+      fetchSchedules();
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+    }
+  };
+
+  // Handle delete schedule
+  const handleDeleteSchedule = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce créneau ?')) return;
+    try {
+      await scheduleService.deleteSchedule(id);
+      setIsModalOpen(false);
+      setSelectedSlot(null);
+      fetchSchedules();
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+    }
+  };
 
   return (
     <div style={{ padding: 24 }}>
@@ -145,7 +180,7 @@ export const Schedule: React.FC = () => {
                 Heures/Semaine
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.totalHours}h
+                {isLoading ? '...' : `${stats.totalHours}h`}
               </div>
             </div>
           </div>
@@ -161,7 +196,7 @@ export const Schedule: React.FC = () => {
                 Cours
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.coursesCount}
+                {isLoading ? '...' : stats.coursesCount}
               </div>
             </div>
           </div>
@@ -177,7 +212,7 @@ export const Schedule: React.FC = () => {
                 Salles Utilisées
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.roomsUsed}
+                {isLoading ? '...' : stats.roomsUsed}
               </div>
             </div>
           </div>
@@ -193,7 +228,7 @@ export const Schedule: React.FC = () => {
                 Professeurs
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.teachersInvolved}
+                {isLoading ? '...' : stats.teachersInvolved}
               </div>
             </div>
           </div>
@@ -220,61 +255,67 @@ export const Schedule: React.FC = () => {
 
       {/* Weekly Schedule Grid */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(6, 1fr)', minWidth: 800 }}>
-            {/* Header Row */}
-            <div style={{ padding: '14px 12px', background: 'rgba(100, 140, 255, 0.05)', borderBottom: `1px solid ${Colors.border}`, borderRight: `1px solid ${Colors.border}` }}></div>
-            {daysOfWeek.map((day, idx) => (
-              <div key={idx} style={{ padding: '14px 12px', background: 'rgba(100, 140, 255, 0.05)', borderBottom: `1px solid ${Colors.border}`, borderRight: `1px solid ${Colors.border}`, textAlign: 'center' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>{day}</div>
-                <div style={{ fontSize: 11, color: Colors.textMuted }}>17-22 fév</div>
-              </div>
-            ))}
-
-            {/* Time Slots */}
-            {timeSlots.map((time) => (
-              <React.Fragment key={time}>
-                {/* Time label */}
-                <div style={{ padding: '12px 8px', borderBottom: `1px solid ${Colors.border}`, borderRight: `1px solid ${Colors.border}`, fontSize: 11, color: Colors.textMuted, textAlign: 'center', background: 'rgba(100, 140, 255, 0.02)' }}>
-                  {time}
-                </div>
-                
-                {/* Day cells */}
-                {daysOfWeek.map((_, dayIdx) => {
-                  const slot = getSlotContent(dayIdx, time);
-                  return (
-                    <div 
-                      key={`${dayIdx}-${time}`}
-                      onClick={() => { if (slot) { setSelectedSlot(slot); setIsModalOpen(true); } }}
-                      style={{ 
-                        padding: '4px', 
-                        borderBottom: `1px solid ${Colors.border}`, 
-                        borderRight: `1px solid ${Colors.border}`,
-                        minHeight: 50,
-                        background: slot ? `${programColors[slot.program]}10` : 'transparent',
-                        cursor: slot ? 'pointer' : 'default',
-                      }}
-                    >
-                      {slot && (
-                        <div style={{ 
-                          padding: '6px 8px', 
-                          borderRadius: 6, 
-                          background: programColors[slot.program],
-                          color: '#fff',
-                          fontSize: 10,
-                          fontWeight: 500,
-                        }}>
-                          <div style={{ fontWeight: 600, marginBottom: 2 }}>{slot.course}</div>
-                          <div style={{ opacity: 0.9 }}>{slot.room} · {slot.teacher.split(' ')[0]}</div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+        {isLoading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+            Chargement du planning...
           </div>
-        </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(6, 1fr)', minWidth: 800 }}>
+              {/* Header Row */}
+              <div style={{ padding: '14px 12px', background: 'rgba(100, 140, 255, 0.05)', borderBottom: `1px solid ${Colors.border}`, borderRight: `1px solid ${Colors.border}` }}></div>
+              {daysOfWeek.map((day, idx) => (
+                <div key={idx} style={{ padding: '14px 12px', background: 'rgba(100, 140, 255, 0.05)', borderBottom: `1px solid ${Colors.border}`, borderRight: `1px solid ${Colors.border}`, textAlign: 'center' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>{day}</div>
+                  <div style={{ fontSize: 11, color: Colors.textMuted }}>17-22 fév</div>
+                </div>
+              ))}
+
+              {/* Time Slots */}
+              {timeSlots.map((time) => (
+                <React.Fragment key={time}>
+                  {/* Time label */}
+                  <div style={{ padding: '12px 8px', borderBottom: `1px solid ${Colors.border}`, borderRight: `1px solid ${Colors.border}`, fontSize: 11, color: Colors.textMuted, textAlign: 'center', background: 'rgba(100, 140, 255, 0.02)' }}>
+                    {time}
+                  </div>
+                  
+                  {/* Day cells */}
+                  {daysOfWeek.map((_, dayIdx) => {
+                    const slot = getSlotContent(dayIdx, time);
+                    return (
+                      <div 
+                        key={`${dayIdx}-${time}`}
+                        onClick={() => { if (slot) { setSelectedSlot(slot); setIsModalOpen(true); } }}
+                        style={{ 
+                          padding: '4px', 
+                          borderBottom: `1px solid ${Colors.border}`, 
+                          borderRight: `1px solid ${Colors.border}`,
+                          minHeight: 50,
+                          background: slot ? `${programColors[slot.program] || '#6490ff'}10` : 'transparent',
+                          cursor: slot ? 'pointer' : 'default',
+                        }}
+                      >
+                        {slot && (
+                          <div style={{ 
+                            padding: '6px 8px', 
+                            borderRadius: 6, 
+                            background: programColors[slot.program] || '#6490ff',
+                            color: '#fff',
+                            fontSize: 10,
+                            fontWeight: 500,
+                          }}>
+                            <div style={{ fontWeight: 600, marginBottom: 2 }}>{slot.course}</div>
+                            <div style={{ opacity: 0.9 }}>{slot.room} · {slot.teacher.split(' ')[0]}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Legend */}
@@ -291,8 +332,8 @@ export const Schedule: React.FC = () => {
       <div style={{ marginTop: 24 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: Colors.text, marginBottom: 12 }}>Disponibilité des salles</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {mockRooms.map((room) => {
-            const roomSchedule = mockSchedule.filter(s => s.room === room.name);
+          {rooms.length > 0 ? rooms.map((room) => {
+            const roomSchedule = schedules.filter(s => s.room === room.name);
             const busySlots = new Set(roomSchedule.map(s => s.startTime));
             return (
               <Card key={room.id} style={{ padding: 16 }}>
@@ -308,8 +349,8 @@ export const Schedule: React.FC = () => {
                         width: 24, 
                         height: 20, 
                         borderRadius: 3, 
-                        background: busySlots.has(time) ? `${roomColors[room.name]}40` : 'rgba(100, 140, 255, 0.1)',
-                        border: busySlots.has(time) ? `1px solid ${roomColors[room.name]}` : 'none',
+                        background: busySlots.has(time) ? `${roomColors[room.name] || '#6490ff'}40` : 'rgba(100, 140, 255, 0.1)',
+                        border: busySlots.has(time) ? `1px solid ${roomColors[room.name] || '#6490ff'}` : 'none',
                       }}
                       title={`${time}: ${busySlots.has(time) ? 'Occupé' : 'Libre'}`}
                     ></div>
@@ -317,7 +358,11 @@ export const Schedule: React.FC = () => {
                 </div>
               </Card>
             );
-          })}
+          }) : (
+            <div style={{ gridColumn: '1 / -1', padding: 20, textAlign: 'center', color: Colors.textMuted }}>
+              Chargement des salles...
+            </div>
+          )}
         </div>
       </div>
 
@@ -327,7 +372,7 @@ export const Schedule: React.FC = () => {
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
               <div><div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>COURS</div><div style={{ fontSize: 14, fontWeight: 600, color: Colors.text }}>{selectedSlot.course}</div></div>
-              <div><div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>PROGRAMME</div><div style={{ fontSize: 14, color: Colors.text }}><span style={{ padding: '2px 8px', borderRadius: 4, background: programColors[selectedSlot.program], color: '#fff', fontSize: 11 }}>{selectedSlot.program}</span></div></div>
+              <div><div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>PROGRAMME</div><div style={{ fontSize: 14, color: Colors.text }}><span style={{ padding: '2px 8px', borderRadius: 4, background: programColors[selectedSlot.program] || '#6490ff', color: '#fff', fontSize: 11 }}>{selectedSlot.program}</span></div></div>
               <div><div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>PROFESSEUR</div><div style={{ fontSize: 14, color: Colors.text }}>{selectedSlot.teacher}</div></div>
               <div><div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>SALLE</div><div style={{ fontSize: 14, color: Colors.text }}>{selectedSlot.room}</div></div>
               <div><div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>JOUR</div><div style={{ fontSize: 14, color: Colors.text }}>{daysOfWeek[selectedSlot.day]}</div></div>
@@ -335,21 +380,28 @@ export const Schedule: React.FC = () => {
               <div style={{ gridColumn: '1 / -1' }}><div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>GROUPE</div><div style={{ fontSize: 14, color: Colors.text }}>{selectedSlot.group}</div></div>
             </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <Button 
+                variant="secondary" 
+                onClick={() => handleDeleteSchedule(selectedSlot.id)}
+                style={{ color: '#e05050', borderColor: '#e05050' }}
+              >
+                Supprimer
+              </Button>
               <Button variant="secondary" onClick={() => { setIsModalOpen(false); setSelectedSlot(null); }}>Fermer</Button>
               <Button variant="primary">Modifier</Button>
             </div>
           </div>
         ) : (
-          <form onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+          <form onSubmit={handleScheduleSubmit}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Cours</label><input type="text" placeholder="Nom du cours" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} /></div>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Professeur</label><select style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}><option>Sélectionner...</option><option>Mamadou Sall</option><option>Fatou Diallo</option><option>Omar Ndiaye</option><option>Aïcha Mendy</option><option>Ibrahima Ba</option><option>Mariama Gaye</option></select></div>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Jour</label><select style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}>{daysOfWeek.map((d, i) => (<option key={i} value={i}>{d}</option>))}</select></div>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Salle</label><select style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}>{mockRooms.map(r => (<option key={r.id}>{r.name}</option>))}</select></div>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Début</label><input type="time" defaultValue="08:00" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} /></div>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Fin</label><input type="time" defaultValue="10:00" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} /></div>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Programme</label><select style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}><option>Sélectionner...</option>{Object.keys(programColors).map(p => (<option key={p}>{p}</option>))}</select></div>
-              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Groupe</label><select style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}><option>Sélectionner...</option>{groups.map(g => (<option key={g}>{g}</option>))}</select></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Cours</label><input type="text" name="course" placeholder="Nom du cours" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} /></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Professeur</label><select name="teacherId" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}><option value="1">Mamadou Sall</option><option value="2">Fatou Diallo</option><option value="3">Omar Ndiaye</option><option value="4">Aïcha Mendy</option><option value="5">Ibrahima Ba</option><option value="6">Mariama Gaye</option></select></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Jour</label><select name="dayOfWeek" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}>{daysOfWeek.map((d, i) => (<option key={i} value={i}>{d}</option>))}</select></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Salle</label><select name="roomId" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}><option value="1">Salle A</option><option value="2">Salle B</option><option value="3">Salle C</option><option value="4">Salle D</option><option value="5">Labo Info</option><option value="6">Amphi</option></select></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Début</label><input type="time" name="startTime" defaultValue="08:00" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} /></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Fin</label><input type="time" name="endTime" defaultValue="10:00" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} /></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Programme</label><select name="programId" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}><option value="1">Développement Web</option><option value="2">Data Science</option><option value="3">Cybersécurité</option><option value="4">Marketing Digital</option></select></div>
+              <div><label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Groupe</label><select name="groupName" style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}>{groups.map(g => (<option key={g}>{g}</option>))}</select></div>
             </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
               <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>Annuler</Button>

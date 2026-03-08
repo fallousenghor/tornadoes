@@ -101,6 +101,13 @@ const departmentService = {
     const response = await api.put<DepartmentResponse>(`/v1/departments/${id}`, data);
     return mapDepartment(response.data as unknown as DepartmentResponse);
   },
+
+  /**
+   * Supprimer un département (soft delete)
+   */
+  async deleteDepartment(id: string): Promise<void> {
+    await api.delete(`/v1/departments/${id}`);
+  },
 };
 
 export default departmentService;

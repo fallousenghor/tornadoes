@@ -52,8 +52,13 @@ export const LeavesPieChart: React.FC = () => {
     const fetchLeaveStats = async () => {
       try {
         const stats = await leaveService.getLeaveStats();
+        // Defensive check: ensure stats and byType exist
+        if (!stats || typeof stats !== 'object') {
+          throw new Error('Invalid stats response');
+        }
         // Transform backend data to pie chart format
-        const transformed: LeaveTypeData[] = Object.entries(stats.byType).map(([type, count]) => ({
+        const byType = 'byType' in stats ? stats.byType : stats;
+        const transformed: LeaveTypeData[] = Object.entries(byType || {}).map(([type, count]) => ({
           name: leaveTypeLabels[type] || type,
           value: count as number,
           color: leaveColors[type] || '#6490ff',

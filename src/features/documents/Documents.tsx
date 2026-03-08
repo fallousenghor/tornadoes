@@ -1,114 +1,152 @@
-// Documents Feature - AEVUM Enterprise ERP
-// Refactored with DRY & SOLID principles
+// Documents Feature - Tornadoes Job Document Management
+// Connected to backend API
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Modal, FilterBar, PaginationControls } from '../../components/common';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Colors } from '../../constants/theme';
-import { useFilterable } from '../../hooks/useFilterable';
+import documentService, { 
+  Document, 
+  DocumentType, 
+  DocumentCategory, 
+  DocumentStatus,
+  DocumentStats,
+  documentTypeLabels,
+  documentCategoryLabels 
+} from '../../services/documentService';
 
 // Document type icons
 const docTypeIcons: Record<string, string> = {
-  contract: '📄',
-  cnss: '🛂',
-  id: '🪪',
-  diploma: '🎓',
-  invoice: '💰',
-  report: '📊',
-  policy: '📋',
-  other: '📁',
+  CONTRACT: '📄',
+  CNSS: '🛂',
+  ID: '🪪',
+  DIPLOMA: '🎓',
+  INVOICE: '💰',
+  REPORT: '📊',
+  POLICY: '📋',
+  OTHER: '📁',
 };
 
 // Category colors
 const categoryColors: Record<string, string> = {
-  rh: '#6490ff',
-  finance: '#3ecf8e',
-  juridique: '#a78bfa',
-  technique: '#fb923c',
-  commercial: '#c9a84c',
-  general: '#5a6480',
+  RH: '#6490ff',
+  FINANCE: '#3ecf8e',
+  JURIDIQUE: '#a78bfa',
+  TECHNIQUE: '#fb923c',
+  COMMERCIAL: '#c9a84c',
+  GENERAL: '#5a6480',
 };
 
-// Mock documents data
-const mockDocuments = [
-  { id: '1', name: 'Contrat CDI - Amadou Sall', type: 'contract', category: 'rh', version: 3, status: 'signed', uploadedBy: 'Fatou Diallo', uploadedAt: new Date('2025-01-15'), updatedAt: new Date('2025-01-20'), signatureRequired: true, signedBy: ['DG', 'Employé'], departmentId: '1' },
-  { id: '2', name: 'Facture #INV-2045 - Sonatel', type: 'invoice', category: 'finance', version: 1, status: 'signed', uploadedBy: 'Moussa Sow', uploadedAt: new Date('2025-01-18'), updatedAt: new Date('2025-01-18'), signatureRequired: true, signedBy: ['DAF', 'Client'], departmentId: '3' },
-  { id: '3', name: 'Convention de stage - Université', type: 'contract', category: 'rh', version: 2, status: 'pending_signature', uploadedBy: 'Fatou Diallo', uploadedAt: new Date('2025-01-20'), updatedAt: new Date('2025-01-22'), signatureRequired: true, signedBy: [], departmentId: '2' },
-  { id: '4', name: 'Politique RGPD 2025', type: 'policy', category: 'juridique', version: 1, status: 'signed', uploadedBy: 'Direction', uploadedAt: new Date('2025-01-01'), updatedAt: new Date('2025-01-05'), signatureRequired: true, signedBy: ['DG'], departmentId: undefined },
-  { id: '5', name: 'Rapport mensuelle technique', type: 'report', category: 'technique', version: 5, status: 'signed', uploadedBy: 'Sara Mendy', uploadedAt: new Date('2025-01-25'), updatedAt: new Date('2025-01-25'), signatureRequired: false, signedBy: [], departmentId: '1' },
-  { id: '6', name: 'Devis Formation Python', type: 'invoice', category: 'commercial', version: 1, status: 'pending_signature', uploadedBy: 'Ibou Gaye', uploadedAt: new Date('2025-01-22'), updatedAt: new Date('2025-01-23'), signatureRequired: true, signedBy: [], departmentId: '4' },
-  { id: '7', name: 'Attestation de travail - Rokhaya', type: 'other', category: 'rh', version: 1, status: 'signed', uploadedBy: 'Fatou Diallo', uploadedAt: new Date('2025-01-10'), updatedAt: new Date('2025-01-10'), signatureRequired: true, signedBy: ['DRH'], departmentId: '2' },
-  { id: '8', name: 'Procès-verbal AG 2024', type: 'report', category: 'juridique', version: 1, status: 'signed', uploadedBy: 'Direction', uploadedAt: new Date('2024-12-15'), updatedAt: new Date('2024-12-20'), signatureRequired: true, signedBy: ['DG', 'Secrétaire'], departmentId: undefined },
-  { id: '9', name: 'Bulletin de paie - Janvier', type: 'invoice', category: 'finance', version: 1, status: 'signed', uploadedBy: 'Comptable', uploadedAt: new Date('2025-01-31'), updatedAt: new Date('2025-01-31'), signatureRequired: false, signedBy: [], departmentId: '3' },
-  { id: '10', name: 'Licence Logiciel CRM', type: 'contract', category: 'technique', version: 2, status: 'expired', uploadedBy: 'IT', uploadedAt: new Date('2024-06-01'), updatedAt: new Date('2024-06-01'), signatureRequired: true, signedBy: ['DG'], departmentId: '1' },
-  { id: '11', name: 'Diplôme Master - Data Science', type: 'diploma', category: 'rh', version: 1, status: 'signed', uploadedBy: 'RH', uploadedAt: new Date('2024-09-01'), updatedAt: new Date('2024-09-01'), signatureRequired: false, signedBy: [], departmentId: '2' },
-  { id: '12', name: 'NDA Client BNK Group', type: 'contract', category: 'commercial', version: 1, status: 'signed', uploadedBy: 'Direction', uploadedAt: new Date('2025-01-05'), updatedAt: new Date('2025-01-08'), signatureRequired: true, signedBy: ['DG', 'Client'], departmentId: '4' },
-];
-
-// Filter options
+// Filter options matching backend enums
 const categoryOptions = [
-  { value: 'all', label: 'Toutes catégories' },
-  { value: 'rh', label: 'RH' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'juridique', label: 'Juridique' },
-  { value: 'technique', label: 'Technique' },
-  { value: 'commercial', label: 'Commercial' },
+  { value: '', label: 'Toutes catégories' },
+  { value: 'RH', label: 'RH' },
+  { value: 'FINANCE', label: 'Finance' },
+  { value: 'JURIDIQUE', label: 'Juridique' },
+  { value: 'TECHNIQUE', label: 'Technique' },
+  { value: 'COMMERCIAL', label: 'Commercial' },
+  { value: 'GENERAL', label: 'Général' },
 ];
 
 const statusOptions = [
-  { value: 'all', label: 'Tous statuts' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'pending_signature', label: 'En attente' },
-  { value: 'signed', label: 'Signé' },
-  { value: 'expired', label: 'Expiré' },
+  { value: '', label: 'Tous statuts' },
+  { value: 'DRAFT', label: 'Brouillon' },
+  { value: 'PENDING_SIGNATURE', label: 'En attente' },
+  { value: 'SIGNED', label: 'Signé' },
+  { value: 'EXPIRED', label: 'Expiré' },
 ];
+
+// Get frontend-friendly status for StatusBadge
+const getStatusBadgeStatus = (status: DocumentStatus): string => {
+  const statusMap: Record<DocumentStatus, string> = {
+    DRAFT: 'draft',
+    PENDING_SIGNATURE: 'pending_signature',
+    SIGNED: 'signed',
+    EXPIRED: 'expired',
+  };
+  return statusMap[status] || 'draft';
+};
 
 export const Documents: React.FC = () => {
   // State
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [stats, setStats] = useState<DocumentStats>({ total: 0, draft: 0, pending: 0, signed: 0, expired: 0 });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
-  // Use the filterable hook
-  const {
-    searchQuery,
-    setSearchQuery,
-    filters,
-    setFilter,
-    currentPage,
-    setCurrentPage,
-    totalPages,
-    paginatedData,
-    totalItems,
-    showingFrom,
-    showingTo,
-  } = useFilterable({
-    data: mockDocuments,
-    itemsPerPage: 10,
-    searchFields: ['name'],
-  });
+  // Fetch documents from API
+  const fetchDocuments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await documentService.getDocuments({
+        page: currentPage,
+        size: pageSize,
+        category: categoryFilter as DocumentCategory || undefined,
+        status: statusFilter as DocumentStatus || undefined,
+        search: searchQuery || undefined,
+        sortBy: 'createdAt',
+        sortDir: 'DESC',
+      });
+      setDocuments(result.data);
+      setTotalItems(result.total);
+      setTotalPages(Math.ceil(result.total / pageSize));
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      setDocuments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, pageSize, categoryFilter, statusFilter, searchQuery]);
 
-  // Filter by category and status
-  const filteredDocs = useMemo(() => {
-    const category = filters.category || 'all';
-    const status = filters.status || 'all';
-    
-    return paginatedData.filter((doc: any) => {
-      const matchesCategory = category === 'all' || doc.category === category;
-      const matchesStatus = status === 'all' || doc.status === status;
-      return matchesCategory && matchesStatus;
-    });
-  }, [paginatedData, filters.category, filters.status]);
-
-  // Summary stats
-  const stats = useMemo(() => {
-    return {
-      total: mockDocuments.length,
-      pending: mockDocuments.filter(d => d.status === 'pending_signature').length,
-      signed: mockDocuments.filter(d => d.status === 'signed').length,
-      expired: mockDocuments.filter(d => d.status === 'expired').length,
-    };
+  // Fetch stats from API
+  const fetchStats = useCallback(async () => {
+    try {
+      const result = await documentService.getDocumentStats();
+      setStats(result);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchDocuments();
+    fetchStats();
+  }, [fetchDocuments, fetchStats]);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Handle filter change
+  const handleFilterChange = (key: string, value: string) => {
+    if (key === 'category') {
+      setCategoryFilter(value);
+    } else if (key === 'status') {
+      setStatusFilter(value);
+    }
+    setCurrentPage(0); // Reset to first page
+  };
+
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(0); // Reset to first page
+  };
 
   // Format date
   const formatDate = (date: Date) => {
@@ -120,6 +158,46 @@ export const Documents: React.FC = () => {
     { id: 'list', label: 'Liste', icon: '☰' },
     { id: 'grid', label: 'Grille', icon: '▦' },
   ];
+
+  // Calculate pagination values
+  const showingFrom = totalItems > 0 ? currentPage * pageSize + 1 : 0;
+  const showingTo = Math.min((currentPage + 1) * pageSize, totalItems);
+
+  // Handle create document
+  const handleCreateDocument = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      await documentService.createDocument({
+        name: formData.get('name') as string,
+        type: formData.get('type') as DocumentType,
+        category: formData.get('category') as DocumentCategory,
+        description: formData.get('description') as string || undefined,
+        signatureRequired: formData.get('signatureRequired') === 'on',
+      });
+      setIsModalOpen(false);
+      fetchDocuments();
+      fetchStats();
+    } catch (error) {
+      console.error('Error creating document:', error);
+    }
+  };
+
+  // Handle delete document
+  const handleDeleteDocument = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
+    
+    try {
+      await documentService.deleteDocument(id);
+      setIsModalOpen(false);
+      setSelectedDoc(null);
+      fetchDocuments();
+      fetchStats();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+    }
+  };
 
   return (
     <div style={{ padding: 24 }}>
@@ -137,14 +215,14 @@ export const Documents: React.FC = () => {
           <Button variant="secondary" onClick={() => setIsModalOpen(true)}>
             ↺ Exporter
           </Button>
-          <Button variant="primary" onClick={() => setIsModalOpen(true)}>
+          <Button variant="primary" onClick={() => { setSelectedDoc(null); setIsModalOpen(true); }}>
             + Nouveau document
           </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
         <Card style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(100, 140, 255, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#6490ff' }}>
@@ -152,15 +230,31 @@ export const Documents: React.FC = () => {
             </div>
             <div>
               <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Total Documents
+                Total
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.total}
+                {isLoading ? '...' : stats.total}
               </div>
             </div>
           </div>
         </Card>
         
+        <Card style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(90, 100, 128, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#5a6480' }}>
+              📝
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Brouillons
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
+                {isLoading ? '...' : stats.draft}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <Card style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(201, 168, 76, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#c9a84c' }}>
@@ -171,7 +265,7 @@ export const Documents: React.FC = () => {
                 En Attente
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.pending}
+                {isLoading ? '...' : stats.pending}
               </div>
             </div>
           </div>
@@ -187,7 +281,7 @@ export const Documents: React.FC = () => {
                 Signés
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.signed}
+                {isLoading ? '...' : stats.signed}
               </div>
             </div>
           </div>
@@ -203,7 +297,7 @@ export const Documents: React.FC = () => {
                 Expirés
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {stats.expired}
+                {isLoading ? '...' : stats.expired}
               </div>
             </div>
           </div>
@@ -218,9 +312,9 @@ export const Documents: React.FC = () => {
               { key: 'category', type: 'select', options: categoryOptions, placeholder: 'Catégorie' },
               { key: 'status', type: 'select', options: statusOptions, placeholder: 'Statut' },
             ]}
-            values={filters}
-            onChange={setFilter}
-            onSearch={setSearchQuery}
+            values={{ category: categoryFilter, status: statusFilter }}
+            onChange={handleFilterChange}
+            onSearch={handleSearch}
             searchValue={searchQuery}
             searchPlaceholder="Rechercher un document..."
           />
@@ -229,7 +323,7 @@ export const Documents: React.FC = () => {
             {viewModes.map(mode => (
               <button
                 key={mode.id}
-                onClick={() => setViewMode(mode.id as any)}
+                onClick={() => setViewMode(mode.id as 'list' | 'grid')}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 8,
@@ -256,140 +350,161 @@ export const Documents: React.FC = () => {
       {/* Documents List */}
       {viewMode === 'list' && (
         <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Document</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Catégorie</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Version</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Statut</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Modifié par</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Date</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDocs.map((doc: any, index: number) => {
-                  const catColor = categoryColors[doc.category] || categoryColors.general;
-                  return (
-                    <tr 
-                      key={doc.id}
-                      style={{ 
-                        borderBottom: `1px solid ${Colors.border}`,
-                        background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => { setSelectedDoc(doc); setIsModalOpen(true); }}
-                    >
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 20 }}>{docTypeIcons[doc.type] || '📄'}</span>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: Colors.text }}>{doc.name}</div>
-                            <div style={{ fontSize: 10, color: Colors.textMuted }}>
-                              {doc.signatureRequired && '🔏 Signature requise'}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <span style={{ 
-                          padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                          background: `${catColor}20`, color: catColor,
-                          textTransform: 'capitalize',
-                        }}>
-                          {doc.category}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <span style={{ 
-                          padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                          background: 'rgba(100, 140, 255, 0.1)', color: Colors.accent,
-                        }}>
-                          v{doc.version}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <StatusBadge status={doc.status} />
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 12, color: Colors.textMuted }}>
-                        {doc.uploadedBy}
-                      </td>
-                      <td style={{ padding: '14px 16px', fontSize: 12, color: Colors.textMuted }}>
-                        {formatDate(doc.updatedAt)}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                          <button style={{ padding: '4px 8px', borderRadius: 4, border: `1px solid ${Colors.border}`, background: 'transparent', color: Colors.textMuted, fontSize: 10, cursor: 'pointer' }} title="Télécharger">↓</button>
-                          <button style={{ padding: '4px 8px', borderRadius: 4, border: `1px solid ${Colors.border}`, background: 'transparent', color: Colors.textMuted, fontSize: 10, cursor: 'pointer' }} title="Partager">↗</button>
-                        </div>
-                      </td>
+          {isLoading ? (
+            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Chargement des documents...
+            </div>
+          ) : documents.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Aucun document trouvé
+            </div>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Document</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Catégorie</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Version</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Statut</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Modifié par</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Date</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Actions</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {documents.map((doc, index) => {
+                      const catColor = categoryColors[doc.category] || categoryColors.GENERAL;
+                      return (
+                        <tr 
+                          key={doc.id}
+                          style={{ 
+                            borderBottom: `1px solid ${Colors.border}`,
+                            background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => { setSelectedDoc(doc); setIsModalOpen(true); }}
+                        >
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 20 }}>{docTypeIcons[doc.type] || '📄'}</span>
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: Colors.text }}>{doc.name}</div>
+                                <div style={{ fontSize: 10, color: Colors.textMuted }}>
+                                  {doc.signatureRequired && '🔏 Signature requise'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{ 
+                              padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                              background: `${catColor}20`, color: catColor,
+                            }}>
+                              {documentCategoryLabels[doc.category] || doc.category}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <span style={{ 
+                              padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                              background: 'rgba(100, 140, 255, 0.1)', color: Colors.accent,
+                            }}>
+                              v{doc.version}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <StatusBadge status={getStatusBadgeStatus(doc.status)} />
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: 12, color: Colors.textMuted }}>
+                            {doc.uploadedBy}
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: 12, color: Colors.textMuted }}>
+                            {formatDate(doc.updatedAt)}
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                              <button style={{ padding: '4px 8px', borderRadius: 4, border: `1px solid ${Colors.border}`, background: 'transparent', color: Colors.textMuted, fontSize: 10, cursor: 'pointer' }} title="Télécharger">↓</button>
+                              <button style={{ padding: '4px 8px', borderRadius: 4, border: `1px solid ${Colors.border}`, background: 'transparent', color: Colors.textMuted, fontSize: 10, cursor: 'pointer' }} title="Partager">↗</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Pagination */}
-          <PaginationControls
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalItems}
-            showingFrom={showingFrom}
-            showingTo={showingTo}
-            onPageChange={setCurrentPage}
-          />
+              {/* Pagination */}
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                showingFrom={showingFrom}
+                showingTo={showingTo}
+                onPageChange={handlePageChange}
+              />
+            </>
+          )}
         </Card>
       )}
 
       {/* Documents Grid */}
       {viewMode === 'grid' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-          {filteredDocs.map((doc: any) => {
-            const catColor = categoryColors[doc.category] || categoryColors.general;
-            return (
-              <div 
-                key={doc.id}
-                onClick={() => { setSelectedDoc(doc); setIsModalOpen(true); }}
-                style={{
-                  background: Colors.card,
-                  border: `1px solid ${Colors.border}`,
-                  borderRadius: 12,
-                  padding: 16,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <span style={{ fontSize: 32 }}>{docTypeIcons[doc.type] || '📄'}</span>
-                  <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: 'rgba(100, 140, 255, 0.15)', color: Colors.accent }}>
-                    v{doc.version}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: Colors.text, marginBottom: 8, lineHeight: 1.3 }}>
-                  {doc.name}
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, background: `${catColor}20`, color: catColor, textTransform: 'capitalize' }}>
-                    {doc.category}
-                  </span>
-                  {doc.signatureRequired && (
-                    <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, background: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c' }}>
-                      🔏 Signature
+          {isLoading ? (
+            <div style={{ gridColumn: '1 / -1', padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Chargement des documents...
+            </div>
+          ) : documents.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', padding: 40, textAlign: 'center', color: Colors.textMuted }}>
+              Aucun document trouvé
+            </div>
+          ) : (
+            documents.map((doc) => {
+              const catColor = categoryColors[doc.category] || categoryColors.GENERAL;
+              return (
+                <div 
+                  key={doc.id}
+                  onClick={() => { setSelectedDoc(doc); setIsModalOpen(true); }}
+                  style={{
+                    background: Colors.card,
+                    border: `1px solid ${Colors.border}`,
+                    borderRadius: 12,
+                    padding: 16,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <span style={{ fontSize: 32 }}>{docTypeIcons[doc.type] || '📄'}</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: 'rgba(100, 140, 255, 0.15)', color: Colors.accent }}>
+                      v{doc.version}
                     </span>
-                  )}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: Colors.text, marginBottom: 8, lineHeight: 1.3 }}>
+                    {doc.name}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, background: `${catColor}20`, color: catColor }}>
+                      {documentCategoryLabels[doc.category] || doc.category}
+                    </span>
+                    {doc.signatureRequired && (
+                      <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, background: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c' }}>
+                        🔏 Signature
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <StatusBadge status={getStatusBadgeStatus(doc.status)} size="sm" />
+                    <span style={{ fontSize: 10, color: Colors.textMuted }}>
+                      {formatDate(doc.updatedAt)}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <StatusBadge status={doc.status} size="sm" />
-                  <span style={{ fontSize: 10, color: Colors.textMuted }}>
-                    {formatDate(doc.updatedAt)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       )}
 
@@ -407,18 +522,24 @@ export const Documents: React.FC = () => {
                 <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>TYPE</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 24 }}>{docTypeIcons[selectedDoc.type] || '📄'}</span>
-                  <span style={{ fontSize: 14, color: Colors.text, textTransform: 'capitalize' }}>{selectedDoc.type}</span>
+                  <span style={{ fontSize: 14, color: Colors.text }}>
+                    {documentTypeLabels[selectedDoc.type] || selectedDoc.type}
+                  </span>
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>CATÉGORIE</div>
-                <span style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, background: `${categoryColors[selectedDoc.category] || categoryColors.general}20`, color: categoryColors[selectedDoc.category] || categoryColors.general, textTransform: 'capitalize' }}>
-                  {selectedDoc.category}
+                <span style={{ 
+                  padding: '6px 12px', borderRadius: 6, fontSize: 12, 
+                  background: `${categoryColors[selectedDoc.category] || categoryColors.GENERAL}20`, 
+                  color: categoryColors[selectedDoc.category] || categoryColors.GENERAL,
+                }}>
+                  {documentCategoryLabels[selectedDoc.category] || selectedDoc.category}
                 </span>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>STATUT</div>
-                <StatusBadge status={selectedDoc.status} />
+                <StatusBadge status={getStatusBadgeStatus(selectedDoc.status)} />
               </div>
               <div>
                 <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>VERSION</div>
@@ -427,6 +548,13 @@ export const Documents: React.FC = () => {
                 </span>
               </div>
             </div>
+
+            {selectedDoc.description && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8 }}>DESCRIPTION</div>
+                <div style={{ fontSize: 13, color: Colors.text }}>{selectedDoc.description}</div>
+              </div>
+            )}
 
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8 }}>INFORMATIONS</div>
@@ -441,8 +569,8 @@ export const Documents: React.FC = () => {
             {selectedDoc.signedBy && selectedDoc.signedBy.length > 0 && (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8 }}>SIGNATURES</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {selectedDoc.signedBy.map((sig: string, idx: number) => (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {selectedDoc.signedBy.map((sig, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(62, 207, 142, 0.1)', borderRadius: 20, border: '1px solid rgba(62, 207, 142, 0.2)' }}>
                       <span style={{ fontSize: 12 }}>✓</span>
                       <span style={{ fontSize: 12, color: '#3ecf8e' }}>{sig}</span>
@@ -453,36 +581,82 @@ export const Documents: React.FC = () => {
             )}
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <Button 
+                variant="secondary" 
+                onClick={() => handleDeleteDocument(selectedDoc.id)}
+                style={{ color: '#e05050', borderColor: '#e05050' }}
+              >
+                Supprimer
+              </Button>
               <Button variant="secondary" onClick={() => { setIsModalOpen(false); setSelectedDoc(null); }}>Fermer</Button>
               <Button variant="primary">Modifier</Button>
             </div>
           </div>
         ) : (
-          <form onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+          <form onSubmit={handleCreateDocument}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Nom du document</label>
-                <input type="text" placeholder="Contrat de travail..." style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} />
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Nom du document *</label>
+                <input 
+                  name="name" 
+                  type="text" 
+                  required
+                  placeholder="Contrat de travail..." 
+                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} 
+                />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Description</label>
+                <textarea 
+                  name="description"
+                  placeholder="Description du document..."
+                  rows={3}
+                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13, resize: 'vertical' }}
+                />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Type</label>
-                <select style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}>
-                  <option value="contract">Contrat</option>
-                  <option value="invoice">Facture</option>
-                  <option value="report">Rapport</option>
-                  <option value="policy">Politique</option>
-                  <option value="other">Autre</option>
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Type *</label>
+                <select 
+                  name="type" 
+                  required
+                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}
+                >
+                  <option value="">Sélectionner...</option>
+                  <option value="CONTRACT">Contrat</option>
+                  <option value="CNSS">CNSS</option>
+                  <option value="ID">Pièce identité</option>
+                  <option value="DIPLOMA">Diplôme</option>
+                  <option value="INVOICE">Facture</option>
+                  <option value="REPORT">Rapport</option>
+                  <option value="POLICY">Politique</option>
+                  <option value="OTHER">Autre</option>
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Catégorie</label>
-                <select style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}>
-                  <option value="rh">RH</option>
-                  <option value="finance">Finance</option>
-                  <option value="juridique">Juridique</option>
-                  <option value="technique">Technique</option>
-                  <option value="commercial">Commercial</option>
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Catégorie *</label>
+                <select 
+                  name="category" 
+                  required
+                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}
+                >
+                  <option value="">Sélectionner...</option>
+                  <option value="RH">Ressources Humaines</option>
+                  <option value="FINANCE">Finance</option>
+                  <option value="JURIDIQUE">Juridique</option>
+                  <option value="TECHNIQUE">Technique</option>
+                  <option value="COMMERCIAL">Commercial</option>
+                  <option value="GENERAL">Général</option>
                 </select>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input 
+                    name="signatureRequired" 
+                    type="checkbox"
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <span style={{ fontSize: 13, color: Colors.text }}>Signature requise</span>
+                </label>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>

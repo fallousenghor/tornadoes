@@ -17,6 +17,12 @@ export interface ProductFormData {
   reference: string;
   category: string;
   quantity: number;
+  description?: string;
+  serialNumber?: string;
+  brand?: string;
+  model?: string;
+  location?: string;
+  purchasePrice?: number;
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({

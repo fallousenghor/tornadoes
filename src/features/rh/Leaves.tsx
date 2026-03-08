@@ -529,24 +529,24 @@ export const Leaves: React.FC = () => {
                         <div style={{ fontSize: 10, color: Colors.textMuted }}>{balance.department}</div>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 11, color: '#6490ff', fontWeight: 600 }}>{balance.annuel.remaining}</span>
-                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.annuel.total}</span>
+                        <span style={{ fontSize: 11, color: '#6490ff', fontWeight: 600 }}>{balance.annuel?.remaining ?? '-'}</span>
+                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.annuel?.total ?? '-'}</span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 11, color: '#3ecf8e', fontWeight: 600 }}>{balance.maladie.remaining}</span>
-                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.maladie.total}</span>
+                        <span style={{ fontSize: 11, color: '#3ecf8e', fontWeight: 600 }}>{balance.maladie?.remaining ?? '-'}</span>
+                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.maladie?.total ?? '-'}</span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600 }}>{balance.maternite.remaining}</span>
-                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.maternite.total}</span>
+                        <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600 }}>{balance.maternite?.remaining ?? '-'}</span>
+                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.maternite?.total ?? '-'}</span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 11, color: '#fb923c', fontWeight: 600 }}>{balance.sans_solde.remaining}</span>
-                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.sans_solde.total}</span>
+                        <span style={{ fontSize: 11, color: '#fb923c', fontWeight: 600 }}>{balance.sans_solde?.remaining ?? '-'}</span>
+                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.sans_solde?.total ?? '-'}</span>
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 11, color: '#2dd4bf', fontWeight: 600 }}>{balance.exceptionnel.remaining}</span>
-                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.exceptionnel.total}</span>
+                        <span style={{ fontSize: 11, color: '#2dd4bf', fontWeight: 600 }}>{balance.exceptionnel?.remaining ?? '-'}</span>
+                        <span style={{ fontSize: 9, color: Colors.textMuted }}>/{balance.exceptionnel?.total ?? '-'}</span>
                       </td>
                     </tr>
                   ))}

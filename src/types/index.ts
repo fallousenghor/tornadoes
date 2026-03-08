@@ -80,6 +80,7 @@ export interface OrganigrammeNode {
 export interface Employee {
   id: string;
   userId: string;
+  employeeNumber?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -91,6 +92,8 @@ export interface Employee {
   startDate: Date;
   status: EmployeeStatus;
   avatar?: string;
+  photoUrl?: string;
+  qrCodeUrl?: string;
   notes?: string;
 }
 
@@ -228,6 +231,35 @@ export interface CashFlow {
   incomes: number;
   expenses: number;
   balance: number;
+}
+
+// Accounting Types (Plan Comptable)
+export interface AccountingAccount {
+  id: string;
+  code: string;
+  name: string;
+  type: 'actif' | 'passif' | 'charge' | 'produit';
+  parentCode?: string;
+  balance: number;
+  debit: number;
+  credit: number;
+}
+
+export interface JournalEntry {
+  id: string;
+  date: Date;
+  reference: string;
+  description: string;
+  accounts: JournalEntryLine[];
+  totalDebit: number;
+  totalCredit: number;
+}
+
+export interface JournalEntryLine {
+  code: string;
+  name: string;
+  debit: number;
+  credit: number;
 }
 
 // ==================== Stock & Equipment ====================
@@ -371,19 +403,48 @@ export interface Task {
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
 
 // ==================== Documents ====================
+// Document management module types (for DocumentService)
+export type DocumentTypeEnum = 
+  | 'CONTRACT' 
+  | 'CNSS' 
+  | 'ID' 
+  | 'DIPLOMA' 
+  | 'INVOICE' 
+  | 'REPORT' 
+  | 'POLICY' 
+  | 'OTHER';
+
+export type DocumentCategoryEnum = 
+  | 'RH' 
+  | 'FINANCE' 
+  | 'JURIDIQUE' 
+  | 'TECHNIQUE' 
+  | 'COMMERCIAL' 
+  | 'GENERAL';
+
+export type DocumentStatusEnum = 
+  | 'DRAFT' 
+  | 'PENDING_SIGNATURE' 
+  | 'SIGNED' 
+  | 'EXPIRED';
+
 export interface Document {
   id: string;
   name: string;
-  type: string;
-  category: string;
-  departmentId?: string;
-  url: string;
+  description?: string;
+  type: DocumentTypeEnum;
+  category: DocumentCategoryEnum;
   version: number;
+  status: DocumentStatusEnum;
   uploadedBy: string;
   uploadedAt: Date;
   updatedAt: Date;
   signatureRequired: boolean;
   signedBy?: string[];
+  departmentId?: string;
+  employeeId?: string;
+  expiresAt?: Date;
+  fileUrl?: string;
 }
 
 // ==================== Dashboard ====================

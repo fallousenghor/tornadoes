@@ -2,10 +2,11 @@
 // Complete employee management with search, filters, pagination and modal
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, SectionTitle, SearchInput } from '../../components/common';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 import type { Employee, EmployeeStatus, ContractType, Department } from '../../types';
-import { EmployeeForm } from './components';
+import { EmployeeForm, EmployeeBadge } from './components';
 import type { EmployeeFormData } from './components/EmployeeForm';
 import employeeService, { CreateEmployeeRequest, UpdateEmployeeRequest } from '../../services/employeeService';
 
@@ -22,7 +23,7 @@ const defaultDepartments: Department[] = [
 interface EmployeeDisplay extends Employee {
   departmentName: string;
 }
-
+ 
 // Status badge colors
 const getStatusBadge = (status: EmployeeStatus) => {
   const styles: Record<EmployeeStatus, { bg: string; color: string }> = {
@@ -41,11 +42,14 @@ const getContractBadge = (contract: ContractType) => {
     'CDD': { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa' },
     'Freelance': { bg: 'rgba(45, 212, 191, 0.15)', color: '#2dd4bf' },
     'Stage': { bg: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c' },
+    'Part_time': { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c' },
   };
   return styles[contract] || styles['CDI'];
 };
 
 export const Employees: React.FC = () => {
+  const navigate = useNavigate();
+  
   // State
   const [employees, setEmployees] = useState<EmployeeDisplay[]>([]);
   const [departments, setDepartments] = useState<Department[]>(defaultDepartments);
@@ -58,8 +62,6 @@ export const Employees: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDisplay | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [detailEmployee, setDetailEmployee] = useState<EmployeeDisplay | null>(null);
   const itemsPerPage = 8;
 
   // Fetch employees from API
@@ -155,37 +157,38 @@ export const Employees: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  // View employee details
-  const handleViewEmployee = async (emp: EmployeeDisplay) => {
-    try {
-      const fullEmployee = await employeeService.getEmployee(emp.id);
-      setDetailEmployee({
-        ...fullEmployee,
-        departmentName: departments.find(d => d.id === fullEmployee.departmentId)?.name || 'N/A'
-      });
-      setIsDetailModalOpen(true);
-    } catch (err) {
-      console.error('Error fetching employee details:', err);
-      alert('Erreur lors du chargement des détails');
-    }
+  // View employee details - navigate to detail page
+  const handleViewEmployee = (emp: EmployeeDisplay) => {
+    navigate(`/rh/employees/${emp.id}`);
   };
 
-  // Delete (terminate) employee
+// Delete (terminate) employee
   const handleDeleteEmployee = async (emp: EmployeeDisplay) => {
+    // Prevent deleting already terminated employees
+    if (emp.status === 'Inactif') {
+      alert('Cet employé est déjà terminé/inactif.');
+      return;
+    }
     if (!confirm(`Êtes-vous sûr de vouloir supprimer l'employé ${emp.firstName} ${emp.lastName} ?`)) {
       return;
     }
     try {
       await employeeService.deleteEmployee(emp.id);
       fetchEmployees();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting employee:', err);
-      alert('Erreur lors de la suppression');
+      // Check if employee is already terminated
+      if (err.response?.status === 409 || err.response?.data?.message?.includes('already terminated')) {
+        alert('Cet employé est déjà terminé.');
+        fetchEmployees(); // Refresh to update the status
+      } else {
+        alert('Erreur lors de la suppression');
+      }
     }
   };
 
   // Handle form submission (create or update)
-  const handleEmployeeSubmit = async (data: EmployeeFormData) => {
+  const handleEmployeeSubmit = async (data: EmployeeFormData, photoFile?: File) => {
     try {
       if (selectedEmployee) {
         // Update existing employee
@@ -203,7 +206,7 @@ export const Employees: React.FC = () => {
         };
         await employeeService.updateEmployee(selectedEmployee.id, updateData);
       } else {
-        // Create new employee
+        // Create new employee - use with-photo endpoint if photo provided
         const createData: CreateEmployeeRequest = {
           firstName: data.firstName,
           lastName: data.lastName,
@@ -216,7 +219,12 @@ export const Employees: React.FC = () => {
           startDate: data.startDate,
           notes: data.notes,
         };
-        await employeeService.createEmployee(createData);
+        
+        if (photoFile) {
+          await employeeService.createEmployeeWithPhoto(createData, photoFile);
+        } else {
+          await employeeService.createEmployee(createData);
+        }
       }
       // Refresh the employee list
       fetchEmployees();
@@ -369,26 +377,42 @@ export const Employees: React.FC = () => {
                   >
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ 
-                          width: 40, 
-                          height: 40, 
-                          borderRadius: '50%', 
-                          background: 'rgba(100, 140, 255, 0.15)', 
-                          border: '1px solid rgba(100, 140, 255, 0.3)',
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          fontSize: 13, 
-                          fontWeight: 600, 
-                          color: Colors.accent,
-                        }}>
-                          {emp.firstName[0]}{emp.lastName[0]}
-                        </div>
+                        {emp.photoUrl ? (
+                          <img 
+                            src={emp.photoUrl} 
+                            alt={`${emp.firstName} ${emp.lastName}`}
+                            style={{ 
+                              width: 40, 
+                              height: 40, 
+                              borderRadius: '50%', 
+                              objectFit: 'cover',
+                              border: '1px solid rgba(100, 140, 255, 0.3)'
+                            }}
+                          />
+                        ) : (
+                          <div style={{ 
+                            width: 40, 
+                            height: 40, 
+                            borderRadius: '50%', 
+                            background: 'rgba(100, 140, 255, 0.15)', 
+                            border: '1px solid rgba(100, 140, 255, 0.3)',
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            fontSize: 13, 
+                            fontWeight: 600, 
+                            color: Colors.accent,
+                          }}>
+                            {emp.firstName[0]}{emp.lastName[0]}
+                          </div>
+                        )}
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
                             {emp.firstName} {emp.lastName}
                           </div>
-                          <div style={{ fontSize: 12, color: Colors.textMuted }}>{emp.email}</div>
+                          <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                            {emp.employeeNumber || emp.userId}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -456,16 +480,20 @@ export const Employees: React.FC = () => {
                         </button>
                         <button 
                           onClick={() => handleDeleteEmployee(emp)}
+                          disabled={emp.status === 'Inactif'}
                           style={{ 
                             padding: '6px 10px', 
                             borderRadius: 6, 
-                            border: `1px solid rgba(224, 80, 80, 0.3)`, 
+                            border: emp.status === 'Inactif' 
+                              ? '1px solid rgba(160, 174, 192, 0.3)' 
+                              : '1px solid rgba(224, 80, 80, 0.3)', 
                             background: 'transparent', 
-                            color: '#e05050', 
+                            color: emp.status === 'Inactif' ? '#a0aeb0' : '#e05050', 
                             fontSize: 11, 
-                            cursor: 'pointer',
+                            cursor: emp.status === 'Inactif' ? 'not-allowed' : 'pointer',
+                            opacity: emp.status === 'Inactif' ? 0.5 : 1,
                           }}
-                          title="Supprimer"
+                          title={emp.status === 'Inactif' ? 'Employé déjà terminé' : 'Supprimer'}
                         >
                           🗑
                         </button>
@@ -551,114 +579,6 @@ export const Employees: React.FC = () => {
         employee={selectedEmployee}
         departments={departments}
       />
-
-      {/* Employee Detail Modal */}
-      {isDetailModalOpen && detailEmployee && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            background: Colors.bg,
-            borderRadius: 12,
-            padding: 24,
-            maxWidth: 600,
-            width: '90%',
-            maxHeight: '80vh',
-            overflow: 'auto',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 600, color: Colors.text }}>
-                Détails de l'employé
-              </h2>
-              <button 
-                onClick={() => setIsDetailModalOpen(false)}
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: Colors.textMuted }}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Nom complet</label>
-                <p style={{ fontSize: 14, color: Colors.text, fontWeight: 500 }}>
-                  {detailEmployee.firstName} {detailEmployee.lastName}
-                </p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Email</label>
-                <p style={{ fontSize: 14, color: Colors.text }}>{detailEmployee.email}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Téléphone</label>
-                <p style={{ fontSize: 14, color: Colors.text }}>{detailEmployee.phone || '-'}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Poste</label>
-                <p style={{ fontSize: 14, color: Colors.text }}>{detailEmployee.poste}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Département</label>
-                <p style={{ fontSize: 14, color: Colors.text }}>{detailEmployee.departmentName}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Type de contrat</label>
-                <p style={{ fontSize: 14, color: Colors.text }}>{detailEmployee.contractType}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Salaire</label>
-                <p style={{ fontSize: 14, color: Colors.text, fontWeight: 600 }}>
-                  {detailEmployee.salary.toLocaleString()} FCA
-                </p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Statut</label>
-                <span style={{ 
-                  padding: '4px 10px', 
-                  borderRadius: 6, 
-                  fontSize: 11, 
-                  fontWeight: 500,
-                  background: getStatusBadge(detailEmployee.status).bg, 
-                  color: getStatusBadge(detailEmployee.status).color 
-                }}>
-                  {detailEmployee.status}
-                </span>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Date de début</label>
-                <p style={{ fontSize: 14, color: Colors.text }}>
-                  {new Date(detailEmployee.startDate).toLocaleDateString('fr-FR')}
-                </p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: Colors.textMuted }}>Notes</label>
-                <p style={{ fontSize: 14, color: Colors.text }}>{detailEmployee.notes || '-'}</p>
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-              <Button variant="secondary" onClick={() => setIsDetailModalOpen(false)}>
-                Fermer
-              </Button>
-              <Button variant="primary" onClick={() => {
-                setIsDetailModalOpen(false);
-                handleEditEmployee(detailEmployee);
-              }}>
-                Modifier
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

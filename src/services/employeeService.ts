@@ -36,6 +36,7 @@ interface EmployeeResponse {
   positionTitle?: string;
   leaveBalance: number;
   photoUrl?: string;
+  qrCodeUrl?: string;
   createdAt: string;
 }
 
@@ -126,17 +127,21 @@ const mapContractType = (backendType: string): ContractType => {
 };
 
 // Map frontend contract type to backend contract type
+// Backend expects: CDI, CDD, FREELANCE, INTERNSHIP, PART_TIME
 const mapContractTypeToBackend = (frontendType: ContractType): string => {
-  switch (frontendType) {
+  // Handle both English and French frontend values
+  switch (String(frontendType).toUpperCase()) {
     case 'CDI':
       return 'CDI';
     case 'CDD':
       return 'CDD';
-    case 'Freelance':
+    case 'FREELANCE':
       return 'FREELANCE';
-    case 'Stage':
+    case 'STAGE':
+    case 'INTERNSHIP':
       return 'INTERNSHIP';
-    case 'Part_time':
+    case 'PART_TIME':
+    case 'PART':
       return 'PART_TIME';
     default:
       return 'CDI';
@@ -147,6 +152,7 @@ const mapContractTypeToBackend = (frontendType: ContractType): string => {
 const mapEmployee = (response: EmployeeResponse): Employee => ({
   id: response.id,
   userId: response.employeeNumber,
+  employeeNumber: response.employeeNumber,
   firstName: response.firstName,
   lastName: response.lastName,
   email: response.email,
@@ -158,6 +164,8 @@ const mapEmployee = (response: EmployeeResponse): Employee => ({
   startDate: new Date(response.hireDate),
   status: mapStatus(response.status),
   avatar: response.photoUrl,
+  photoUrl: response.photoUrl,
+  qrCodeUrl: response.qrCodeUrl,
   notes: undefined,
 });
 
@@ -171,6 +179,12 @@ const mapDepartment = (response: DepartmentResponse): Department => ({
   spent: 0,
   createdAt: new Date(response.createdAt),
 });
+
+// Helper function to validate UUID format
+const isValidUUID = (uuid: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
 
 const employeeService = {
   /**
@@ -222,6 +236,52 @@ const employeeService = {
   },
 
   /**
+   * Créer un nouvel employé avec photo
+   */
+  async createEmployeeWithPhoto(data: CreateEmployeeRequest, photoFile?: File): Promise<Employee> {
+    // If there's a photo, use FormData to send multipart request
+    if (photoFile) {
+      const formData = new FormData();
+      
+      // Set default values for required fields
+      const hireDate = data.startDate || data.hireDate || new Date().toISOString().split('T')[0];
+      const contractStartDate = data.contractStartDate || data.startDate || hireDate;
+      const salary = data.salary || data.baseSalary || 0;
+      const currency = data.currency || 'XOF';
+      const contractType = mapContractTypeToBackend(data.contractType);
+      
+      formData.append('firstName', data.firstName);
+      formData.append('lastName', data.lastName);
+      formData.append('email', data.email);
+      if (data.phone) formData.append('phone', data.phone);
+      formData.append('hireDate', hireDate);
+      formData.append('positionTitle', data.poste || data.positionTitle || '');
+      formData.append('baseSalary', String(salary));
+      formData.append('currency', currency);
+      formData.append('contractType', contractType);
+      formData.append('contractStartDate', contractStartDate);
+      if (data.contractEndDate) formData.append('contractEndDate', data.contractEndDate);
+      
+      // Only add departmentId if it's a valid UUID
+      if (data.departmentId && data.departmentId.trim() !== '' && isValidUUID(data.departmentId)) {
+        formData.append('departmentId', data.departmentId);
+      }
+      
+      formData.append('photo', photoFile);
+
+      const response = await api.post<EmployeeResponse>('/v1/employees/with-photo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return mapEmployee(response.data as unknown as EmployeeResponse);
+    }
+    
+    // Otherwise, use regular JSON request
+    return this.createEmployee(data);
+  },
+
+  /**
    * Créer un nouvel employé
    */
   async createEmployee(data: CreateEmployeeRequest): Promise<Employee> {
@@ -229,13 +289,13 @@ const employeeService = {
     const hireDate = data.startDate || data.hireDate || new Date().toISOString().split('T')[0];
     const contractStartDate = data.contractStartDate || data.startDate || hireDate;
     
-    const backendData = {
+    // Only include departmentId if it's a valid UUID (not empty string)
+    const backendData: Record<string, unknown> = {
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email,
       phone: data.phone,
       hireDate: hireDate,
-      departmentId: data.departmentId,
       positionTitle: data.poste || data.positionTitle,
       baseSalary: data.salary || data.baseSalary || 0,
       currency: data.currency || 'XOF',
@@ -243,6 +303,11 @@ const employeeService = {
       contractStartDate: contractStartDate,
       contractEndDate: data.contractEndDate,
     };
+    
+    // Only add departmentId if it's not empty and looks like a UUID
+    if (data.departmentId && data.departmentId.trim() !== '' && isValidUUID(data.departmentId)) {
+      backendData.departmentId = data.departmentId;
+    }
     
     const response = await api.post<EmployeeResponse>('/v1/employees', backendData);
     return mapEmployee(response.data as unknown as EmployeeResponse);

@@ -1,7 +1,7 @@
 // Employee Form Component - RH Module
-// Reusable form for creating and editing employees
+// Reusable form for creating and editing employees with photo upload
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Modal, Button } from '../../../components/common';
 import { Colors } from '../../../constants/theme';
 import type { Employee, ContractType, Department } from '../../../types';
@@ -9,7 +9,7 @@ import type { Employee, ContractType, Department } from '../../../types';
 interface EmployeeFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: EmployeeFormData) => void;
+  onSubmit: (data: EmployeeFormData, photoFile?: File) => void;
   employee?: Employee | null;
   departments?: Department[];
 }
@@ -34,6 +34,30 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
   employee,
   departments = [],
 }) => {
+  const [photoPreview, setPhotoPreview] = useState<string | null>(employee?.photoUrl || null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoPreview(null);
+    setPhotoFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -51,8 +75,18 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
       notes: formData.get('notes') as string,
     };
     
-    onSubmit(data);
+    // Pass both data and optional photo file
+    onSubmit(data, photoFile || undefined);
     onClose();
+    
+    // Reset form after close
+    setTimeout(() => {
+      setPhotoPreview(null);
+      setPhotoFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }, 300);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -82,6 +116,81 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     >
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          
+          {/* Photo Upload Section */}
+          <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
+            <label style={{ ...labelStyle, textAlign: 'center', marginBottom: 12 }}>
+              Photo de profil (optionnel)
+            </label>
+            <div style={{ position: 'relative' }}>
+              {photoPreview ? (
+                <div style={{ position: 'relative' }}>
+                  <img 
+                    src={photoPreview} 
+                    alt="Preview" 
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: `3px solid ${Colors.accent}`,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    style={{
+                      position: 'absolute',
+                      top: -8,
+                      right: -8,
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      background: '#e05050',
+                      color: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                    }}
+                    title="Supprimer la photo"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    width: 100,
+                    height: 100,
+                    borderRadius: '50%',
+                    border: `2px dashed ${Colors.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(100, 140, 255, 0.05)',
+                    flexDirection: 'column',
+                    gap: 4,
+                  }}
+                >
+                  <span style={{ fontSize: 24, color: Colors.textMuted }}>📷</span>
+                  <span style={{ fontSize: 10, color: Colors.textMuted }}>Ajouter</span>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                style={{ display: 'none' }}
+              />
+            </div>
+          </div>
+
           <div>
             <label style={labelStyle}>Prénom *</label>
             <input 
@@ -137,9 +246,10 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
             <label style={labelStyle}>Département</label>
             <select 
               name="departmentId"
-              defaultValue={employee?.departmentId || '1'}
+              defaultValue={employee?.departmentId || ''}
               style={inputStyle}
             >
+              <option value="">Sélectionner un département</option>
               {(departments.length > 0 ? departments : []).map(dept => (
                 <option key={dept.id} value={dept.id}>{dept.name}</option>
               ))}

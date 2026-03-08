@@ -2,6 +2,7 @@
 // Export all RH-related form components
 
 export { default as EmployeeForm } from './EmployeeForm';
+export { default as EmployeeBadge } from './EmployeeBadge';
 export { default as LeaveRequestForm } from './LeaveRequestForm';
 export type { EmployeeFormData } from './EmployeeForm';
 export type { LeaveRequestFormData } from './LeaveRequestForm';

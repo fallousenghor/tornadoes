@@ -1,10 +1,13 @@
 // Treasury Page - Finance Module
-// Complete treasury management with cash flow, transactions, and analytics
+// Complete treasury management with cash flow, transactions, and analytics - Backend API Integration
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
-import { cashFlowData, invoicesData, employeesData, deptPerformance } from '../../data/mockData';
+import dashboardService, { CashFlowDataPoint } from '../../services/dashboardService';
+import invoiceService from '../../services/invoiceService';
+import departmentService from '../../services/departmentService';
+import type { Invoice, Department } from '../../types';
 
 // Transaction type
 interface TransactionDisplay {
@@ -18,54 +21,13 @@ interface TransactionDisplay {
   reference?: string;
 }
 
-// Generate mock transactions
-const generateTransactions = (): TransactionDisplay[] => {
-  const categories = {
-    income: ['Ventes Services', 'Formation', 'Consulting', 'Souscription', 'Autre Recette'],
-    expense: ['Salaires', 'Loyer', 'Fournitures', 'Équipements', 'Marketing', 'Services', 'Transport'],
-  };
-  
-  const transactions: TransactionDisplay[] = [];
-  
-  // Generate income transactions
-  for (let i = 0; i < 15; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - Math.floor(Math.random() * 60));
-    
-    transactions.push({
-      id: `inc-${i}`,
-      date,
-      type: 'income',
-      category: categories.income[Math.floor(Math.random() * categories.income.length)],
-      amount: Math.floor(Math.random() * 500000) + 50000,
-      description: 'Paiement client #INV-' + Math.floor(Math.random() * 3000 + 2000),
-      centerOfCost: 'Direction',
-      reference: 'REC-' + (Math.floor(Math.random() * 9000) + 1000),
-    });
-  }
-  
-  // Generate expense transactions
-  for (let i = 0; i < 20; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - Math.floor(Math.random() * 60));
-    
-    transactions.push({
-      id: `exp-${i}`,
-      date,
-      type: 'expense',
-      category: categories.expense[Math.floor(Math.random() * categories.expense.length)],
-      amount: Math.floor(Math.random() * 300000) + 10000,
-      description: 'Facture #FAC-' + Math.floor(Math.random() * 2000 + 1000),
-      centerOfCost: deptPerformance[Math.floor(Math.random() * deptPerformance.length)].name,
-      reference: 'DEP-' + (Math.floor(Math.random() * 9000) + 1000),
-    });
-  }
-  
-  return transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
-};
-
 export const Treasury: React.FC = () => {
   // State
+  const [cashFlowData, setCashFlowData] = useState<CashFlowDataPoint[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -73,8 +35,57 @@ export const Treasury: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const itemsPerPage = 10;
 
-  // Generate mock data
-  const transactions = useMemo(() => generateTransactions(), []);
+  // Fetch data from API
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch cash flow data
+      const cashFlow = await dashboardService.getCashFlow();
+      setCashFlowData(cashFlow);
+
+      // Fetch invoices for transactions
+      const invoicesResponse = await invoiceService.getInvoices({ pageSize: 50 });
+      setInvoices(invoicesResponse.data);
+
+      // Fetch departments
+      const deptsResponse = await departmentService.getDepartments();
+      setDepartments(deptsResponse.data);
+    } catch (err) {
+      console.error('Error fetching treasury data:', err);
+      setError('Erreur lors du chargement des données');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Generate transactions from invoices
+  const transactions = useMemo((): TransactionDisplay[] => {
+    const txns: TransactionDisplay[] = [];
+
+    // Convert invoices to transactions
+    invoices.forEach((invoice, idx) => {
+      txns.push({
+        id: invoice.id,
+        date: invoice.date,
+        type: invoice.status === 'paye' ? 'income' : 'income',
+        category: 'Ventes Services',
+        amount: invoice.amount,
+        description: `Facture ${invoice.reference}`,
+        centerOfCost: 'Direction',
+        reference: invoice.reference,
+      });
+    });
+
+    // Sort by date descending
+    return txns.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [invoices]);
 
   // Filter transactions
   const filteredTransactions = useMemo(() => {
@@ -115,15 +126,15 @@ export const Treasury: React.FC = () => {
     };
   }, [transactions]);
 
-  // Cash flow totals
+  // Cash flow totals from API
   const cashFlowTotals = useMemo(() => {
     const totalIncomes = cashFlowData.reduce((sum, d) => sum + d.incomes, 0);
     const totalExpenses = cashFlowData.reduce((sum, d) => sum + d.expenses, 0);
     return { totalIncomes, totalExpenses };
-  }, []);
+  }, [cashFlowData]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
   const paginatedTransactions = filteredTransactions.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -139,11 +150,49 @@ export const Treasury: React.FC = () => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
   };
 
-  // Get unique categories
-  const categories = useMemo(() => {
-    const cats = new Set(transactions.map(t => t.category));
-    return Array.from(cats);
+  // Calculate expense categories from real data
+  const expenseCategories = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+    
+    transactions
+      .filter(t => t.type === 'expense')
+      .forEach(t => {
+        const existing = categoryMap.get(t.category) || 0;
+        categoryMap.set(t.category, existing + t.amount);
+      });
+    
+    const total = Array.from(categoryMap.values()).reduce((sum, v) => sum + v, 0);
+    
+    return Array.from(categoryMap.entries())
+      .map(([name, value]) => ({
+        name,
+        value: total > 0 ? Math.round((value / total) * 100) : 0,
+        amount: value,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
   }, [transactions]);
+
+  // Loading state
+  if (loading && transactions.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: Colors.textMuted }}>
+        Chargement des données de trésorerie...
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && transactions.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <div style={{ color: Colors.danger }}>{error}</div>
+        <Button variant="primary" onClick={fetchData} style={{ marginTop: 16 }}>
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -275,35 +324,41 @@ export const Treasury: React.FC = () => {
           <h3 style={{ fontSize: 14, fontWeight: 600, color: Colors.text, marginBottom: 16 }}>
             Flux de Trésorerie (6 derniers mois)
           </h3>
-          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 180 }}>
-            {cashFlowData.map((month, idx) => {
-              const maxValue = Math.max(month.incomes, month.expenses);
-              const incomeHeight = (month.incomes / 1500000) * 140;
-              const expenseHeight = (month.expenses / 1500000) * 140;
-              
-              return (
-                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 140 }}>
-                    <div style={{ 
-                      width: 32, 
-                      height: `${incomeHeight}px`, 
-                      background: '#3ecf8e', 
-                      borderRadius: 4,
-                      minHeight: 20,
-                    }} />
-                    <div style={{ 
-                      width: 32, 
-                      height: `${expenseHeight}px`, 
-                      background: '#e05050', 
-                      borderRadius: 4,
-                      minHeight: 20,
-                    }} />
+          {cashFlowData.length > 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 180 }}>
+              {cashFlowData.map((month, idx) => {
+                const maxValue = Math.max(month.incomes, month.expenses);
+                const incomeHeight = (month.incomes / 1500000) * 140;
+                const expenseHeight = (month.expenses / 1500000) * 140;
+                
+                return (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 140 }}>
+                      <div style={{ 
+                        width: 32, 
+                        height: `${Math.max(incomeHeight, 20)}px`, 
+                        background: '#3ecf8e', 
+                        borderRadius: 4,
+                        minHeight: 20,
+                      }} />
+                      <div style={{ 
+                        width: 32, 
+                        height: `${Math.max(expenseHeight, 20)}px`, 
+                        background: '#e05050', 
+                        borderRadius: 4,
+                        minHeight: 20,
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 11, color: Colors.textMuted, fontWeight: 500 }}>{month.month}</span>
                   </div>
-                  <span style={{ fontSize: 11, color: Colors.textMuted, fontWeight: 500 }}>{month.month}</span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: Colors.textMuted }}>
+              Aucune donnée disponible
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <div style={{ width: 12, height: 12, borderRadius: 2, background: '#3ecf8e' }} />
@@ -321,13 +376,7 @@ export const Treasury: React.FC = () => {
             Répartition des Dépenses
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { name: 'Salaires', value: 45, color: '#6490ff' },
-              { name: 'Loyer', value: 20, color: '#3ecf8e' },
-              { name: 'Équipements', value: 15, color: '#fb923c' },
-              { name: 'Marketing', value: 12, color: '#a78bfa' },
-              { name: 'Autres', value: 8, color: '#2dd4bf' },
-            ].map((item, idx) => (
+            {expenseCategories.length > 0 ? expenseCategories.map((item, idx) => (
               <div key={idx}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: 12, color: Colors.textMuted }}>{item.name}</span>
@@ -342,12 +391,16 @@ export const Treasury: React.FC = () => {
                   <div style={{ 
                     width: `${item.value}%`, 
                     height: '100%', 
-                    background: item.color,
+                    background: '#6490ff',
                     borderRadius: 4,
                   }} />
                 </div>
               </div>
-            ))}
+            )) : (
+              <div style={{ textAlign: 'center', color: Colors.textMuted, padding: 20 }}>
+                Aucune donnée de dépenses disponible
+              </div>
+            )}
           </div>
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${Colors.border}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -410,8 +463,8 @@ export const Treasury: React.FC = () => {
               }}
             >
               <option value="all">Toutes les catégories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+              {expenseCategories.map(cat => (
+                <option key={cat.name} value={cat.name}>{cat.name}</option>
               ))}
             </select>
           </div>
@@ -668,7 +721,7 @@ export const Treasury: React.FC = () => {
                 }}
               >
                 <option value="">Sélectionner un centre de coût</option>
-                {deptPerformance.map(dept => (
+                {departments.map(dept => (
                   <option key={dept.id} value={dept.name}>{dept.name}</option>
                 ))}
                 <option value="Direction">Direction</option>

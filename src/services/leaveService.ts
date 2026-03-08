@@ -4,7 +4,7 @@
 import api from './api';
 import type { LeaveRequest, LeaveStatus, LeaveType } from '@/types';
 
-// Types backend
+// Types backend (après désencapsulation par l'intercepteur)
 interface LeaveResponse {
   id: string;
   employeeId: string;
@@ -18,6 +18,15 @@ interface LeaveResponse {
   approvedBy?: string;
   approvedAt?: string;
   createdAt: string;
+}
+
+// Page response wrapper from backend
+interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  page: number;
+  size: number;
+  totalPages: number;
 }
 
 // Types pour les statistiques
@@ -107,9 +116,19 @@ const mapLeave = (response: LeaveResponse): LeaveRequest => ({
   approvedAt: response.approvedAt ? new Date(response.approvedAt) : undefined,
 });
 
+// Helper to safely extract content from a PageResponse or raw array
+const extractContent = <T>(data: unknown): T[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data as T[];
+  const page = data as PageResponse<T>;
+  if (page && Array.isArray(page.content)) return page.content;
+  return [];
+};
+
 const leaveService = {
   /**
    * Récupérer toutes les demandes de congés
+   * Note: l'intercepteur api.ts désencapsule déjà ApiResponse → response.data est directement la donnée.
    */
   async getAllLeaves(params?: {
     page?: number;
@@ -120,19 +139,24 @@ const leaveService = {
       page: params?.page || 0,
       size: params?.pageSize || 50,
     };
-    
+
     if (params?.status) {
       backendParams.status = params.status.toUpperCase();
     }
 
-    const response = await api.get<{ content: LeaveResponse[]; totalElements: number; page: number; size: number }>('/v1/leave-requests', { params: backendParams });
-    const data = response.data as unknown as { content: LeaveResponse[]; totalElements: number; page: number; size: number };
-    
+    const response = await api.get<PageResponse<LeaveResponse>>(
+      '/v1/leave-requests',
+      { params: backendParams }
+    );
+    // Interceptor already unwrapped ApiResponse — response.data is PageResponse directly
+    const pageData = response.data as unknown as PageResponse<LeaveResponse>;
+    const content = extractContent<LeaveResponse>(pageData);
+
     return {
-      data: data.content.map(mapLeave),
-      total: data.totalElements,
-      page: data.page,
-      pageSize: data.size,
+      data: content.map(mapLeave),
+      total: pageData?.totalElements || content.length,
+      page: pageData?.page || 0,
+      pageSize: pageData?.size || 50,
     };
   },
 
@@ -140,18 +164,22 @@ const leaveService = {
    * Récupérer les demandes de congés en attente
    */
   async getPendingLeaves(): Promise<LeaveRequest[]> {
-    const response = await api.get<LeaveResponse[]>('/v1/leave-requests/pending');
-    const data = response.data as unknown as LeaveResponse[];
-    return data.map(mapLeave);
+    const response = await api.get<PageResponse<LeaveResponse>>('/v1/leave-requests/pending');
+    const pageData = response.data as unknown as PageResponse<LeaveResponse>;
+    const content = extractContent<LeaveResponse>(pageData);
+    return content.map(mapLeave);
   },
 
   /**
    * Récupérer les demandes de congés d'un employé
    */
   async getLeavesByEmployee(employeeId: string): Promise<LeaveRequest[]> {
-    const response = await api.get<LeaveResponse[]>(`/v1/leave-requests/employee/${employeeId}`);
-    const data = response.data as unknown as LeaveResponse[];
-    return data.map(mapLeave);
+    const response = await api.get<PageResponse<LeaveResponse>>(
+      `/v1/leave-requests/employee/${employeeId}`
+    );
+    const pageData = response.data as unknown as PageResponse<LeaveResponse>;
+    const content = extractContent<LeaveResponse>(pageData);
+    return content.map(mapLeave);
   },
 
   /**
@@ -164,12 +192,15 @@ const leaveService = {
     endDate: string;
     reason: string;
   }): Promise<LeaveRequest> {
-    const response = await api.post<LeaveResponse>(`/v1/leave-requests/employee/${data.employeeId}`, {
-      leaveType: mapLeaveTypeToBackend(data.leaveType),
-      startDate: data.startDate,
-      endDate: data.endDate,
-      reason: data.reason,
-    });
+    const response = await api.post<LeaveResponse>(
+      `/v1/leave-requests/employee/${data.employeeId}`,
+      {
+        leaveType: mapLeaveTypeToBackend(data.leaveType),
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason,
+      }
+    );
     return mapLeave(response.data as unknown as LeaveResponse);
   },
 
@@ -183,30 +214,34 @@ const leaveService = {
 
   /**
    * Rejeter une demande de congés
+   * Backend requiert reason en tant que @RequestParam → doit être passé en query param.
    */
-  async rejectLeave(id: string): Promise<LeaveRequest> {
-    const response = await api.post<LeaveResponse>(`/v1/leave-requests/${id}/reject`);
+  async rejectLeave(id: string, reason: string = 'Rejeté par le manager'): Promise<LeaveRequest> {
+    const response = await api.post<LeaveResponse>(
+      `/v1/leave-requests/${id}/reject`,
+      null,
+      { params: { reason } }
+    );
     return mapLeave(response.data as unknown as LeaveResponse);
   },
 
   /**
    * Récupérer les statistiques de congés par type
-   * Pour le graphique de répartition des congés
    */
   async getLeaveStats(): Promise<LeaveStatsResponse> {
+    // Interceptor already unwraps ApiResponse → response.data is the Map directly
     const response = await api.get<LeaveStatsResponse>('/v1/leave-requests/stats/by-type');
-    return response.data;
+    return response.data as LeaveStatsResponse;
   },
 
   /**
    * Récupérer les soldes de congés par employé
-   * Pour le tableau des soldes par employé
    */
   async getLeaveBalances(): Promise<LeaveBalance[]> {
+    // Interceptor already unwraps ApiResponse → response.data is the array directly
     const response = await api.get<LeaveBalance[]>('/v1/leave-requests/balances');
-    return response.data;
+    return response.data || [];
   },
 };
 
 export default leaveService;
-

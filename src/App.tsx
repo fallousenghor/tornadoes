@@ -18,6 +18,7 @@ const Departments = React.lazy(() => import('./features/rh/Departments'));
 const Presence = React.lazy(() => import('./features/rh/Presence'));
 const Leaves = React.lazy(() => import('./features/rh/Leaves'));
 const Performance = React.lazy(() => import('./features/rh/Performance'));
+const EmployeeDetail = React.lazy(() => import('./features/rh/EmployeeDetail'));
 const Treasury = React.lazy(() => import('./features/finance/Treasury'));
 const Invoices = React.lazy(() => import('./features/finance/Invoices'));
 const Accounting = React.lazy(() => import('./features/finance/Accounting'));
@@ -67,14 +68,22 @@ const LoadingFallback: React.FC = () => (
 
 // Protected Route Wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAppStore();
+  const { isAuthenticated, isHydrated } = useAppStore();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Wait for hydration to complete before checking auth
+    if (!isHydrated) return;
+    
     if (!isAuthenticated) {
       navigate('/login', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isHydrated, navigate]);
+
+  // Show loading while hydrating
+  if (!isHydrated) {
+    return <LoadingFallback />;
+  }
 
   if (!isAuthenticated) {
     return <LoadingFallback />;
@@ -85,14 +94,22 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // Public Route Wrapper (redirect to dashboard if already authenticated)
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAppStore();
+  const { isAuthenticated, isHydrated } = useAppStore();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Wait for hydration to complete before checking auth
+    if (!isHydrated) return;
+    
     if (isAuthenticated) {
       navigate('/', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isHydrated, navigate]);
+
+  // Show loading while hydrating
+  if (!isHydrated) {
+    return <LoadingFallback />;
+  }
 
   if (isAuthenticated) {
     return <LoadingFallback />;
@@ -139,6 +156,7 @@ const AppRoutes: React.FC = () => {
 
         {/* RH Routes */}
         <Route path="/rh/employees" element={<Suspense fallback={<LoadingFallback />}><Employees /></Suspense>} />
+        <Route path="/rh/employees/:id" element={<Suspense fallback={<LoadingFallback />}><EmployeeDetail /></Suspense>} />
         <Route path="/rh/departments" element={<Suspense fallback={<LoadingFallback />}><Departments /></Suspense>} />
         <Route path="/rh/presence" element={<Suspense fallback={<LoadingFallback />}><Presence /></Suspense>} />
         <Route path="/rh/leaves" element={<Suspense fallback={<LoadingFallback />}><Leaves /></Suspense>} />
@@ -182,7 +200,7 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AppRoutes />
       </BrowserRouter>
     </ThemeProvider>

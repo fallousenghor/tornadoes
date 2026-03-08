@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
-import attendanceService, { PresenceDayData } from '../../services/attendanceService';
+import attendanceService, { WeeklyPresenceData } from '../../services/attendanceService';
 import employeeService from '../../services/employeeService';
 import type { Employee, PresenceStatus } from '../../types';
 
@@ -25,7 +25,7 @@ export const Presence: React.FC = () => {
   // State
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [presenceRecords, setPresenceRecords] = useState<DailyPresence[]>([]);
-  const [weeklyData, setWeeklyData] = useState<PresenceDayData[]>([]);
+  const [weeklyData, setWeeklyData] = useState<WeeklyPresenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,7 +76,7 @@ export const Presence: React.FC = () => {
         if (dayData) {
           const total = dayData.present + dayData.absent + dayData.late;
           const rand = Math.random() * total;
-          let status: DailyPresence['status'] = 'present';
+          let status: 'present' | 'absent' | 'late' = 'present';
           let lateMinutes: number | undefined;
           
           if (rand < dayData.absent) {
@@ -86,15 +86,17 @@ export const Presence: React.FC = () => {
             lateMinutes = Math.floor(Math.random() * 30) + 5;
           }
           
-          if (status !== 'absent') {
+          // Use string casting to avoid TypeScript narrowing issue
+          const statusKey = status as unknown as string;
+          if (statusKey !== 'absent') {
             records.push({
               id: `${emp.id}-${today.toISOString().split('T')[0]}`,
               date: today,
               employeeId: emp.id,
               employeeName: `${emp.firstName} ${emp.lastName}`,
               department: emp.departmentId || 'N/A',
-              checkIn: status !== 'absent' ? `${8 + Math.floor(Math.random() * 2)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : undefined,
-              checkOut: status === 'present' ? `${17 + Math.floor(Math.random() * 2)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : undefined,
+              checkIn: statusKey !== 'absent' ? `${8 + Math.floor(Math.random() * 2)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : undefined,
+              checkOut: statusKey === 'present' ? `${17 + Math.floor(Math.random() * 2)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : undefined,
               status,
               lateMinutes,
             });
