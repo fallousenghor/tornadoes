@@ -137,16 +137,25 @@ const invoiceService = {
    */
   async createInvoice(data: {
     clientName: string;
-    clientEmail: string;
+    clientEmail?: string;
+    clientAddress?: string;
     items: { description: string; quantity: number; unitPrice: number }[];
     dueDate?: string;
+    issueDate?: string;
+    currency?: string;
+    taxRate?: number;
     notes?: string;
   }): Promise<Invoice> {
+    const today = new Date().toISOString().split('T')[0];
     const response = await api.post<InvoiceResponse>('/v1/invoices', {
       clientName: data.clientName,
-      clientEmail: data.clientEmail,
+      clientEmail: data.clientEmail || '',
+      clientAddress: data.clientAddress || '',
       items: data.items,
-      dueDate: data.dueDate,
+      dueDate: data.dueDate || today,
+      issueDate: data.issueDate || today,
+      currency: data.currency || 'EUR',
+      taxRate: data.taxRate || 18,
       notes: data.notes,
     });
     return mapInvoice(response.data as unknown as InvoiceResponse);
@@ -176,7 +185,19 @@ const invoiceService = {
     paymentMethod: string;
     reference?: string;
   }): Promise<Invoice> {
-    const response = await api.post<InvoiceResponse>(`/v1/invoices/${id}/payments`, data);
+    // Convert paymentMethod from lowercase to uppercase enum format
+    // e.g., 'bank_transfer' -> 'BANK_TRANSFER', 'cash' -> 'CASH'
+    const paymentMethodUpper = data.paymentMethod.toUpperCase().replace(/_/g, '_');
+    
+    // Use today's date as paymentDate (required by backend)
+    const today = new Date().toISOString().split('T')[0];
+    
+    const response = await api.post<InvoiceResponse>(`/v1/invoices/${id}/payments`, {
+      amount: data.amount,
+      paymentMethod: paymentMethodUpper,
+      paymentDate: today,
+      reference: data.reference || '',
+    });
     return mapInvoice(response.data as unknown as InvoiceResponse);
   },
 
@@ -186,6 +207,30 @@ const invoiceService = {
   async getFinancialSummary() {
     const response = await api.get('/v1/invoices/summary');
     return response.data;
+  },
+
+  /**
+   * Mettre à jour une facture
+   */
+  async updateInvoice(id: string, data: {
+    clientName?: string;
+    clientEmail?: string;
+    clientAddress?: string;
+    issueDate?: string;
+    dueDate?: string;
+    notes?: string;
+    taxRate?: number;
+    items?: { description: string; quantity: number; unitPrice: number }[];
+  }): Promise<Invoice> {
+    const response = await api.put<InvoiceResponse>(`/v1/invoices/${id}`, data);
+    return mapInvoice(response.data as unknown as InvoiceResponse);
+  },
+
+  /**
+   * Supprimer une facture
+   */
+  async deleteInvoice(id: string): Promise<void> {
+    await api.delete(`/v1/invoices/${id}`);
   },
 };
 

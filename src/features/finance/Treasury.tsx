@@ -8,6 +8,7 @@ import dashboardService, { CashFlowDataPoint } from '../../services/dashboardSer
 import invoiceService from '../../services/invoiceService';
 import departmentService from '../../services/departmentService';
 import type { Invoice, Department } from '../../types';
+import { formatCurrency } from '../../utils/currency';
 
 // Transaction type
 interface TransactionDisplay {
@@ -145,12 +146,7 @@ export const Treasury: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
-  };
-
-  // Calculate expense categories from real data
+  // Calculate expense categories
   const expenseCategories = useMemo(() => {
     const categoryMap = new Map<string, number>();
     
@@ -692,7 +688,7 @@ export const Treasury: React.FC = () => {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Montant (€)</label>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Montant</label>
               <input 
                 type="number" 
                 placeholder="0"

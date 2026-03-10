@@ -3,5 +3,6 @@
 
 export { Treasury } from './Treasury';
 export { Invoices } from './Invoices';
+export { Expenses } from './Expenses';
 export { Accounting } from './Accounting';
 

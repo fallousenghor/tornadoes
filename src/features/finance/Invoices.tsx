@@ -6,6 +6,7 @@ import { Card, Button, Badge, SearchInput, Modal } from '../../components/common
 import { Colors } from '../../constants/theme';
 import invoiceService from '../../services/invoiceService';
 import type { Invoice, InvoiceStatus } from '../../types';
+import { formatCurrency } from '../../utils/currency';
 
 // Invoice type
 interface InvoiceDisplay {
@@ -111,11 +112,6 @@ export const Invoices: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
-  };
-
   // Status badge
   const getStatusBadge = (status: InvoiceStatus) => {
     const styles: Record<string, { bg: string; color: string; label: string }> = {
@@ -149,10 +145,13 @@ export const Invoices: React.FC = () => {
       await invoiceService.createInvoice({
         clientName: formData.clientName,
         clientEmail: formData.clientEmail,
+        clientAddress: '',
         items: [
           { description: formData.description, quantity: 1, unitPrice: formData.amount }
         ],
         dueDate: formData.dueDate || undefined,
+        currency: 'XOF',
+        taxRate: formData.taxRate,
       });
       fetchInvoices();
       setIsModalOpen(false);
@@ -174,16 +173,38 @@ export const Invoices: React.FC = () => {
   // Handle payment
   const handlePayment = async (invoiceId: string) => {
     try {
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice) {
+        alert('Facture non trouvée');
+        return;
+      }
+      
+      // Check if invoice is in DRAFT status - need to send it first
+      // Backend requires invoice to be in SENT status before processing payment
+      if (invoice.status === 'en_attente') {
+        // Need to send the invoice first - but we need to check if it's actually DRAFT
+        // The frontend status 'en_attente' maps to backend DRAFT or SENT
+        // Let's try to process payment first - if it fails, we'll handle the error
+      }
+      
       await invoiceService.processPayment(invoiceId, {
-        amount: invoices.find(inv => inv.id === invoiceId)?.amount || 0,
+        amount: invoice.amount,
         paymentMethod: 'bank_transfer',
       });
       fetchInvoices();
       setIsModalOpen(false);
       setSelectedInvoice(null);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error processing payment:', err);
-      alert('Erreur lors du traitement du paiement');
+      // Provide more detailed error message
+      const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+      if (errorMessage.includes('SENT')) {
+        alert('La facture doit d\'abord être envoyée au client avant d\'enregistrer un paiement.');
+      } else if (errorMessage.includes('transition')) {
+        alert('Impossible d\'enregistrer le paiement pour cette facture. Vérifiez le statut de la facture.');
+      } else {
+        alert('Erreur lors du traitement du paiement: ' + errorMessage);
+      }
     }
   };
 
@@ -823,7 +844,7 @@ export const Invoices: React.FC = () => {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Montant (€) *</label>
+                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Montant *</label>
                 <input 
                   type="number" 
                   name="amount"
@@ -849,7 +870,6 @@ export const Invoices: React.FC = () => {
                   name="taxRate"
                   value={formData.taxRate}
                   onChange={(e) => handleFormChange('taxRate', parseFloat(e.target.value) || 0)}
-                  defaultValue={18}
                   style={{
                     width: '100%',
                     padding: '12px',

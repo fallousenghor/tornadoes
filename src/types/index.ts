@@ -216,6 +216,24 @@ export interface Payment {
 
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'check' | 'card';
 
+export interface Expense {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  amount: number;
+  currency: string;
+  expenseDate: Date;
+  status: ExpenseStatus;
+  submittedByName: string;
+  approvedByName?: string;
+  departmentId?: string;
+  receiptReference?: string;
+  createdAt: Date;
+}
+
+export type ExpenseStatus = 'en_attente' | 'approuve' | 'paye' | 'rejete';
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';

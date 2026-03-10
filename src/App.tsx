@@ -21,6 +21,7 @@ const Performance = React.lazy(() => import('./features/rh/Performance'));
 const EmployeeDetail = React.lazy(() => import('./features/rh/EmployeeDetail'));
 const Treasury = React.lazy(() => import('./features/finance/Treasury'));
 const Invoices = React.lazy(() => import('./features/finance/Invoices'));
+const Expenses = React.lazy(() => import('./features/finance/Expenses'));
 const Accounting = React.lazy(() => import('./features/finance/Accounting'));
 const Stock = React.lazy(() => import('./features/stock/Stock'));
 const Projects = React.lazy(() => import('./features/projects/Projects'));
@@ -165,6 +166,7 @@ const AppRoutes: React.FC = () => {
         {/* Finance Routes */}
         <Route path="/finance/treasury" element={<Suspense fallback={<LoadingFallback />}><Treasury /></Suspense>} />
         <Route path="/finance/invoices" element={<Suspense fallback={<LoadingFallback />}><Invoices /></Suspense>} />
+        <Route path="/finance/expenses" element={<Suspense fallback={<LoadingFallback />}><Expenses /></Suspense>} />
         <Route path="/finance/accounting" element={<Suspense fallback={<LoadingFallback />}><Accounting /></Suspense>} />
 
         {/* Operations Routes */}

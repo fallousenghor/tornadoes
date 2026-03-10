@@ -39,13 +39,19 @@ interface PageResponse<T> {
 // Mapper la catégorie backend vers frontend
 const mapCategory = (backendCategory: string): StockCategory => {
   switch (backendCategory) {
-    case 'IT':
+    case 'COMPUTER':
       return 'informatique';
     case 'FURNITURE':
       return 'mobilier';
     case 'EQUIPMENT':
       return 'equipements';
     case 'VEHICLE':
+      return 'equipements';
+    case 'PHONE':
+      return 'equipements';
+    case 'PRINTER':
+      return 'equipements';
+    case 'SERVER':
       return 'equipements';
     default:
       return 'equipements';
@@ -56,7 +62,7 @@ const mapCategory = (backendCategory: string): StockCategory => {
 const mapCategoryToBackend = (frontendCategory: StockCategory): string => {
   switch (frontendCategory) {
     case 'informatique':
-      return 'IT';
+      return 'COMPUTER';
     case 'mobilier':
       return 'FURNITURE';
     case 'equipements':

@@ -337,7 +337,7 @@ export const Departments: React.FC = () => {
                 Budget Total
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {totals.totalBudget.toLocaleString()} €
+                {totals.totalBudget.toLocaleString()} FCA
               </div>
             </div>
           </div>
@@ -484,7 +484,7 @@ export const Departments: React.FC = () => {
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 2 }}>BUDGET</div>
                       <div style={{ fontSize: 20, fontWeight: 600, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                        {dept.budget.toLocaleString()} €
+                        {dept.budget.toLocaleString()} FCA
                       </div>
                     </div>
                   </div>
@@ -493,7 +493,7 @@ export const Departments: React.FC = () => {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                       <span style={{ fontSize: 11, color: Colors.textMuted }}>
-                        Budget utilisé: {dept.spent.toLocaleString()} €
+                        Budget utilisé: {dept.spent.toLocaleString()} FCA
                       </span>
                       <span style={{ 
                         fontSize: 11, 
@@ -520,7 +520,7 @@ export const Departments: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 11, color: Colors.textMuted }}>
-                        Restant: {remaining.toLocaleString()} €
+                        Restant: {remaining.toLocaleString()} FCA
                       </span>
                       <span style={{ 
                         padding: '3px 8px', 

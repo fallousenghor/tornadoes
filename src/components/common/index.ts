@@ -19,3 +19,6 @@ export { SummaryCard, SummaryCardGrid } from './SummaryCard';
 // Theme Toggle
 export { ThemeToggle } from './ThemeToggle';
 
+// Currency Display
+export { CurrencyDisplay } from './CurrencyDisplay';
+

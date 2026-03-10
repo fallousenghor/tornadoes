@@ -4,17 +4,16 @@
 
 // ==================== Formatters ====================
 
+// Import formatCurrency from currency module (CFA default)
+import { formatCurrency as formatCurrencyCFA } from './currency';
+
 /**
- * Format a number as currency (Euros)
+ * Format a number as currency (CFA by default)
  * @param value - The numeric value
  * @returns Formatted currency string
- * @example 1000000 => "1M €"
+ * @example 1000000 => "1M FCA"
  */
-export const formatCurrency = (value: number): string => {
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M €`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(0)}K €`;
-  return `${value} €`;
-};
+export const formatCurrency = formatCurrencyCFA;
 
 /**
  * Format a number with thousand separators
@@ -371,35 +370,5 @@ export const isToday = (date: Date): boolean => {
     date.getMonth() === today.getMonth() &&
     date.getFullYear() === today.getFullYear()
   );
-};
-
-// Export all utilities
-export default {
-  formatCurrency,
-  formatNumber,
-  formatPercent,
-  formatDate,
-  formatDateShort,
-  formatTimeAgo,
-  getInitials,
-  isValidEmail,
-  isValidPhone,
-  isNotEmpty,
-  calculatePercent,
-  calculateAverage,
-  calculateChange,
-  calculateBudgetUsage,
-  groupBy,
-  sortBy,
-  filterBySearch,
-  paginate,
-  getStatusColor,
-  getContractColor,
-  truncateText,
-  generateId,
-  startOfMonth,
-  endOfMonth,
-  daysBetween,
-  isToday,
 };
 

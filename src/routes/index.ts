@@ -25,6 +25,7 @@ export const getNavItems = (): NavRoute[] => [
   // Finance Section
   { id: 'treasury', path: '/finance/treasury', label: 'Trésorerie', icon: '💵', section: 'FINANCE' },
   { id: 'invoices', path: '/finance/invoices', label: 'Factures', icon: '📄', section: 'FINANCE' },
+  { id: 'expenses', path: '/finance/expenses', label: 'Dépenses', icon: '💸', section: 'FINANCE' },
   { id: 'accounting', path: '/finance/accounting', label: 'Comptabilité', icon: '📒', section: 'FINANCE' },
   
   // Operations Section

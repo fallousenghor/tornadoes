@@ -7,6 +7,7 @@ import { Colors } from '../../constants/theme';
 import accountingService, { AccountingAccount, JournalEntry, JournalEntryLine } from '../../services/accountingService';
 import { JournalEntryForm } from './components';
 import type { JournalEntryFormData } from './components/JournalEntryForm';
+import { formatCurrency } from '../../utils/currency';
 
 export const Accounting: React.FC = () => {
   // State for backend data
@@ -110,11 +111,6 @@ export const Accounting: React.FC = () => {
   const handleJournalEntrySubmit = (data: JournalEntryFormData) => {
     console.log('Journal entry data submitted:', data);
     // Here you would typically call an API to submit the journal entry
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
   };
 
   // Format date

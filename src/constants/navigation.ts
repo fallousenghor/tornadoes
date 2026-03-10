@@ -35,6 +35,7 @@ export const navSections: NavSection[] = [
     items: [
       { icon: '◆', label: 'Trésorerie', id: 'treasury' },
       { icon: '⬡', label: 'Facturation', id: 'invoices' },
+      { icon: '◎', label: 'Dépenses', id: 'expenses' },
       { icon: '▦', label: 'Comptabilité', id: 'accounting' },
     ],
   },

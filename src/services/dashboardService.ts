@@ -86,18 +86,18 @@ const mapToKPIs = (data: DashboardResponse) => {
     if (typeof value === 'string') {
       const num = parseFloat(value);
       if (num >= 1000000) {
-        return `${(num / 1000000).toFixed(1)}M €`;
+        return `${(num / 1000000).toFixed(1)}M FCA`;
       } else if (num >= 1000) {
-        return `${(num / 1000).toFixed(0)}K €`;
+        return `${(num / 1000).toFixed(0)}K FCA`;
       }
-      return `${num} €`;
+      return `${num} FCA`;
     }
     if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M €`;
+      return `${(value / 1000000).toFixed(1)}M FCA`;
     } else if (value >= 1000) {
-      return `${(value / 1000).toFixed(0)}K €`;
+      return `${(value / 1000).toFixed(0)}K FCA`;
     }
-    return `${value} €`;
+    return `${value} FCA`;
   };
 
   return [

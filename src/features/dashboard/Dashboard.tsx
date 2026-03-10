@@ -186,9 +186,11 @@ const Dashboard: React.FC = () => {
       <AIAlerts alerts={aiAlerts} />
 
       {/* Clock + KPI Grid Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 16, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 16, marginBottom: 20 }}>
         {/* Clock */}
-        <Clock size="large" />
+        <div style={{ width: '180px' }}>
+          <Clock size="large" />
+        </div>
         
         {/* KPI Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
