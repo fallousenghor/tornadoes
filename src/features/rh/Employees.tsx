@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, SectionTitle, SearchInput } from '../../components/common';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 import type { Employee, EmployeeStatus, ContractType, Department } from '../../types';
-import { EmployeeForm, EmployeeBadge } from './components';
+import { EmployeeForm, EmployeeBadge, DeleteConfirmModal } from './components';
 import type { EmployeeFormData } from './components/EmployeeForm';
 import employeeService, { CreateEmployeeRequest, UpdateEmployeeRequest } from '../../services/employeeService';
 
@@ -62,6 +62,9 @@ export const Employees: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDisplay | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeDisplay | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const itemsPerPage = 8;
 
   // Fetch employees from API
@@ -162,28 +165,24 @@ export const Employees: React.FC = () => {
     navigate(`/rh/employees/${emp.id}`);
   };
 
-// Delete (terminate) employee
-  const handleDeleteEmployee = async (emp: EmployeeDisplay) => {
-    // Prevent deleting already terminated employees
-    if (emp.status === 'Inactif') {
-      alert('Cet employé est déjà terminé/inactif.');
-      return;
-    }
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer l'employé ${emp.firstName} ${emp.lastName} ?`)) {
-      return;
-    }
+  const openDeleteModal = (emp: EmployeeDisplay) => {
+    setEmployeeToDelete(emp);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!employeeToDelete) return;
+
+    setDeleteLoading(true);
     try {
-      await employeeService.deleteEmployee(emp.id);
+      await employeeService.deleteEmployee(employeeToDelete.id);
       fetchEmployees();
     } catch (err: any) {
       console.error('Error deleting employee:', err);
-      // Check if employee is already terminated
-      if (err.response?.status === 409 || err.response?.data?.message?.includes('already terminated')) {
-        alert('Cet employé est déjà terminé.');
-        fetchEmployees(); // Refresh to update the status
-      } else {
-        alert('Erreur lors de la suppression');
-      }
+    } finally {
+      setDeleteLoading(false);
+      setDeleteModalOpen(false);
+      setEmployeeToDelete(null);
     }
   };
 
@@ -228,9 +227,10 @@ export const Employees: React.FC = () => {
       }
       // Refresh the employee list
       fetchEmployees();
+      // TODO: toast.success(selectedEmployee ? 'Employé mis à jour' : 'Employé créé')
     } catch (err) {
       console.error('Error saving employee:', err);
-      alert('Erreur lors de l\'enregistrement de l\'employé');
+      // TODO: toast.error('Erreur lors de l\'enregistrement')
     }
   };
 
@@ -479,7 +479,7 @@ export const Employees: React.FC = () => {
                           ✎ Éditer
                         </button>
                         <button 
-                          onClick={() => handleDeleteEmployee(emp)}
+                          onClick={() => emp.status !== 'Inactif' ? openDeleteModal(emp) : null}
                           disabled={emp.status === 'Inactif'}
                           style={{ 
                             padding: '6px 10px', 
@@ -578,6 +578,16 @@ export const Employees: React.FC = () => {
         onSubmit={handleEmployeeSubmit}
         employee={selectedEmployee}
         departments={departments}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Terminer le contrat"
+        message={`Voulez-vous vraiment terminer le contrat de ${employeeToDelete?.firstName || ''} ${employeeToDelete?.lastName || ''} ? Cette action est irréversible.`}
+        isLoading={deleteLoading}
       />
     </div>
   );

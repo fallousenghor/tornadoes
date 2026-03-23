@@ -1,57 +1,41 @@
-// Attendance Service - Tornadoes Job RH Module
-// Gestion des présences via l'API backend
-
+// Attendance Service - RH Module (Fixed - No duplicate methods)
 import api from './api';
 import type { PresenceRecord, PresenceStatus } from '@/types';
 
-// Types backend
 interface AttendanceResponse {
   id: string;
   employeeId: string;
   employeeName?: string;
-  date: string;
-  checkIn?: string;
-  checkOut?: string;
+  recordDate: string;
+  checkInTime?: string;
+  checkOutTime?: string;
   status: string;
+  lateMinutes?: number;
   notes?: string;
+  workedHours?: string;
 }
 
-// Mapper le status backend vers frontend
 const mapStatus = (backendStatus: string): PresenceStatus => {
-  switch (backendStatus) {
-    case 'PRESENT':
-      return 'present';
-    case 'ABSENT':
-      return 'absent';
-    case 'LATE':
-      return 'late';
-    case 'ON_LEAVE':
-      return 'leave';
-    default:
-      return 'present';
-  }
+  const statusMap: Record<string, PresenceStatus> = {
+    'PRESENT': 'present',
+    'ABSENT': 'absent',
+    'LATE': 'late',
+    'ON_LEAVE': 'leave',
+    'REMOTE': 'present'
+  };
+  return statusMap[backendStatus as keyof typeof statusMap] || 'present';
 };
 
-// Mapper la réponse backend vers le format frontend
 const mapAttendance = (response: AttendanceResponse): PresenceRecord => ({
   id: response.id,
   employeeId: response.employeeId,
-  date: new Date(response.date),
-  checkIn: response.checkIn ? new Date(response.checkIn) : undefined,
-  checkOut: response.checkOut ? new Date(response.checkOut) : undefined,
+  date: new Date(response.recordDate),
+  checkIn: response.checkInTime ? new Date(response.checkInTime) : undefined,
+  checkOut: response.checkOutTime ? new Date(response.checkOutTime) : undefined,
   status: mapStatus(response.status),
   notes: response.notes,
 });
 
-// Format de données de présence pour les graphiques (par jour de la semaine)
-export interface PresenceDayData {
-  jour: string;
-  presents: number;
-  absents: number;
-  retards: number;
-}
-
-// Format pour le graphique de présence hebdomadaire
 export interface WeeklyPresenceData {
   dayOfWeek: string;
   present: number;
@@ -60,75 +44,68 @@ export interface WeeklyPresenceData {
 }
 
 const attendanceService = {
-  /**
-   * Récupérer les présences d'un employé
-   */
-  async getAttendancesByEmployee(employeeId: string): Promise<PresenceRecord[]> {
-    const response = await api.get<AttendanceResponse[]>(`/v1/attendances/employee/${employeeId}`);
-    const data = response.data as unknown as AttendanceResponse[];
-    return data.map(mapAttendance);
+  /** Get attendances by employee ID with optional date range */
+  getAttendancesByEmployee: async (employeeId: string, params?: { fromDate?: string; toDate?: string }): Promise<PresenceRecord[]> => {
+    const response = await api.get(`/v1/attendances/employee/${employeeId}`, { params });
+    return (response.data.content || response.data).map(mapAttendance as any);
   },
 
-  /**
-   * Enregistrer une présence
-   */
-  async recordAttendance(data: {
+  /** Record/update attendance for an employee */
+  recordAttendance: async (data: {
     employeeId: string;
     date: string;
     checkIn?: string;
     checkOut?: string;
     status: PresenceStatus;
     notes?: string;
-  }): Promise<PresenceRecord> {
-    // Convert frontend status to backend status
-    const statusMap: Record<string, string> = {
-      'present': 'PRESENT',
-      'absent': 'ABSENT',
-      'late': 'LATE',
-      'leave': 'ON_LEAVE',
+  }): Promise<PresenceRecord> => {
+    const statusMap = {
+      present: 'PRESENT',
+      absent: 'ABSENT', 
+      late: 'LATE',
+      leave: 'ON_LEAVE'
+    } as Record<PresenceStatus, string>;
+    
+    const body = {
+      employeeId: data.employeeId,
+      recordDate: data.date,
+      checkInTime: data.checkIn,
+      checkOutTime: data.checkOut,
+      status: statusMap[data.status] || 'PRESENT',
+      notes: data.notes
     };
     
-    const params = new URLSearchParams();
-    params.append('employeeId', data.employeeId);
-    params.append('date', data.date);
-    if (data.checkIn) params.append('checkIn', data.checkIn);
-    if (data.checkOut) params.append('checkOut', data.checkOut);
-    params.append('status', statusMap[data.status] || 'PRESENT');
-    if (data.notes) params.append('notes', data.notes);
-
-    const response = await api.post<AttendanceResponse>(`/v1/attendances?${params.toString()}`, null);
-    return mapAttendance(response.data as unknown as AttendanceResponse);
+    const response = await api.post<AttendanceResponse>('/v1/attendances', body);
+    return mapAttendance(response.data);
   },
 
-  /**
-   * Récupérer les données de présence agrégées pour les graphiques
-   * Note: L'API backend ne retourne pas encore ce format, on simule avec des données
-   */
-  async getPresenceStats(): Promise<PresenceDayData[]> {
-    // TODO: Appeler une endpoint d'agrégation quand elle sera disponible
-    // Pour l'instant, retourner des données par défaut
-    return [
-      { jour: 'Lun', presents: 87, absents: 8, retards: 5 },
-      { jour: 'Mar', presents: 91, absents: 5, retards: 4 },
-      { jour: 'Mer', presents: 84, absents: 10, retards: 6 },
-      { jour: 'Jeu', presents: 89, absents: 7, retards: 4 },
-      { jour: 'Ven', presents: 79, absents: 14, retards: 7 },
-    ];
+  /** Get company-wide presence stats */
+  getPresenceStats: async () => {
+    const response = await api.get('/v1/attendance/stats');
+    return response.data;
   },
 
-  /**
-   * Récupérer les données de présence hebdomadaire pour le graphique
-   */
-  async getWeeklyPresence(): Promise<WeeklyPresenceData[]> {
-    // TODO: Appeler une endpoint d'agrégation quand elle sera disponible
-    // Pour l'instant, retourner des données par défaut
-    return [
-      { dayOfWeek: 'Lun', present: 87, absent: 8, late: 5 },
-      { dayOfWeek: 'Mar', present: 91, absent: 5, late: 4 },
-      { dayOfWeek: 'Mer', present: 84, absent: 10, late: 6 },
-      { dayOfWeek: 'Jeu', present: 89, absent: 7, late: 4 },
-      { dayOfWeek: 'Ven', present: 79, absent: 14, late: 7 },
-    ];
+  /** Get weekly presence data for charts */
+  getWeeklyPresence: async (): Promise<WeeklyPresenceData[]> => {
+    const response = await api.get('/v1/attendance/weekly');
+    return response.data.days || [];
+  },
+
+  /** List attendances with filters/pagination */
+  getAttendances: async (params: {
+    page?: number;
+    pageSize?: number;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) => {
+    const response = await api.get('/v1/attendance', { params });
+    return {
+      data: (response.data.content || []).map(mapAttendance as any),
+      total: response.data.totalElements || 0,
+      page: response.data.page || 0,
+      pageSize: response.data.size || 10
+    };
   },
 };
 

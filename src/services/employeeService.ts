@@ -354,12 +354,10 @@ const employeeService = {
   /**
    * Supprimer (terminer) un employé - Soft delete
    */
-  async deleteEmployee(id: string): Promise<void> {
+async deleteEmployee(id: string): Promise<void> {
     // Backend uses terminate endpoint for soft delete
     const today = new Date().toISOString().split('T')[0];
-    await api.post(`/v1/employees/${id}/terminate`, null, {
-      params: { terminationDate: today }
-    });
+    await api.post(`/v1/employees/${id}/terminate`, { terminationDate: today });
   },
 
   /**

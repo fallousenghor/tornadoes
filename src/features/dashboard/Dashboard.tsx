@@ -1,115 +1,24 @@
-// Dashboard Feature - AEVUM Enterprise ERP
-// Main dashboard component with KPIs, charts, and analytics - Theme Support
+// Simplified Professional Dashboard - Clean, Modern, Responsive Design
+// 4 KPIs + Revenue Chart + CashFlow Chart + Presence Chart
+// Fixed TS errors, beautiful gradients, shadows, animations
 
 import React, { useState, useEffect } from 'react';
-import { Sparkline } from '../../components/charts';
-import { Spacing, BorderRadius } from '../../constants/theme';
 import { useAppStore } from '../../store';
 import { useTheme } from '../../contexts/ThemeContext';
-
-// Import dashboard components
-import { 
-  KPICard, 
-  AIAlerts,
-  Clock,
-  RevenueChart,
-  BudgetByDepartment,
-  PresenceChart,
-  LeavesPieChart,
-  PerformanceRadar,
-  CashFlowChart,
-  InvoicesList,
-  ProjectsList,
-  StockChart,
-  ProgramsGrid,
-  ActivityFeed,
-} from './components';
-
-// Import services
+import KPICard from './components/KPICard';
+import RevenueChart from './components/RevenueChart';
+import PresenceChart from './components/PresenceChart';
+import CashFlowChart from './components/CashFlowChart';
 import dashboardService from '../../services/dashboardService';
 import type { KPI } from '@/types';
-
-// KPI Card Component with Theme Support
-interface KPICardLocalProps {
-  label: string;
-  value: string;
-  change: number;
-  icon: string;
-  color: string;
-  sparkData: number[];
-  index: number;
-}
-
-const DashboardKPICard: React.FC<KPICardLocalProps> = ({ label, value, change, icon, color, sparkData, index }) => {
-  const { colors } = useTheme();
-  
-  const cardStyle: React.CSSProperties = {
-    background: colors.card,
-    border: `1px solid ${colors.border}`,
-    borderRadius: BorderRadius.xxl,
-    padding: Spacing.xxl,
-  };
-
-  return (
-    <div 
-      className="kpi-a" 
-      style={{ 
-        ...cardStyle, 
-        position: 'relative',
-        overflow: 'hidden',
-        opacity: 0,
-        animationDelay: `${index * 0.05}s`,
-      }}
-    >
-      <div style={{ 
-        position: 'absolute', 
-        inset: 0, 
-        borderRadius: BorderRadius.xxl,
-        background: 'linear-gradient(90deg, transparent, rgba(30,58,138,0.03), transparent)',
-        backgroundSize: '200%',
-        animation: 'sh 4s infinite',
-      }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: 7,
-          background: `${color}18`, border: `1px solid ${color}33`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, color
-        }}>{icon}</div>
-        <span style={{
-          padding: '3px 8px',
-          borderRadius: 4,
-          fontSize: 10,
-          fontWeight: 600,
-          background: change > 0 ? colors.successBg : colors.dangerBg,
-          color: change > 0 ? colors.success : colors.danger,
-        }}>
-          {change > 0 ? '+' : ''}{change}%
-        </span>
-      </div>
-      <div style={{ 
-        fontFamily: "'DM Serif Display', Georgia, serif", 
-        fontSize: 20,
-        fontWeight: 700, 
-        color: colors.text, 
-        marginBottom: 2 
-      }}>{value}</div>
-      <div style={{ fontSize: 9, color: colors.textMuted, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>{label}</div>
-      <Sparkline data={sparkData} color={change > 0 ? color : colors.danger} />
-    </div>
-  );
-};
+import { Spacing, BorderRadius } from '../../constants/theme';
 
 const Dashboard: React.FC = () => {
-  const store = useAppStore();
   const { colors } = useTheme();
-
-  // State for KPIs from backend
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch KPIs from backend
   useEffect(() => {
     const fetchKPIs = async () => {
       try {
@@ -119,58 +28,70 @@ const Dashboard: React.FC = () => {
         setError(null);
       } catch (err) {
         console.error('Error fetching KPIs:', err);
-        setError('Erreur lors du chargement des KPIs');
+        setError('Erreur lors du chargement des données');
       } finally {
         setLoading(false);
       }
     };
-
     fetchKPIs();
   }, []);
 
-  // Animation keyframes
-  const keyframes = `
-    @keyframes upfade {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes sh {
-      0% { background-position: -200%; }
-      100% { background-position: 200%; }
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-    .kpi-a {
-      animation: upfade 0.5s ease forwards;
-    }
-  `;
+  const sectionTitleStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: '0.2em',
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+    fontFamily: "'DM Sans', sans-serif",
+    marginBottom: 20,
+    marginTop: 32,
+    padding: '12px 20px',
+    background: `linear-gradient(90deg, ${colors.primary || '#64748b'}20, ${colors.accent || '#64748b'}10)`,
+    borderRadius: BorderRadius.lg,
+    border: `1px solid ${colors.border || '#e2e8f0'}20`,
+    boxShadow: `0 4px 12px ${(colors.primary || '#64748b')}10`,
+  };
 
-  // Get AI alerts - could be fetched from backend in the future
-  const aiAlerts = [
-    { icon: '⚡', text: '3 nouveaux employés en attente de validation', color: colors.primaryMuted, border: colors.primaryMuted, btn: 'Voir' },
-    { icon: '💰', text: 'Facture #INV-2024-156 en retard de paiement', color: colors.warningBg, border: colors.warningMuted, btn: 'Relancer' },
-    { icon: '📦', text: 'Alerte stock: 5 produits en rupture', color: colors.dangerBg, border: colors.dangerMuted, btn: 'Commander' },
-  ];
+  const containerStyle = {
+    background: colors.card || '#f8fafc',
+    minHeight: '100vh',
+    padding: '24px',
+    fontFamily: "'DM Sans', sans-serif",
+  };
 
-  // Show loading state
-  if (loading && kpis.length === 0) {
+  const cardContainerStyle = {
+    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+    borderRadius: BorderRadius.xxl as any,
+    overflow: 'hidden',
+    transition: 'all 0.3s ease',
+  };
+
+  if (loading) {
     return (
-      <div style={{ fontFamily: "'DM Sans', sans-serif", padding: 40, textAlign: 'center' }}>
-        <div style={{ color: colors.textMuted }}>Chargement des données...</div>
+      <div style={{...containerStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textMuted || '#64748b', fontSize: 16 }}>
+        Chargement du tableau de bord...
       </div>
     );
   }
 
-  // Show error state
-  if (error && kpis.length === 0) {
+  if (error) {
     return (
-      <div style={{ fontFamily: "'DM Sans', sans-serif", padding: 40, textAlign: 'center' }}>
-        <div style={{ color: colors.danger }}>{error}</div>
+      <div style={{...containerStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: colors.danger || '#ef4444', gap: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>{error}</div>
         <button 
-          onClick={() => window.location.reload()}
-          style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}
+          onClick={() => window.location.reload()} 
+          style={{
+            padding: '12px 24px',
+            background: colors.primary || '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
         >
           Réessayer
         </button>
@@ -179,24 +100,40 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{keyframes}</style>
+    <div style={containerStyle}>
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .dashboard-animate {
+          animation: fadeUp 0.6s ease forwards;
+        }
+        .kpi-container {
+          animation-delay: 0.1s;
+        }
+        .finance-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 24px;
+        }
+        @media (max-width: 1200px) {
+          .finance-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
 
-      {/* AI Alerts */}
-      <AIAlerts alerts={aiAlerts} />
-
-      {/* Clock + KPI Grid Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 16, marginBottom: 20 }}>
-        {/* Clock */}
-        <div style={{ width: '180px' }}>
-          <Clock size="large" />
-        </div>
-        
-        {/* KPI Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          {kpis.slice(0, 6).map((k, i) => (
-            <DashboardKPICard
-              key={k.id}
+      {/* Hero KPIs */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 20,
+        marginBottom: 32,
+      }}>
+        {kpis.slice(0, 4).map((k, i) => (
+          <div key={k.id} className="dashboard-animate kpi-container" style={{ '--i': i } as React.CSSProperties}>
+            <KPICard
               label={k.label}
               value={k.value as string}
               change={k.change}
@@ -205,111 +142,33 @@ const Dashboard: React.FC = () => {
               sparkData={k.sparklineData || []}
               index={i}
             />
-          ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Finance Section */}
+      <div style={sectionTitleStyle}>
+        💰 Performance Financière
+      </div>
+      <div className="finance-grid">
+        <div style={cardContainerStyle}>
+          <RevenueChart />
+        </div>
+        <div style={cardContainerStyle}>
+          <CashFlowChart />
         </div>
       </div>
 
-      {/* ROW 1: Revenue + Budget */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
-        <RevenueChart />
-        <BudgetByDepartment />
-      </div>
-
-      {/* ROW 2: RH Section Title */}
-      <div style={{ 
-        fontSize: 9, 
-        fontWeight: 700, 
-        letterSpacing: '0.14em', 
-        textTransform: 'uppercase',
-        color: colors.textMuted, 
-        fontFamily: "'DM Sans', sans-serif", 
-        marginBottom: 12, 
-        marginTop: 8 
-      }}>
+      {/* HR Section */}
+      <div style={sectionTitleStyle}>
         👥 Ressources Humaines
       </div>
-
-      {/* ROW 2: RH Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div style={{ 
+        boxShadow: '0 8px 32px rgba(0,0,0,0.08)', 
+        borderRadius: BorderRadius.xxl as any, 
+        overflow: 'hidden' 
+      }}>
         <PresenceChart />
-        <LeavesPieChart />
-        <PerformanceRadar />
-      </div>
-
-      {/* Finance Section Title */}
-      <div style={{ 
-        fontSize: 9, 
-        fontWeight: 700, 
-        letterSpacing: '0.14em', 
-        textTransform: 'uppercase',
-        color: colors.textMuted, 
-        fontFamily: "'DM Sans', sans-serif", 
-        marginBottom: 12, 
-        marginTop: 8 
-      }}>
-        💰 Finance & Trésorerie
-      </div>
-
-      {/* Finance Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        <CashFlowChart />
-        <InvoicesList />
-      </div>
-
-      {/* Projects + Stock Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        <ProjectsList />
-        <StockChart />
-      </div>
-
-      {/* Activity Section Title */}
-      <div style={{ 
-        fontSize: 9, 
-        fontWeight: 700, 
-        letterSpacing: '0.14em', 
-        textTransform: 'uppercase',
-        color: colors.textMuted, 
-        fontFamily: "'DM Sans', sans-serif", 
-        marginBottom: 12, 
-        marginTop: 8 
-      }}>
-        📡 Activité en Temps Réel
-      </div>
-
-      {/* Activity Feed */}
-      <ActivityFeed />
-
-      {/* Footer */}
-      <div style={{ 
-        padding: '12px 0', 
-        borderTop: `1px solid ${colors.border}`,
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center' 
-      }}>
-        <span style={{ fontSize: 9, color: colors.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
-          © 2025 Nexus ERP · Suite Entreprise · v5.0 · Architecture SOLID · JWT + RBAC
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontSize: 9, color: colors.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
-            Dernière sync : il y a 1 min
-          </span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {['Docs API','Support','RGPD'].map(l => (
-              <span 
-                key={l} 
-                style={{ 
-                  fontSize: 9, 
-                  color: colors.textMuted, 
-                  cursor: 'pointer',
-                  fontFamily: "'DM Sans', sans-serif" 
-                }}
-              >
-                {l}
-              </span>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -63,46 +63,24 @@ export const Presence: React.FC = () => {
       const weekly = await attendanceService.getWeeklyPresence();
       setWeeklyData(weekly);
 
-      // Generate daily presence records from employees (in real app, would fetch from API)
-      const records: DailyPresence[] = [];
-      const today = new Date();
-      
-      employees.forEach((emp) => {
-        // Simulate presence data based on weekly stats
-        const dayOfWeek = today.getDay();
-        const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert to Mon=0
-        const dayData = weekly[dayIndex];
-        
-        if (dayData) {
-          const total = dayData.present + dayData.absent + dayData.late;
-          const rand = Math.random() * total;
-          let status: 'present' | 'absent' | 'late' = 'present';
-          let lateMinutes: number | undefined;
-          
-          if (rand < dayData.absent) {
-            status = 'absent';
-          } else if (rand < dayData.absent + dayData.late) {
-            status = 'late';
-            lateMinutes = Math.floor(Math.random() * 30) + 5;
-          }
-          
-          // Use string casting to avoid TypeScript narrowing issue
-          const statusKey = status as unknown as string;
-          if (statusKey !== 'absent') {
-            records.push({
-              id: `${emp.id}-${today.toISOString().split('T')[0]}`,
-              date: today,
-              employeeId: emp.id,
-              employeeName: `${emp.firstName} ${emp.lastName}`,
-              department: emp.departmentId || 'N/A',
-              checkIn: statusKey !== 'absent' ? `${8 + Math.floor(Math.random() * 2)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : undefined,
-              checkOut: statusKey === 'present' ? `${17 + Math.floor(Math.random() * 2)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : undefined,
-              status,
-              lateMinutes,
-            });
-          }
-        }
+// Fetch real daily presence records from API
+      const attendanceResponse = await attendanceService.getAttendances({
+        page: 0,
+        pageSize: 100,
+        fromDate: new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0], // 7 days ago
       });
+      
+      const records = attendanceResponse.data.map(record => ({
+        id: record.id,
+        date: record.date,
+        employeeId: record.employeeId,
+        employeeName: record.employeeName || 'N/A',
+        department: 'N/A', // Enrich from employees if needed
+        checkIn: record.checkIn?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        checkOut: record.checkOut?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        status: record.status,
+        lateMinutes: undefined, // Add from backend if available
+      }));
       
       setPresenceRecords(records);
     } catch (err) {
@@ -203,7 +181,7 @@ export const Presence: React.FC = () => {
       });
     } catch (err) {
       console.error('Error recording attendance:', err);
-      alert('Erreur lors de l\'enregistrement de la présence');
+      // TODO: toast.error('Erreur enregistrement présence')
     }
   };
 

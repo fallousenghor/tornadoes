@@ -226,7 +226,7 @@ export const Leaves: React.FC = () => {
 
   // Handle approve
   const handleApprove = async (requestId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir approuver cette demande de congés?')) {
+    if (!confirm('Approuver cette demande?')) {
       return;
     }
     try {
@@ -234,15 +234,16 @@ export const Leaves: React.FC = () => {
       fetchLeaveRequests();
       fetchLeaveStats();
       fetchLeaveBalances();
+      // TODO: toast.success('Demande approuvée')
     } catch (err) {
       console.error('Error approving leave:', err);
-      alert('Erreur lors de l\'approbation');
+      // TODO: toast.error('Erreur approbation')
     }
   };
 
   // Handle reject
   const handleReject = async (requestId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir rejeter cette demande de congés?')) {
+    if (!confirm('Rejeter cette demande?')) {
       return;
     }
     try {
@@ -250,9 +251,10 @@ export const Leaves: React.FC = () => {
       fetchLeaveRequests();
       fetchLeaveStats();
       fetchLeaveBalances();
+      // TODO: toast.success('Demande rejetée')
     } catch (err) {
       console.error('Error rejecting leave:', err);
-      alert('Erreur lors du rejet');
+      // TODO: toast.error('Erreur rejet')
     }
   };
 
@@ -269,9 +271,10 @@ export const Leaves: React.FC = () => {
       fetchLeaveRequests();
       fetchLeaveStats();
       fetchLeaveBalances();
+      // TODO: toast.success('Demande créée')
     } catch (err) {
       console.error('Error creating leave request:', err);
-      alert('Erreur lors de la création de la demande');
+      // TODO: toast.error('Erreur création demande')
     }
   };
 
