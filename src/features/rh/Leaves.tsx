@@ -479,8 +479,8 @@ export const Leaves: React.FC = () => {
             Répartition des Congés
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {leaveDistribution.map((item, idx) => (
-              <div key={idx}>
+            {leaveDistribution.map((item) => (
+              <div key={item.name}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: 12, color: Colors.textMuted }}>{item.name}</span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>{item.value}</span>

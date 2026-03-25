@@ -171,6 +171,7 @@ export const Departments: React.FC = () => {
           name: formData.name,
           description: formData.description,
           active: formData.active,
+          budget: formData.budget,
         });
         showNotification('success', 'Département mis à jour avec succès');
       } else {
@@ -179,6 +180,7 @@ export const Departments: React.FC = () => {
           name: formData.name,
           code: formData.code,
           description: formData.description,
+          budget: formData.budget,
         });
         showNotification('success', 'Département créé avec succès');
       }
@@ -688,6 +690,25 @@ export const Departments: React.FC = () => {
                   fontSize: 13,
                   resize: 'vertical',
                   fontFamily: 'inherit',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Budget (FCA)</label>
+              <input 
+                type="number" 
+                placeholder="Ex: 5000000"
+                value={formData.budget}
+                onChange={(e) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })}
+                min={0}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: 8,
+                  border: `1px solid ${Colors.border}`,
+                  background: Colors.bg,
+                  color: Colors.text,
+                  fontSize: 13,
                 }}
               />
             </div>

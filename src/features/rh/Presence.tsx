@@ -2,6 +2,7 @@
 // Complete presence tracking with daily logs, statistics and reports
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import DeleteConfirmModal from './components/DeleteConfirmModal';
 import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
 import attendanceService, { WeeklyPresenceData } from '../../services/attendanceService';
@@ -19,6 +20,7 @@ interface DailyPresence {
   checkOut?: string;
   status: 'present' | 'absent' | 'late' | 'leave';
   lateMinutes?: number;
+  notes?: string;
 }
 
 export const Presence: React.FC = () => {
@@ -41,6 +43,9 @@ export const Presence: React.FC = () => {
     checkOut: '17:00',
     notes: '',
   });
+  const [editingRecord, setEditingRecord] = useState<DailyPresence | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const itemsPerPage = 10;
 
   // Fetch employees
@@ -64,10 +69,11 @@ export const Presence: React.FC = () => {
       setWeeklyData(weekly);
 
 // Fetch real daily presence records from API
+      const sevenDaysAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
       const attendanceResponse = await attendanceService.getAttendances({
         page: 0,
         pageSize: 100,
-        fromDate: new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0], // 7 days ago
+        fromDate: sevenDaysAgo,
       });
       
       const records = attendanceResponse.data.map(record => ({
@@ -75,11 +81,19 @@ export const Presence: React.FC = () => {
         date: record.date,
         employeeId: record.employeeId,
         employeeName: record.employeeName || 'N/A',
-        department: 'N/A', // Enrich from employees if needed
-        checkIn: record.checkIn?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        checkOut: record.checkOut?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        department: record.department || 'N/A',
+        checkIn: record.checkIn instanceof Date 
+          ? record.checkIn.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+          : record.checkIn
+            ? new Date(record.checkIn).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            : undefined,
+        checkOut: record.checkOut instanceof Date
+          ? record.checkOut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+          : record.checkOut
+            ? new Date(record.checkOut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            : undefined,
         status: record.status,
-        lateMinutes: undefined, // Add from backend if available
+        lateMinutes: undefined,
       }));
       
       setPresenceRecords(records);
@@ -160,18 +174,27 @@ export const Presence: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await attendanceService.recordAttendance({
-        employeeId: formData.employeeId,
-        date: selectedDate.toISOString().split('T')[0],
-        checkIn: formData.status !== 'absent' ? formData.checkIn : undefined,
-        checkOut: formData.status === 'present' ? formData.checkOut : undefined,
-        status: formData.status,
-        notes: formData.notes,
-      });
+      if (editingRecord) {
+        await attendanceService.updateRecord(editingRecord.id, {
+          checkIn: formData.status !== 'absent' ? formData.checkIn : undefined,
+          checkOut: formData.status === 'present' ? formData.checkOut : undefined,
+          status: formData.status,
+          notes: formData.notes,
+        });
+        setIsEditModalOpen(false);
+      } else {
+        await attendanceService.recordAttendance({
+          employeeId: formData.employeeId,
+          date: selectedDate.toISOString().split('T')[0],
+          checkIn: formData.status !== 'absent' ? formData.checkIn : undefined,
+          checkOut: formData.status === 'present' ? formData.checkOut : undefined,
+          status: formData.status,
+          notes: formData.notes,
+        });
+        setIsModalOpen(false);
+      }
       
-      // Refresh data
       fetchPresenceData();
-      setIsModalOpen(false);
       setFormData({
         employeeId: '',
         status: 'present',
@@ -179,11 +202,50 @@ export const Presence: React.FC = () => {
         checkOut: '17:00',
         notes: '',
       });
+      setEditingRecord(null);
     } catch (err) {
-      console.error('Error recording attendance:', err);
-      // TODO: toast.error('Erreur enregistrement présence')
+      console.error('Error saving attendance:', err);
     }
   };
+
+  const handleEdit = (record: DailyPresence) => {
+    setEditingRecord(record);
+    setFormData({
+      employeeId: record.employeeId,
+      status: record.status as PresenceStatus,
+      checkIn: record.checkIn || '08:00',
+      checkOut: record.checkOut || '17:00',
+      notes: record.notes || '',
+    });
+    setSelectedDate(record.date);
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteConfirm) {
+      try {
+        await attendanceService.deleteRecord(deleteConfirm.id);
+        fetchPresenceData();
+      } catch (err) {
+        console.error('Delete error:', err);
+      }
+      setDeleteConfirm(null);
+    }
+  };
+
+    const handleDelete = (record: DailyPresence) => {
+      setDeleteConfirm({ id: record.id, name: record.employeeName });
+    };
+
+    {deleteConfirm && (
+      <DeleteConfirmModal
+        isOpen={true}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Supprimer présence"
+        message={`Confirmer la suppression de la présence de ${deleteConfirm.name} ?`}
+      />
+    )}
 
   // Status badge colors
   const getStatusBadge = (status: DailyPresence['status']) => {
@@ -197,7 +259,12 @@ export const Presence: React.FC = () => {
   };
 
   // Default weekly data if empty
-  const displayWeeklyData = weeklyData.length > 0 ? weeklyData : [
+  const displayWeeklyData = weeklyData.length > 0 ? weeklyData.map(d => ({
+    jour: d.dayOfWeek || 'Lun',
+    presents: d.present || 0,
+    absents: d.absent || 0,
+    retards: d.late || 0
+  })) : [
     { jour: 'Lun', presents: 0, absents: 0, retards: 0 },
     { jour: 'Mar', presents: 0, absents: 0, retards: 0 },
     { jour: 'Mer', presents: 0, absents: 0, retards: 0 },
@@ -214,8 +281,8 @@ export const Presence: React.FC = () => {
             Gestion des Présences
           </h1>
           <p style={{ fontSize: 13, color: Colors.textMuted }}>
-            Suivi quotidien · Semaine du {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
+              Suivi quotidien · Semaine du {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <Button variant="secondary" onClick={() => setIsModalOpen(true)}>
@@ -605,7 +672,7 @@ export const Presence: React.FC = () => {
                               fontWeight: 600, 
                               color: Colors.accent,
                             }}>
-                              {record.employeeName.split(' ').map(n => n[0]).join('')}
+                              {record.employeeName.replace(/Employee [0-9a-f-]{8,}/i, 'E').split(' ').slice(0,2).map(n => n[0]).join('')}
                             </div>
                             <div>
                               <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
@@ -647,17 +714,20 @@ export const Presence: React.FC = () => {
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                            <button style={{ 
-                              padding: '6px 12px', 
-                              borderRadius: 6, 
-                              border: `1px solid ${Colors.border}`, 
-                              background: 'transparent', 
-                              color: Colors.textMuted, 
-                              fontSize: 11, 
-                              cursor: 'pointer',
-                            }}>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleEdit(record)}
+                              style={{ padding: '4px 8px', fontSize: 11 }}>
                               ✎ Éditer
-                            </button>
+                            </Button>
+                            <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              onClick={() => handleDelete(record)}
+                              style={{ padding: '4px 8px', fontSize: 11, color: '#ef4444' }}>
+                              🗑 Supprimer
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -736,9 +806,13 @@ export const Presence: React.FC = () => {
 
       {/* Mark Presence Modal */}
       <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        title="Marquer la présence"
+        isOpen={isModalOpen || isEditModalOpen} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setIsEditModalOpen(false);
+          setEditingRecord(null);
+        }} 
+        title={editingRecord ? "Modifier présence" : "Marquer la présence"}
         size="md"
       >
         <form onSubmit={handleSubmit}>
@@ -879,12 +953,16 @@ export const Presence: React.FC = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-            <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>
-              Annuler
-            </Button>
-            <Button variant="primary" type="submit" disabled={!formData.employeeId}>
-              Enregistrer
-            </Button>
+        <Button variant="secondary" type="button" onClick={() => {
+          setIsModalOpen(false);
+          setIsEditModalOpen(false);
+          setEditingRecord(null);
+        }}>
+          Annuler
+        </Button>
+        <Button variant="primary" type="submit" disabled={!formData.employeeId}>
+          {editingRecord ? 'Modifier' : 'Enregistrer'}
+        </Button>
           </div>
         </form>
       </Modal>

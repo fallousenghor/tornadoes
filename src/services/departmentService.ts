@@ -12,9 +12,58 @@ interface DepartmentResponse {
   description?: string;
   active: boolean;
   currentHeadName?: string;
+  budget: number;
   positionCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// Detailed response with head history and budget
+interface DepartmentDetailResponse {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  active: boolean;
+  deleted: boolean;
+  deletedAt?: string;
+  budget: {
+    allocated: number;
+    spent: number;
+    remaining: number;
+    currency: string;
+  };
+  currentHead?: {
+    employeeId: string;
+    employeeName: string;
+    startDate: string;
+  };
+  headHistory: Array<{
+    employeeId: string;
+    employeeName: string;
+    startDate: string;
+    endDate?: string;
+    isCurrent: boolean;
+  }>;
+  employeeCount: number;
+  positionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Stats response
+interface DepartmentStatsResponse {
+  id: string;
+  name: string;
+  code: string;
+  totalEmployees: number;
+  activeEmployees: number;
+  positionCount: number;
+  openPositions: number;
+  budget: number;
+  budgetUtilizationPercent: number;
+  hasActiveHead: boolean;
+  currentHeadName?: string;
 }
 
 interface PageResponse<T> {
@@ -33,8 +82,8 @@ const mapDepartment = (response: DepartmentResponse): Department => ({
   name: response.name,
   code: response.code,
   description: response.description,
-  budget: 0, // Non disponible dans la réponse backend
-  spent: 0,  // Non disponible dans la réponse backend
+  budget: response.budget || 0,
+  spent: 0,
   headId: undefined,
   parentId: undefined,
   objectives: undefined,
@@ -49,6 +98,10 @@ const departmentService = {
     page?: number;
     pageSize?: number;
     active?: boolean;
+    name?: string;
+    code?: string;
+    minBudget?: number;
+    maxBudget?: number;
   }): Promise<{ data: Department[]; total: number; page: number; pageSize: number }> {
     const backendParams: Record<string, string | number | boolean | undefined> = {
       page: params?.page || 0,
@@ -57,6 +110,18 @@ const departmentService = {
     
     if (params?.active !== undefined) {
       backendParams.active = params.active;
+    }
+    if (params?.name) {
+      backendParams.name = params.name;
+    }
+    if (params?.code) {
+      backendParams.code = params.code;
+    }
+    if (params?.minBudget) {
+      backendParams.minBudget = params.minBudget;
+    }
+    if (params?.maxBudget) {
+      backendParams.maxBudget = params.maxBudget;
     }
 
     const response = await api.get<PageResponse<DepartmentResponse>>('/v1/departments', { params: backendParams });
@@ -79,12 +144,29 @@ const departmentService = {
   },
 
   /**
+   * Récupérer les détails d'un département (avec historique du responsable et budget)
+   */
+  async getDepartmentDetail(id: string): Promise<DepartmentDetailResponse> {
+    const response = await api.get<DepartmentDetailResponse>(`/v1/departments/${id}/detail`);
+    return response.data;
+  },
+
+  /**
+   * Récupérer les statistiques d'un département
+   */
+  async getDepartmentStats(id: string): Promise<DepartmentStatsResponse> {
+    const response = await api.get<DepartmentStatsResponse>(`/v1/departments/${id}/stats`);
+    return response.data;
+  },
+
+  /**
    * Créer un nouveau département
    */
   async createDepartment(data: {
     name: string;
     code: string;
     description?: string;
+    budget?: number;
   }): Promise<Department> {
     const response = await api.post<DepartmentResponse>('/v1/departments', data);
     return mapDepartment(response.data as unknown as DepartmentResponse);
@@ -97,8 +179,35 @@ const departmentService = {
     name?: string;
     description?: string;
     active?: boolean;
+    budget?: number;
   }): Promise<Department> {
     const response = await api.put<DepartmentResponse>(`/v1/departments/${id}`, data);
+    return mapDepartment(response.data as unknown as DepartmentResponse);
+  },
+
+  /**
+   * Mettre à jour uniquement le budget d'un département
+   */
+  async updateDepartmentBudget(id: string, budget: number): Promise<Department> {
+    const response = await api.patch<DepartmentResponse>(`/v1/departments/${id}/budget?budget=${budget}`);
+    return mapDepartment(response.data as unknown as DepartmentResponse);
+  },
+
+  /**
+   * Restaurer un département supprimé
+   */
+  async restoreDepartment(id: string): Promise<Department> {
+    const response = await api.post<DepartmentResponse>(`/v1/departments/${id}/restore`);
+    return mapDepartment(response.data as unknown as DepartmentResponse);
+  },
+
+  /**
+   * Attribuer un responsable au département
+   */
+  async assignHead(id: string, employeeId: string, employeeName: string, startDate: string): Promise<Department> {
+    const response = await api.post<DepartmentResponse>(
+      `/v1/departments/${id}/head?employeeId=${employeeId}&employeeName=${encodeURIComponent(employeeName)}&startDate=${startDate}`
+    );
     return mapDepartment(response.data as unknown as DepartmentResponse);
   },
 

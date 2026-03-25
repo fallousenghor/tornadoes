@@ -63,9 +63,59 @@ export interface Department {
   budget: number;
   spent: number;
   headId?: string;
+  headName?: string;
   parentId?: string;
   objectives?: string[];
+  active?: boolean;
+  positionCount?: number;
+  employeeCount?: number;
   createdAt: Date;
+}
+
+export interface DepartmentDetail {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  active: boolean;
+  deleted: boolean;
+  deletedAt?: string;
+  budget: {
+    allocated: number;
+    spent: number;
+    remaining: number;
+    currency: string;
+  };
+  currentHead?: {
+    employeeId: string;
+    employeeName: string;
+    startDate: string;
+  };
+  headHistory: Array<{
+    employeeId: string;
+    employeeName: string;
+    startDate: string;
+    endDate?: string;
+    isCurrent: boolean;
+  }>;
+  employeeCount: number;
+  positionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DepartmentStats {
+  id: string;
+  name: string;
+  code: string;
+  totalEmployees: number;
+  activeEmployees: number;
+  positionCount: number;
+  openPositions: number;
+  budget: number;
+  budgetUtilizationPercent: number;
+  hasActiveHead: boolean;
+  currentHeadName?: string;
 }
 
 export interface OrganigrammeNode {
@@ -126,6 +176,8 @@ export interface SalaryHistory {
 export interface PresenceRecord {
   id: string;
   employeeId: string;
+  employeeName?: string;
+  department?: string;
   date: Date;
   checkIn?: Date;
   checkOut?: Date;

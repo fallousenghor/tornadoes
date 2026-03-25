@@ -6,6 +6,7 @@ interface AttendanceResponse {
   id: string;
   employeeId: string;
   employeeName?: string;
+  departmentName?: string;
   recordDate: string;
   checkInTime?: string;
   checkOutTime?: string;
@@ -29,6 +30,8 @@ const mapStatus = (backendStatus: string): PresenceStatus => {
 const mapAttendance = (response: AttendanceResponse): PresenceRecord => ({
   id: response.id,
   employeeId: response.employeeId,
+  employeeName: response.employeeName || 'N/A',
+  department: response.departmentName || 'N/A',
   date: new Date(response.recordDate),
   checkIn: response.checkInTime ? new Date(response.checkInTime) : undefined,
   checkOut: response.checkOutTime ? new Date(response.checkOutTime) : undefined,
@@ -45,8 +48,36 @@ export interface WeeklyPresenceData {
 
 const attendanceService = {
   /** Get attendances by employee ID with optional date range */
+  deleteRecord: async (id: string): Promise<void> => {
+    await api.delete(`/v1/attendance/${id}`);
+  },
+
+  updateRecord: async (id: string, data: {
+    checkIn?: string;
+    checkOut?: string;
+    status: PresenceStatus;
+    notes?: string;
+  }): Promise<PresenceRecord> => {
+    const statusMap = {
+      present: 'PRESENT',
+      absent: 'ABSENT',
+      late: 'LATE',
+      leave: 'ON_LEAVE'
+    } as Record<PresenceStatus, string>;
+    
+    const body = {
+      checkIn: data.checkIn,
+      checkOut: data.checkOut,
+      status: statusMap[data.status],
+      notes: data.notes
+    };
+    
+    const response = await api.put<AttendanceResponse>(`/v1/attendance/${id}`, body);
+    return mapAttendance(response.data);
+  },
+
   getAttendancesByEmployee: async (employeeId: string, params?: { fromDate?: string; toDate?: string }): Promise<PresenceRecord[]> => {
-    const response = await api.get(`/v1/attendances/employee/${employeeId}`, { params });
+    const response = await api.get(`/api/v1/attendance/employee/${employeeId}`, { params });
     return (response.data.content || response.data).map(mapAttendance as any);
   },
 
@@ -61,21 +92,21 @@ const attendanceService = {
   }): Promise<PresenceRecord> => {
     const statusMap = {
       present: 'PRESENT',
-      absent: 'ABSENT', 
+      absent: 'ABSENT',
       late: 'LATE',
       leave: 'ON_LEAVE'
     } as Record<PresenceStatus, string>;
-    
+
     const body = {
       employeeId: data.employeeId,
-      recordDate: data.date,
-      checkInTime: data.checkIn,
-      checkOutTime: data.checkOut,
+      recordDate: data.date,  // Backend expects "recordDate", not "date"
+      checkIn: data.checkIn,
+      checkOut: data.checkOut,
       status: statusMap[data.status] || 'PRESENT',
       notes: data.notes
     };
-    
-    const response = await api.post<AttendanceResponse>('/v1/attendances', body);
+
+    const response = await api.post<AttendanceResponse>('/v1/attendance', body);
     return mapAttendance(response.data);
   },
 
@@ -100,11 +131,14 @@ const attendanceService = {
     toDate?: string;
   }) => {
     const response = await api.get('/v1/attendance', { params });
+    // Handle both paginated and non-paginated responses
+    const data = response.data;
+    const records = Array.isArray(data) ? data : (data.content || []);
     return {
-      data: (response.data.content || []).map(mapAttendance as any),
-      total: response.data.totalElements || 0,
-      page: response.data.page || 0,
-      pageSize: response.data.size || 10
+      data: records.map(mapAttendance as any),
+      total: Array.isArray(data) ? data.length : (data.totalElements || 0),
+      page: Array.isArray(data) ? 0 : (data.page || 0),
+      pageSize: Array.isArray(data) ? records.length : (data.size || 10)
     };
   },
 };
