@@ -36,16 +36,14 @@ const mapStatus = (active: boolean): StudentStatus => {
 // Mapper la réponse backend vers le format frontend
 const mapStudent = (response: StudentResponse): Student => ({
   id: response.id,
-  studentCode: response.studentCode,
+  userId: response.studentCode,
   firstName: response.firstName,
   lastName: response.lastName,
   email: response.email,
   phone: response.phone,
-  programId: '', // À récupérer via enrollment
+  programId: '',
   status: mapStatus(response.active),
   enrollmentDate: new Date(response.createdAt),
-  createdAt: new Date(response.createdAt),
-  updatedAt: new Date(response.createdAt),
 });
 
 const studentService = {

@@ -83,7 +83,7 @@ export function Purchases() {
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await purchaseOrderService.getAll();
+      const response: any = await purchaseOrderService.getAll();
       setOrders(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Error loading orders:', error);
