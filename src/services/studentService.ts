@@ -37,6 +37,7 @@ const mapStatus = (active: boolean): StudentStatus => {
 const mapStudent = (response: StudentResponse): Student => ({
   id: response.id,
   userId: response.studentCode,
+  studentCode: response.studentCode,
   firstName: response.firstName,
   lastName: response.lastName,
   email: response.email,
@@ -44,6 +45,8 @@ const mapStudent = (response: StudentResponse): Student => ({
   programId: '',
   status: mapStatus(response.active),
   enrollmentDate: new Date(response.createdAt),
+  createdAt: new Date(response.createdAt),
+  updatedAt: new Date(response.createdAt),
 });
 
 const studentService = {

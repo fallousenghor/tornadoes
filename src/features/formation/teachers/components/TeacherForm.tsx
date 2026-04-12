@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Colors, BorderRadius, Spacing } from '../../../constants/theme';
-import type { Teacher } from '../../../types';
+import { Colors, BorderRadius, Spacing } from '../../../../constants/theme';
+import type { Teacher } from '../../../../types';
 
 export interface TeacherFormData {
   firstName: string;

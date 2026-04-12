@@ -394,6 +394,7 @@ export interface MaintenanceAlert {
 export interface Student {
   id: string;
   userId: string;
+  studentCode: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -401,6 +402,8 @@ export interface Student {
   programId: string;
   status: StudentStatus;  // Utilise le type défini plus bas
   enrollmentDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Note: StudentStatus est défini dans la section Education mise à jour (ligne ~830)
