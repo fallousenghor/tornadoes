@@ -13,15 +13,15 @@ import { formatCurrency } from '../../utils/currency';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Colors, BorderRadius, Spacing } from '../../constants/theme';
 
-const DEAL_STAGES: DealStage[] = ['PROSPECTION', 'QUALIFICATION', 'PROPOSITION', 'NEGOCIATION', 'GAGNE', 'PERDU'];
+const DEAL_STAGES: DealStage[] = ['PROSPECTION', 'QUALIFICATION', 'PROPOSITION', 'NEGOTIATION', 'WON', 'LOST'];
 
 const STAGE_LABELS: Record<DealStage, string> = {
   PROSPECTION: 'Prospection',
   QUALIFICATION: 'Qualification',
   PROPOSITION: 'Proposition',
-  NEGOCIATION: 'Négociation',
-  GAGNE: 'Gagné',
-  PERDU: 'Perdu',
+  NEGOTIATION: 'Négociation',
+  WON: 'Gagné',
+  LOST: 'Perdu',
 };
 
 // Helper function to get stage style object using theme colors
@@ -30,9 +30,9 @@ const getStageStyle = (stage: DealStage, colors: any): React.CSSProperties => {
     PROSPECTION: { bg: colors.neutral, color: colors.text },
     QUALIFICATION: { bg: colors.primaryMuted, color: colors.primary },
     PROPOSITION: { bg: colors.warningMuted, color: colors.warning },
-    NEGOCIATION: { bg: colors.warningMuted, color: colors.warning },
-    GAGNE: { bg: colors.successMuted, color: colors.success },
-    PERDU: { bg: colors.dangerMuted, color: colors.danger },
+    NEGOTIATION: { bg: colors.warningMuted, color: colors.warning },
+    WON: { bg: colors.successMuted, color: colors.success },
+    LOST: { bg: colors.dangerMuted, color: colors.danger },
   };
   const style = stageColorMap[stage];
   return {
@@ -191,11 +191,11 @@ export function Deals() {
 
   // Calculate stats
   const totalDeals = deals.length;
-  const openDeals = deals.filter(d => !['GAGNE', 'PERDU'].includes(d.stage)).length;
+  const openDeals = deals.filter(d => !['WON', 'LOST'].includes(d.stage)).length;
   const pipelineValue = deals
-    .filter(d => !['GAGNE', 'PERDU'].includes(d.stage))
+    .filter(d => !['WON', 'LOST'].includes(d.stage))
     .reduce((sum, d) => sum + d.amount, 0);
-  const wonDeals = deals.filter(d => d.stage === 'GAGNE').length;
+  const wonDeals = deals.filter(d => d.stage === 'WON').length;
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg }}><LoadingSpinner size="lg" /></div>;
 
@@ -308,7 +308,7 @@ export function Deals() {
                         )}
                         <div style={{ display: 'flex', gap: Spacing.xs, justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 10, color: colors.textMuted }}>{deal.probability}%</span>
-                          {!['GAGNE', 'PERDU'].includes(stage) && (
+                          {!['WON', 'LOST'].includes(stage) && (
                             <div style={{ display: 'flex', gap: '2px' }}>
                               <button
                                 onClick={(e) => {

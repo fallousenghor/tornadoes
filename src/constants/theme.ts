@@ -64,6 +64,7 @@ export const Colors = {
   bg: 'var(--color-bg, #F9FAFB)',
   bgSecondary: 'var(--color-bg-secondary, #F3F4F6)',
   bgTertiary: 'var(--color-bg-tertiary, #E5E7EB)',
+  bgLight: 'var(--color-bg-light, #FAFBFC)',
   
   // Surface (Cards, panels)
   card: 'var(--color-card, #FFFFFF)',

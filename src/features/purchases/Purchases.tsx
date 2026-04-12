@@ -84,7 +84,7 @@ export function Purchases() {
     try {
       setLoading(true);
       const response = await purchaseOrderService.getAll();
-      setOrders(Array.isArray(response) ? response : response?.data || []);
+      setOrders(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Error loading orders:', error);
       toast.error('Erreur de chargement', 'Impossible de charger les commandes');

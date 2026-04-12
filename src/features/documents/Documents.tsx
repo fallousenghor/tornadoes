@@ -101,7 +101,7 @@ export function Documents() {
 
   const loadEmployees = useCallback(async () => {
     try {
-      const result = await employeeService.getEmployees({ page: 0, size: 200 });
+      const result = await employeeService.getEmployees({ page: 0, pageSize: 200 });
       setEmployees(result.data.map((emp: any) => ({
         id: emp.id,
         firstName: emp.firstName,

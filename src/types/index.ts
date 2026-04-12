@@ -702,6 +702,7 @@ export interface PurchaseOrder {
 export interface PurchaseOrderFilters {
   status?: PurchaseOrderStatus;
   supplierId?: string;
+  search?: string;
 }
 
 // ==================== Inventory (Mise à jour) ====================

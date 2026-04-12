@@ -16,11 +16,13 @@ interface StudentDisplay extends Student {
 
 // Status badge colors
 const getStatusBadge = (status: StudentStatus) => {
-  const styles: Record<StudentStatus | 'inscrit' | 'actif', { bg: string; color: string }> = {
-    'inscrit': { bg: 'rgba(251, 146, 60, 0.15)', color: '#fb923c' },
-    'actif': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e' },
+  const styles: Record<StudentStatus, { bg: string; color: string }> = {
+    'ACTIVE': { bg: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e' },
+    'GRADUATED': { bg: 'rgba(30, 58, 138, 0.15)', color: '#1E3A8A' },
+    'SUSPENDED': { bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B' },
+    'DROPPED_OUT': { bg: 'rgba(220, 38, 38, 0.15)', color: '#DC2626' },
   };
-  return styles[status] || styles['inscrit'];
+  return styles[status] || styles['ACTIVE'];
 };
 
 export const Students: React.FC = () => {
@@ -302,13 +304,13 @@ export const Students: React.FC = () => {
         </div>
         <div style={statCardStyle}>
           <div style={statValueStyle}>
-            {students.filter(s => s.status === 'actif').length}
+            {students.filter(s => s.status === 'ACTIVE').length}
           </div>
           <p style={statLabelStyle}>Actifs</p>
         </div>
         <div style={statCardStyle}>
           <div style={statValueStyle}>
-            {students.filter(s => s.status === 'inscrit').length}
+            {students.filter(s => s.status === 'GRADUATED').length}
           </div>
           <p style={statLabelStyle}>Inscrits</p>
         </div>
@@ -325,7 +327,7 @@ export const Students: React.FC = () => {
         
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 13, color: Colors.textMuted }}>Statut :</span>
-          {(['all', 'actif', 'inscrit'] as const).map(status => (
+          {(['all', 'ACTIVE', 'GRADUATED', 'SUSPENDED', 'DROPPED_OUT'] as const).map(status => (
             <button
               key={status}
               onClick={() => handleStatusFilterChange(status)}
@@ -340,7 +342,10 @@ export const Students: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              {status === 'all' ? 'Tous' : status === 'actif' ? 'Actifs' : 'Inscrits'}
+              {status === 'all' ? 'Tous' : 
+               status === 'ACTIVE' ? 'Actifs' : 
+               status === 'GRADUATED' ? 'Diplômés' :
+               status === 'SUSPENDED' ? 'Suspendus' : 'Abandons'}
             </button>
           ))}
         </div>
@@ -435,7 +440,9 @@ export const Students: React.FC = () => {
                         fontWeight: 500,
                         display: 'inline-block',
                       }}>
-                        {student.status === 'actif' ? '✓ Actif' : '○ Inscrit'}
+                        {student.status === 'ACTIVE' ? '✓ Actif' : 
+                         student.status === 'GRADUATED' ? '🎓 Diplômé' :
+                         student.status === 'SUSPENDED' ? '⏸ Suspendu' : '✕ Abandonné'}
                       </span>
                     </td>
                     <td style={tdStyle}>

@@ -30,13 +30,13 @@ interface PageResponse<T> {
 
 // Mapper le status backend vers frontend
 const mapStatus = (active: boolean): StudentStatus => {
-  return active ? 'actif' : 'inscrit';
+  return active ? 'ACTIVE' : 'SUSPENDED';
 };
 
 // Mapper la réponse backend vers le format frontend
 const mapStudent = (response: StudentResponse): Student => ({
   id: response.id,
-  userId: response.studentCode,
+  studentCode: response.studentCode,
   firstName: response.firstName,
   lastName: response.lastName,
   email: response.email,
@@ -44,6 +44,8 @@ const mapStudent = (response: StudentResponse): Student => ({
   programId: '', // À récupérer via enrollment
   status: mapStatus(response.active),
   enrollmentDate: new Date(response.createdAt),
+  createdAt: new Date(response.createdAt),
+  updatedAt: new Date(response.createdAt),
 });
 
 const studentService = {

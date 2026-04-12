@@ -213,11 +213,11 @@ export function Deals() {
 
   // Calculate stats
   const totalDeals = deals.length;
-  const openDeals = deals.filter(d => !['GAGNE', 'PERDU'].includes(d.stage)).length;
+  const openDeals = deals.filter(d => !['WON', 'LOST'].includes(d.stage)).length;
   const pipelineValue = deals
-    .filter(d => !['GAGNE', 'PERDU'].includes(d.stage))
+    .filter(d => !['WON', 'LOST'].includes(d.stage))
     .reduce((sum, d) => sum + d.amount, 0);
-  const wonDeals = deals.filter(d => d.stage === 'GAGNE').length;
+  const wonDeals = deals.filter(d => d.stage === 'WON').length;
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg }}><LoadingSpinner size="lg" /></div>;
 
@@ -330,7 +330,7 @@ export function Deals() {
                         )}
                         <div style={{ display: 'flex', gap: Spacing.xs, justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 10, color: colors.textMuted }}>{deal.probability}%</span>
-                          {!['GAGNE', 'PERDU'].includes(stage) && (
+                          {!['WON', 'LOST'].includes(stage) && (
                             <div style={{ display: 'flex', gap: '2px' }}>
                               <button
                                 onClick={(e) => {
