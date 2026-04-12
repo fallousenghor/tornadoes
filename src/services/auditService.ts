@@ -50,10 +50,37 @@ const auditService = {
   }): Promise<{ data: AuditLogResponse[]; total: number; page: number }> {
     try {
       const response = await api.get<PageResponse<AuditLogResponse>>('/v1/audit-logs', { params });
+      
+      if (!response.data) {
+        console.warn('Empty response data from getAuditLogs');
+        return { data: [], total: 0, page: 0 };
+      }
+
+      const content = Array.isArray(response.data) ? response.data : (response.data.content || []);
+      
+      // Validate and map the audit log data
+      const validatedLogs: AuditLogResponse[] = content.map(log => {
+        // Log raw data for debugging (remove in production)
+        console.log('Raw audit log from API:', log);
+        
+        return {
+          id: log.id || '',
+          timestamp: log.timestamp || new Date().toISOString(),
+          userId: log.userId || log.user?.id || '',
+          userName: log.userName || log.user?.name || log.user?.username || 'Unknown',
+          userRole: log.userRole || log.user?.role || 'Unknown',
+          action: log.action || 'UNKNOWN_ACTION',
+          module: log.module || 'unknown',
+          details: log.details || '',
+          ipAddress: log.ipAddress || '',
+          status: (log.status || 'success') as 'success' | 'warning' | 'error',
+        };
+      });
+
       return {
-        data: response.data.content,
-        total: response.data.totalElements,
-        page: response.data.page,
+        data: validatedLogs,
+        total: response.data.totalElements || 0,
+        page: response.data.page || 0,
       };
     } catch (error) {
       console.error('Error fetching audit logs:', error);

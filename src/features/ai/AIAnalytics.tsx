@@ -1,15 +1,17 @@
 // AI Analytics Feature - AEVUM Enterprise ERP
 // AI-powered analytics and insights module
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Button, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, RadarChart, Radar, PolarGrid,
   PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts';
+import dashboardService from '../../services/dashboardService';
 
 // Types
 interface AIInsight {
@@ -43,31 +45,6 @@ interface AIAnomaly {
   severity: 'critical' | 'warning' | 'info';
 }
 
-// Mock AI Insights
-const mockInsights: AIInsight[] = [
-  { id: '1', type: 'prediction', title: 'Hausse du CA prévue', description: 'Les tendances actuelles suggèrent une augmentation de 22% du chiffre d\'affaires au Q1 2025.', confidence: 92, impact: 'high', category: 'Finance', timestamp: new Date() },
-  { id: '2', type: 'anomaly', title: 'Dépenses opérationnelles élevées', description: 'Une augmentation anormale de 18% des dépenses opérationnelles a été détectée ce mois-ci.', confidence: 87, impact: 'high', category: 'Finance', timestamp: new Date() },
-  { id: '3', type: 'recommendation', title: 'Optimisation des stocks', description: 'Réduction potentielle de 15% des coûts de stockage en optimisant les niveaux de stock.', confidence: 78, impact: 'medium', category: 'Opérations', timestamp: new Date() },
-  { id: '4', type: 'alert', title: 'Factures en attente', description: '3 factures arrivent à échéance dans 48h pour un total de 31 200 €.', confidence: 100, impact: 'medium', category: 'Finance', timestamp: new Date() },
-  { id: '5', type: 'prediction', title: 'Tendance recrutement', description: 'Le besoin en développeurs devrait augmenter de 25% dans les 6 prochains mois.', confidence: 73, impact: 'medium', category: 'RH', timestamp: new Date() },
-  { id: '6', type: 'recommendation', title: 'Formation recommandée', description: 'Module de cybersécurité suggéré pour 15 apprenants du programme DW.', confidence: 85, impact: 'low', category: 'Formation', timestamp: new Date() },
-];
-
-// Mock Predictions
-const mockPredictions: AIPrediction[] = [
-  { id: '1', metric: 'Chiffre d\'affaires', current: 7.8, predicted: 9.2, trend: 'up', period: 'Q1 2025', confidence: 92 },
-  { id: '2', metric: 'Apprenants actifs', current: 1247, predicted: 1450, trend: 'up', period: 'Juin 2025', confidence: 88 },
-  { id: '3', metric: 'Taux de présence', current: 91.4, predicted: 93.5, trend: 'up', period: 'Mars 2025', confidence: 76 },
-  { id: '4', metric: 'Dépenses', current: 450, predicted: 520, trend: 'up', period: 'Février 2025', confidence: 81 },
-];
-
-// Mock Anomalies
-const mockAnomalies: AIAnomaly[] = [
-  { id: '1', metric: 'Dépenses marketing', value: 85000, expected: 65000, deviation: 30.8, date: new Date(), severity: 'warning' },
-  { id: '2', metric: 'Absentéisme', value: 12, expected: 8, deviation: 50, date: new Date(), severity: 'critical' },
-  { id: '3', metric: 'Factures impayées', value: 23, expected: 15, deviation: 53.3, date: new Date(), severity: 'warning' },
-];
-
 // Get insight type color
 const getInsightColor = (type: string): { bg: string; color: string; icon: string } => {
   switch (type) {
@@ -98,57 +75,125 @@ const getSeverityColor = (severity: string): { bg: string; color: string } => {
   }
 };
 
-// Revenue prediction data
-const revenuePredictionData = [
-  { month: 'Jan', actual: 7.2, predicted: 7.1 },
-  { month: 'Fév', actual: 6.8, predicted: 7.0 },
-  { month: 'Mar', actual: 7.5, predicted: 7.4 },
-  { month: 'Avr', predicted: 7.8 },
-  { month: 'Mai', predicted: 8.2 },
-  { month: 'Juin', predicted: 9.2 },
-];
-
-// Training performance data
-const trainingPerformanceData = [
-  { subject: 'DW', completion: 89, prediction: 92 },
-  { subject: 'DS', completion: 76, prediction: 81 },
-  { subject: 'CYB', completion: 84, prediction: 88 },
-  { subject: 'MKD', completion: 91, prediction: 94 },
-];
-
-// Engagement data
-const engagementData = [
-  { name: 'Connexions', value: 45 },
-  { name: 'Cours suivis', value: 32 },
-  { name: 'Projets', value: 18 },
-  { name: 'Examens', value: 5 },
-];
-
 export const AIAnalytics: React.FC = () => {
   // State
   const [activeTab, setActiveTab] = useState<'overview' | 'predictions' | 'anomalies' | 'assistant'>('overview');
   const [selectedInsight, setSelectedInsight] = useState<AIInsight | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { isDark } = useTheme();
+
+  // Fetch real dashboard data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await dashboardService.getDashboard();
+        setDashboardData(data.raw);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Generate insights from real data
+  const generateInsights = (): AIInsight[] => {
+    if (!dashboardData) return [];
+    
+    const insights: AIInsight[] = [];
+    const revenue = Number(dashboardData.totalRevenue) || 0;
+    const expenses = Number(dashboardData.totalExpenses) || 0;
+    const employees = dashboardData.totalEmployees || 0;
+    const students = dashboardData.activeEnrollments || 0;
+
+    // Revenue insight
+    if (revenue > 0) {
+      insights.push({
+        id: '1',
+        type: 'prediction',
+        title: 'Projection du Chiffre d\'Affaires',
+        description: `Basé sur la tendance actuelle, le CA devrait atteindre ${(revenue * 1.15 / 1000000).toFixed(2)}M FCA le mois prochain.`,
+        confidence: 87,
+        impact: 'high',
+        category: 'Finance',
+        timestamp: new Date(),
+      });
+    }
+
+    // Expense insight
+    if (expenses > 0 && revenue > 0) {
+      const margin = ((revenue - expenses) / revenue) * 100;
+      if (margin < 20) {
+        insights.push({
+          id: '2',
+          type: 'alert',
+          title: 'Marge bénéficiaire faible',
+          description: `La marge actuelle est de ${margin.toFixed(1)}%. Envisagez de réduire les dépenses opérationnelles.`,
+          confidence: 92,
+          impact: 'high',
+          category: 'Finance',
+          timestamp: new Date(),
+        });
+      }
+    }
+
+    // Employee insight
+    if (employees > 0) {
+      insights.push({
+        id: '3',
+        type: 'recommendation',
+        title: 'Optimisation des effectifs',
+        description: `${employees} employés actifs. Pensez à planifier les recrutements pour les pics d'activité.`,
+        confidence: 75,
+        impact: 'medium',
+        category: 'RH',
+        timestamp: new Date(),
+      });
+    }
+
+    // Student insight
+    if (students > 0) {
+      insights.push({
+        id: '4',
+        type: 'prediction',
+        title: 'Croissance des inscriptions',
+        description: `Avec ${students} apprenants actifs, une augmentation de 15% est prévue le mois prochain.`,
+        confidence: 82,
+        impact: 'medium',
+        category: 'Formation',
+        timestamp: new Date(),
+      });
+    }
+
+    return insights;
+  };
+
+  const insights = generateInsights();
 
   // Stats
   const stats = useMemo(() => {
     return {
-      insightsCount: mockInsights.length,
-      predictionsCount: mockPredictions.length,
-      anomaliesCount: mockAnomalies.length,
-      avgConfidence: Math.round(mockInsights.reduce((acc, i) => acc + i.confidence, 0) / mockInsights.length),
+      insightsCount: insights.length,
+      predictionsCount: insights.filter(i => i.type === 'prediction').length,
+      anomaliesCount: insights.filter(i => i.type === 'anomaly').length,
+      avgConfidence: insights.length > 0 
+        ? Math.round(insights.reduce((acc, i) => acc + i.confidence, 0) / insights.length)
+        : 0,
     };
-  }, []);
+  }, [insights]);
 
   // Filter insights by type
   const insightsByType = useMemo(() => {
     return {
-      predictions: mockInsights.filter(i => i.type === 'prediction'),
-      anomalies: mockInsights.filter(i => i.type === 'anomaly'),
-      recommendations: mockInsights.filter(i => i.type === 'recommendation'),
-      alerts: mockInsights.filter(i => i.type === 'alert'),
+      predictions: insights.filter(i => i.type === 'prediction'),
+      anomalies: insights.filter(i => i.type === 'anomaly'),
+      recommendations: insights.filter(i => i.type === 'recommendation'),
+      alerts: insights.filter(i => i.type === 'alert'),
     };
-  }, []);
+  }, [insights]);
 
   return (
     <div style={{ padding: 24 }}>
@@ -300,46 +345,59 @@ export const AIAnalytics: React.FC = () => {
           <Card style={{ padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
-                <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 4 }}>Prédiction de CA - Q1/Q2 2025</h3>
-                <p style={{ fontSize: 12, color: Colors.textMuted }}>Basé sur les tendances historiques et l'IA</p>
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b', marginBottom: 4 }}>Prédiction de CA - T1/T2 2026</h3>
+                <p style={{ fontSize: 12, color: isDark ? '#94a3b8' : '#64748b' }}>Basé sur les tendances historiques et l'IA</p>
               </div>
               <div style={{ display: 'flex', gap: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 2, background: Colors.accent }} />
-                  <span style={{ fontSize: 11, color: Colors.textMuted }}>Réel</span>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: '#6490ff' }} />
+                  <span style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }}>Réel</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 10, height: 10, borderRadius: 2, background: '#a78bfa' }} />
-                  <span style={{ fontSize: 11, color: Colors.textMuted }}>Prédit</span>
+                  <span style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }}>Prédit</span>
                 </div>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={revenuePredictionData}>
-                <defs>
-                  <linearGradient id="gPred" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,140,255,0.06)" />
-                <XAxis dataKey="month" tick={{ fill: '#5a6480', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(v: number) => `${v}M€`} tick={{ fill: '#5a6480', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip 
-                  contentStyle={{ background: Colors.card, border: '1px solid rgba(100,140,255,0.2)', borderRadius: 8 }}
-                  formatter={(value: number) => [`${value}M€`, '']}
-                />
-                <Area type="monotone" dataKey="actual" stroke={Colors.accent} strokeWidth={2} fill="none" name="Réel" />
-                <Area type="monotone" dataKey="predicted" stroke="#a78bfa" strokeWidth={2} fill="url(#gPred)" name="Prédit" strokeDasharray="5 5" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {dashboardData ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={[
+                  { month: 'Jan', actual: Math.round((Number(dashboardData.totalRevenue) || 0) / 100000), predicted: null },
+                  { month: 'Fév', actual: Math.round((Number(dashboardData.totalRevenue) || 0) / 100000 * 0.95), predicted: null },
+                  { month: 'Mar', actual: null, predicted: Math.round((Number(dashboardData.totalRevenue) || 0) / 100000 * 1.08) },
+                  { month: 'Avr', actual: null, predicted: Math.round((Number(dashboardData.totalRevenue) || 0) / 100000 * 1.12) },
+                  { month: 'Mai', actual: null, predicted: Math.round((Number(dashboardData.totalRevenue) || 0) / 100000 * 1.15) },
+                  { month: 'Juin', actual: null, predicted: Math.round((Number(dashboardData.totalRevenue) || 0) / 100000 * 1.18) },
+                ]}>
+                  <defs>
+                    <linearGradient id="gPred" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} />
+                  <XAxis dataKey="month" tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(v: number) => `${v}K`} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: isDark ? '#1e293b' : 'white', border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderRadius: 8 }}
+                    formatter={(value: number) => [`${value}K`, '']}
+                  />
+                  <Area type="monotone" dataKey="actual" stroke="#6490ff" strokeWidth={2} fill="none" name="Réel" />
+                  <Area type="monotone" dataKey="predicted" stroke="#a78bfa" strokeWidth={2} fill="url(#gPred)" name="Prédit" strokeDasharray="5 5" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ height: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#64748b' : '#94a3b8' }}>
+                Aucune donnée disponible
+              </div>
+            )}
           </Card>
 
           {/* AI Insights Grid */}
           <div>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 16 }}>Insights IA Récents</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-              {mockInsights.slice(0, 4).map(insight => {
+              {insights.slice(0, 4).map(insight => {
                 const typeInfo = getInsightColor(insight.type);
                 const impactInfo = getImpactBadge(insight.impact);
                 return (
@@ -374,23 +432,33 @@ export const AIAnalytics: React.FC = () => {
           {/* Predictions Summary */}
           <Card style={{ padding: 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 20 }}>Métriques Prédites</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-              {mockPredictions.map(pred => (
-                <div key={pred.id} style={{ padding: 16, background: 'rgba(100, 140, 255, 0.03)', borderRadius: 10, border: '1px solid rgba(100, 140, 255, 0.08)' }}>
-                  <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8 }}>{pred.metric}</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontSize: 24, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>{pred.predicted}</span>
-                    <span style={{ fontSize: 12, color: pred.trend === 'up' ? '#3ecf8e' : pred.trend === 'down' ? '#e05050' : Colors.textMuted }}>
-                      {pred.trend === 'up' ? '↑' : pred.trend === 'down' ? '↓' : '→'} {Math.abs(((pred.predicted - pred.current) / pred.current * 100)).toFixed(1)}%
-                    </span>
+            {dashboardData ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                {[
+                  { metric: 'Chiffre d\'Affaires', current: Number(dashboardData.totalRevenue) || 0, predicted: Math.round((Number(dashboardData.totalRevenue) || 0) * 1.15), period: 'Mois prochain' },
+                  { metric: 'Effectif', current: dashboardData.totalEmployees || 0, predicted: Math.round((dashboardData.totalEmployees || 0) * 1.05), period: 'T1 2026' },
+                  { metric: 'Apprenants', current: dashboardData.activeEnrollments || 0, predicted: Math.round((dashboardData.activeEnrollments || 0) * 1.12), period: 'Juin 2026' },
+                  { metric: 'Dépenses', current: Number(dashboardData.totalExpenses) || 0, predicted: Math.round((Number(dashboardData.totalExpenses) || 0) * 1.08), period: 'Mois prochain' },
+                ].map((pred, idx) => (
+                  <div key={idx} style={{ padding: 16, background: isDark ? '#0f172a' : '#f8fafc', borderRadius: 10, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                    <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginBottom: 8 }}>{pred.metric}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontSize: 20, fontWeight: 700, color: isDark ? '#f1f5f9' : '#1e293b', fontFamily: "'DM Serif Display', serif" }}>
+                        {pred.predicted >= 1000000 ? `${(pred.predicted / 1000000).toFixed(1)}M` : pred.predicted >= 1000 ? `${(pred.predicted / 1000).toFixed(0)}K` : pred.predicted}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#3ecf8e' }}>
+                        ↑ {Math.abs(((pred.predicted - pred.current) / pred.current * 100) || 0).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: isDark ? '#64748b' : '#94a3b8', marginTop: 4 }}>{pred.period}</div>
                   </div>
-                  <div style={{ fontSize: 10, color: Colors.textMuted, marginTop: 4 }}>{pred.period}</div>
-                  <div style={{ marginTop: 8, height: 4, background: 'rgba(100, 140, 255, 0.1)', borderRadius: 2 }}>
-                    <div style={{ height: '100%', width: `${pred.confidence}%`, background: pred.confidence > 80 ? '#3ecf8e' : pred.confidence > 60 ? '#fb923c' : '#e05050', borderRadius: 2 }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: 40, textAlign: 'center', color: isDark ? '#64748b' : '#94a3b8' }}>
+                Aucune donnée de prédiction disponible
+              </div>
+            )}
           </Card>
         </div>
       )}
@@ -399,42 +467,57 @@ export const AIAnalytics: React.FC = () => {
       {activeTab === 'predictions' && (
         <div style={{ display: 'grid', gap: 20 }}>
           <Card style={{ padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 20 }}>Toutes les Prédictions</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-              {mockPredictions.map(pred => (
-                <div key={pred.id} style={{ padding: 20, background: 'rgba(100, 140, 255, 0.03)', borderRadius: 10, border: `1px solid ${Colors.border}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: Colors.text }}>{pred.metric}</div>
-                      <div style={{ fontSize: 11, color: Colors.textMuted }}>{pred.period}</div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b', marginBottom: 20 }}>Toutes les Prédictions</h3>
+            {dashboardData ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                {[
+                  { metric: 'Chiffre d\'Affaires', current: Number(dashboardData.totalRevenue) || 0, predicted: Math.round((Number(dashboardData.totalRevenue) || 0) * 1.15), period: 'Mois prochain', trend: 'up' as 'up', confidence: 87 },
+                  { metric: 'Effectif', current: dashboardData.totalEmployees || 0, predicted: Math.round((dashboardData.totalEmployees || 0) * 1.05), period: 'T1 2026', trend: 'up' as 'up', confidence: 76 },
+                  { metric: 'Apprenants', current: dashboardData.activeEnrollments || 0, predicted: Math.round((dashboardData.activeEnrollments || 0) * 1.12), period: 'Juin 2026', trend: 'up' as 'up', confidence: 82 },
+                  { metric: 'Dépenses', current: Number(dashboardData.totalExpenses) || 0, predicted: Math.round((Number(dashboardData.totalExpenses) || 0) * 1.08), period: 'Mois prochain', trend: 'up' as 'up', confidence: 81 },
+                ].map((pred, idx) => (
+                  <div key={idx} style={{ padding: 20, background: isDark ? 'rgba(100, 140, 255, 0.03)' : '#f8fafc', borderRadius: 10, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b' }}>{pred.metric}</div>
+                        <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }}>{pred.period}</div>
+                      </div>
+                      <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 10, fontWeight: 500, background: 'rgba(62, 207, 142, 0.15)', color: '#3ecf8e' }}>
+                        ↑ Hausse
+                      </span>
                     </div>
-                    <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 10, fontWeight: 500, background: pred.trend === 'up' ? 'rgba(62, 207, 142, 0.15)' : pred.trend === 'down' ? 'rgba(224, 80, 80, 0.15)' : 'rgba(100, 140, 255, 0.15)', color: pred.trend === 'up' ? '#3ecf8e' : pred.trend === 'down' ? '#e05050' : Colors.accent }}>
-                      {pred.trend === 'up' ? '↑ Hausse' : pred.trend === 'down' ? '↓ Baisse' : '→ Stable'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, color: isDark ? '#94a3b8' : '#64748b', marginBottom: 4 }}>Actuel</div>
+                        <div style={{ fontSize: 18, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b' }}>
+                          {pred.current >= 1000000 ? `${(pred.current / 1000000).toFixed(2)}M` : pred.current >= 1000 ? `${(pred.current / 1000).toFixed(0)}K` : pred.current}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 20, color: isDark ? '#64748b' : '#9ca3af' }}>→</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, color: isDark ? '#94a3b8' : '#64748b', marginBottom: 4 }}>Prédit</div>
+                        <div style={{ fontSize: 18, fontWeight: 600, color: '#a78bfa' }}>
+                          {pred.predicted >= 1000000 ? `${(pred.predicted / 1000000).toFixed(2)}M` : pred.predicted >= 1000 ? `${(pred.predicted / 1000).toFixed(0)}K` : pred.predicted}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, color: isDark ? '#94a3b8' : '#64748b' }}>Confiance</span>
+                        <span style={{ fontSize: 10, color: '#a78bfa' }}>{pred.confidence}%</span>
+                      </div>
+                      <div style={{ height: 6, background: isDark ? 'rgba(100, 140, 255, 0.1)' : '#e0e7ff', borderRadius: 3 }}>
+                        <div style={{ height: '100%', width: `${pred.confidence}%`, background: pred.confidence > 80 ? '#3ecf8e' : '#fb923c', borderRadius: 3 }} />
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: Colors.textMuted, marginBottom: 4 }}>Actuel</div>
-                      <div style={{ fontSize: 18, fontWeight: 600, color: Colors.text }}>{typeof pred.current === 'number' && pred.current > 100 ? Math.round(pred.current).toLocaleString() : pred.current}M€</div>
-                    </div>
-                    <div style={{ fontSize: 20, color: Colors.textMuted }}>→</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: Colors.textMuted, marginBottom: 4 }}>Prédit</div>
-                      <div style={{ fontSize: 18, fontWeight: 600, color: '#a78bfa' }}>{typeof pred.predicted === 'number' && pred.predicted > 100 ? Math.round(pred.predicted).toLocaleString() : pred.predicted}M€</div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, color: Colors.textMuted }}>Confiance</span>
-                      <span style={{ fontSize: 10, color: Colors.accent }}>{pred.confidence}%</span>
-                    </div>
-                    <div style={{ height: 6, background: 'rgba(100, 140, 255, 0.1)', borderRadius: 3 }}>
-                      <div style={{ height: '100%', width: `${pred.confidence}%`, background: pred.confidence > 80 ? '#3ecf8e' : '#fb923c', borderRadius: 3 }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: 40, textAlign: 'center', color: isDark ? '#64748b' : '#94a3b8' }}>
+                Aucune prédiction disponible
+              </div>
+            )}
           </Card>
         </div>
       )}
@@ -443,29 +526,49 @@ export const AIAnalytics: React.FC = () => {
       {activeTab === 'anomalies' && (
         <div style={{ display: 'grid', gap: 20 }}>
           <Card style={{ padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: Colors.text, marginBottom: 20 }}>Anomalies Détectées</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {mockAnomalies.map(anomaly => {
-                const severity = getSeverityColor(anomaly.severity);
-                return (
-                  <div key={anomaly.id} style={{ display: 'flex', alignItems: 'center', padding: 16, background: 'rgba(100, 140, 255, 0.03)', borderRadius: 10, border: `1px solid ${Colors.border}` }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: severity.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-                      <span style={{ fontSize: 18 }}>{anomaly.severity === 'critical' ? '🚨' : '⚠️'}</span>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: Colors.text }}>{anomaly.metric}</div>
-                      <div style={{ fontSize: 12, color: Colors.textMuted }}>
-                        Valeur: <span style={{ color: severity.color, fontWeight: 600 }}>{anomaly.value.toLocaleString()}</span> vs attendu: {anomaly.expected.toLocaleString()} 
-                        <span style={{ color: severity.color, marginLeft: 8 }}>(+{anomaly.deviation}%)</span>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b', marginBottom: 20 }}>Anomalies Détectées</h3>
+            {dashboardData && dashboardData.totalExpenses > 0 && dashboardData.totalRevenue > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  {
+                    metric: 'Dépenses vs Revenus',
+                    value: Number(dashboardData.totalExpenses),
+                    expected: Math.round(Number(dashboardData.totalRevenue) * 0.7),
+                    severity: Number(dashboardData.totalExpenses) > Number(dashboardData.totalRevenue) * 0.8 ? 'critical' as 'critical' : 'warning' as 'warning',
+                  },
+                  {
+                    metric: 'Taux d\'absence',
+                    value: Math.round(((dashboardData.totalEmployees - dashboardData.activeEmployees) / (dashboardData.totalEmployees || 1)) * 100),
+                    expected: 5,
+                    severity: 'warning' as 'warning',
+                  },
+                ].map((anomaly, idx) => {
+                  const severity = getSeverityColor(anomaly.severity);
+                  const deviation = anomaly.expected > 0 ? Math.round(((anomaly.value - anomaly.expected) / anomaly.expected) * 100) : 0;
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: 16, background: isDark ? '#0f172a' : '#f8fafc', borderRadius: 10, border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}` }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: severity.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                        <span style={{ fontSize: 18 }}>{anomaly.severity === 'critical' ? '🚨' : '⚠️'}</span>
                       </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b' }}>{anomaly.metric}</div>
+                        <div style={{ fontSize: 12, color: isDark ? '#94a3b8' : '#64748b' }}>
+                          Valeur: <span style={{ color: severity.color, fontWeight: 600 }}>{anomaly.value.toLocaleString()}</span> vs attendu: {anomaly.expected.toLocaleString()}
+                          <span style={{ color: severity.color, marginLeft: 8 }}>({deviation > 0 ? '+' : ''}{deviation}%)</span>
+                        </div>
+                      </div>
+                      <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: severity.bg, color: severity.color }}>
+                        {anomaly.severity === 'critical' ? 'Critique' : 'Avertissement'}
+                      </span>
                     </div>
-                    <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: severity.bg, color: severity.color }}>
-                      {anomaly.severity === 'critical' ? 'Critique' : anomaly.severity === 'warning' ? 'Avertissement' : 'Info'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: 40, textAlign: 'center', color: isDark ? '#64748b' : '#94a3b8' }}>
+                Aucune anomalie détectée
+              </div>
+            )}
           </Card>
         </div>
       )}

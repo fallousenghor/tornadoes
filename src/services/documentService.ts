@@ -191,11 +191,17 @@ const documentService = {
       params: backendParams 
     });
     
+    if (!response.data) {
+      console.warn('Empty response data from getDocuments');
+      return { data: [], total: 0, page: 0, pageSize: 10 };
+    }
+
+    const content = Array.isArray(response.data) ? response.data : (response.data.content || []);
     return {
-      data: response.data.content.map(mapDocument),
-      total: response.data.totalElements,
-      page: response.data.page,
-      pageSize: response.data.size,
+      data: content.map(mapDocument),
+      total: response.data.totalElements || 0,
+      page: response.data.page || 0,
+      pageSize: response.data.size || 10,
     };
   },
 

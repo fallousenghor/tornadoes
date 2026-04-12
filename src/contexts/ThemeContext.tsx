@@ -238,6 +238,7 @@ export const darkColors: ThemeColors = {
 interface ThemeContextType {
   mode: ThemeMode;
   colors: ThemeColors;
+  isDark: boolean;
   toggleTheme: () => void;
   setTheme: (mode: ThemeMode) => void;
 }
@@ -317,7 +318,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   }, [mode, colors]);
 
   return (
-    <ThemeContext.Provider value={{ mode, colors, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ mode, colors, isDark: mode === 'dark', toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

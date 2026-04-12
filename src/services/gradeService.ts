@@ -158,9 +158,16 @@ const gradeService = {
   }): Promise<{ data: GradeResponse[]; total: number }> {
     try {
       const response = await api.get<PageResponse<GradeResponse>>('/v1/grades', { params });
+      
+      if (!response.data) {
+        console.warn('Empty response data from getGrades');
+        return { data: [], total: 0 };
+      }
+
+      const content = Array.isArray(response.data) ? response.data : (response.data.content || []);
       return {
-        data: response.data.content,
-        total: response.data.totalElements,
+        data: content,
+        total: response.data.totalElements || 0,
       };
     } catch (error) {
       console.error('Error fetching grades:', error);

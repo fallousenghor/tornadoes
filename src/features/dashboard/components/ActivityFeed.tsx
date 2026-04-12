@@ -1,22 +1,18 @@
-// Activity Feed Component - Journal d'Activité
+// Activity Feed Component - Activités Récentes
 import React, { useState, useEffect } from 'react';
-import { Button, SectionTitle } from '../../../components/common';
-import { Colors } from '../../../constants/theme';
-import dashboardService from '../../../services/dashboardService';
-import type { ActivityLog } from '@/types';
+import { useTheme } from '../../../contexts/ThemeContext';
+import dashboardService, { type ActivityItem } from '../../../services/dashboardService';
 
-export const ActivityFeed: React.FC = () => {
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
+const ActivityFeed: React.FC = () => {
+  const { isDark } = useTheme();
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchActivities = async () => {
       try {
         const data = await dashboardService.getRecentActivity();
-        // Ensure data is an array
-        if (Array.isArray(data)) {
-          setActivities(data);
-        }
+        setActivities(data);
       } catch (error) {
         console.error('Error fetching activities:', error);
       } finally {
@@ -26,61 +22,207 @@ export const ActivityFeed: React.FC = () => {
     fetchActivities();
   }, []);
 
-  return (
-    <div style={{
-      background: Colors.card,
-      border: `1px solid ${Colors.border}`,
-      borderRadius: 16,
-      padding: 24,
-      marginBottom: 16,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <SectionTitle icon="◈" title="Journal d'Activité" sub="Dernières actions · Audit trail" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: Colors.green, animation: 'pulse 2s infinite' }} />
-          <span style={{ fontSize: 9, color: Colors.green, fontFamily: "'DM Sans',sans-serif" }}>Live</span>
-          <Button variant="ghost" size="sm">Voir tous les logs</Button>
-        </div>
-      </div>
-      {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
-          Chargement...
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {activities.map((a, i) => (
-            <div key={a.id || i} style={{ display: 'flex', alignItems: 'center',
-              padding: '10px 14px', borderRadius: 9,
-              border: '1px solid rgba(100,140,255,0.06)',
-              background: 'rgba(255,255,255,0.01)', opacity: 0,
-              animation: 'upfade 0.4s ease forwards',
-              animationDelay: `${i * 0.1}s`,
+  const getActivityIcon = (type: string) => {
+    const icons: Record<string, string> = {
+      leave: '📅',
+      invoice: '📄',
+      employee: '👤',
+      payment: '💰',
+      project: '🎯',
+      document: '📁',
+      student: '🎓',
+      default: '📌',
+    };
+    return icons[type] || icons.default;
+  };
+
+  const getActivityColor = (type: string) => {
+    const colors: Record<string, string> = {
+      leave: '#a78bfa',
+      invoice: '#fb923c',
+      employee: '#3ecf8e',
+      payment: '#2dd4bf',
+      project: '#6490ff',
+      document: '#c9a84c',
+      student: '#e05050',
+    };
+    return colors[type] || '#64748b';
+  };
+
+  const formatTimeAgo = (timestamp: string | Date) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return "à l'instant";
+    if (diffInSeconds < 3600) return `il y a ${Math.floor(diffInSeconds / 60)} min`;
+    if (diffInSeconds < 86400) return `il y a ${Math.floor(diffInSeconds / 3600)} h`;
+    if (diffInSeconds < 604800) return `il y a ${Math.floor(diffInSeconds / 86400)} j`;
+    return date.toLocaleDateString('fr-FR');
+  };
+
+  if (loading) {
+    return (
+      <div style={{
+        background: isDark ? '#1e293b' : 'white',
+        borderRadius: 16,
+        padding: 24,
+        border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+      }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b', marginBottom: 16 }}>
+          🔔 Activités Récentes
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{
+              display: 'flex',
+              gap: 12,
+              padding: 12,
+              background: isDark ? '#0f172a' : '#f8fafc',
+              borderRadius: 8,
+              marginBottom: 8,
             }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, marginRight: 10,
-                background: `${a.avatarColor || Colors.accent}22`, border: `1px solid ${a.avatarColor || Colors.accent}44`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 700, color: a.avatarColor || Colors.accent, fontFamily: "'DM Sans',sans-serif" }}>
-                {a.avatarInitials}
-              </div>
+              <div style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: isDark ? '#334155' : '#e2e8f0',
+              }} />
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: Colors.text, fontFamily: "'DM Sans',sans-serif" }}>{a.userName}</span>
-                  <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 99,
-                    background: 'rgba(100,140,255,0.08)', color: Colors.textMuted,
-                    fontFamily: "'DM Sans',sans-serif" }}>{a.userRole}</span>
-                </div>
-                <div style={{ fontSize: 9, color: Colors.textMuted, fontFamily: "'DM Sans',sans-serif" }}>{a.action}</div>
-              </div>
-              {a.amount && (
-                <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 14, color: Colors.gold, marginRight: 16 }}>{a.amount}</div>
-              )}
-              <div style={{ fontSize: 9, color: Colors.textDim, fontFamily: "'DM Sans',sans-serif", minWidth: 50, textAlign: 'right' }}>
-                {Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 60000) < 60 
-                  ? `${Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 60000)} min` 
-                  : `${Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 3600000)}h`} ago
+                <div style={{ height: 12, width: '60%', background: isDark ? '#334155' : '#e2e8f0', borderRadius: 4, marginBottom: 6 }} />
+                <div style={{ height: 10, width: '40%', background: isDark ? '#334155' : '#e2e8f0', borderRadius: 4 }} />
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: isDark ? '#1e293b' : 'white',
+      borderRadius: 16,
+      padding: 24,
+      border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+      boxShadow: isDark
+        ? '0 4px 20px rgba(0,0,0,0.3)'
+        : '0 4px 20px rgba(0,0,0,0.08)',
+    }}>
+      <div style={{ marginBottom: 16 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b', marginBottom: 4 }}>
+          🔔 Activités Récentes
+        </h3>
+        <p style={{ fontSize: 11, color: isDark ? '#64748b' : '#94a3b8' }}>
+          {activities.length} activités ces 7 derniers jours
+        </p>
+      </div>
+
+      {activities.length === 0 ? (
+        <div style={{
+          height: 120,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: isDark ? '#64748b' : '#94a3b8',
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>📭</div>
+          <div style={{ fontSize: 12 }}>Aucune activité récente</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {activities.slice(0, 5).map((activity, index) => (
+            <div
+              key={activity.id}
+              style={{
+                display: 'flex',
+                gap: 12,
+                padding: 12,
+                background: isDark ? '#0f172a' : '#f8fafc',
+                borderRadius: 8,
+                marginBottom: 8,
+                transition: 'background 0.2s ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDark ? '#334155' : '#e2e8f0';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = isDark ? '#0f172a' : '#f8fafc';
+              }}
+            >
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: `${getActivityColor(activity.type)}20`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                flexShrink: 0,
+              }}>
+                {getActivityIcon(activity.type)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: isDark ? '#f1f5f9' : '#1e293b',
+                  marginBottom: 4,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {activity.message}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 11, color: isDark ? '#64748b' : '#94a3b8' }}>
+                    {activity.user && (
+                      <span style={{ marginRight: 8 }}>
+                        👤 {activity.user}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 10, color: isDark ? '#475569' : '#cbd5e1' }}>
+                    {formatTimeAgo(activity.timestamp)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activities.length > 0 && (
+        <div style={{
+          marginTop: 16,
+          paddingTop: 16,
+          borderTop: `1px solid ${isDark ? '#334155' : '#f1f5f9'}`,
+          textAlign: 'center',
+        }}>
+          <button
+            style={{
+              background: 'none',
+              border: 'none',
+              color: isDark ? '#6490ff' : '#6490ff',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: '8px 16px',
+              borderRadius: 6,
+              transition: 'background 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDark ? '#1e293b' : '#eff6ff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'none';
+            }}
+          >
+            Voir toutes les activités →
+          </button>
         </div>
       )}
     </div>
@@ -88,4 +230,3 @@ export const ActivityFeed: React.FC = () => {
 };
 
 export default ActivityFeed;
-

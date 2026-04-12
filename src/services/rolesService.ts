@@ -38,8 +38,52 @@ const rolesService = {
    */
   async getRoles(): Promise<RoleResponse[]> {
     try {
-      const response = await api.get<PageResponse<RoleResponse>>('/v1/roles');
-      return response.data.content;
+      const response = await api.get<PageResponse<RoleResponse> | RoleResponse[]>('/v1/roles');
+
+      if (!response.data) {
+        console.warn('Empty response data from getRoles');
+        return [];
+      }
+
+      // If it's already an array of roles
+      if (Array.isArray(response.data)) {
+        return response.data.map(r => ({
+          ...r,
+          color: r.color || '#6490ff',
+          permissions: r.permissions || [],
+          userCount: r.userCount || 0,
+          isDefault: r.isDefault || false,
+        }));
+      }
+
+      // If it's a PageResponse with content property
+      if (response.data && typeof response.data === 'object' && 'content' in response.data) {
+        return ((response.data as PageResponse<RoleResponse>).content || []).map(r => ({
+          ...r,
+          color: r.color || '#6490ff',
+          permissions: r.permissions || [],
+          userCount: r.userCount || 0,
+          isDefault: r.isDefault || false,
+        }));
+      }
+
+      // If response.data is the direct content (no 'content' wrapper)
+      if (response.data && typeof response.data === 'object') {
+        const data = response.data as any;
+        // Handle { data: [...] } structure
+        if (data.content) {
+          return (Array.isArray(data.content) ? data.content : []).map(r => ({
+            ...r,
+            color: r.color || '#6490ff',
+            permissions: r.permissions || [],
+            userCount: r.userCount || 0,
+            isDefault: r.isDefault || false,
+          }));
+        }
+      }
+
+      console.warn('Unexpected response structure from getRoles:', response.data);
+      return [];
     } catch (error) {
       console.error('Error fetching roles:', error);
       return [];

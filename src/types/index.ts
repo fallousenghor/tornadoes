@@ -303,6 +303,29 @@ export interface CashFlow {
   balance: number;
 }
 
+export interface TreasurySummary {
+  totalIncome: number;
+  totalExpenses: number;
+  netBalance: number;
+  incomeCount: number;
+  expenseCount: number;
+  recentTransactions: {
+    id: string;
+    reference: string;
+    description: string;
+    type: 'INCOME' | 'EXPENSE';
+    amount: number;
+    currency: string;
+    category: string;
+    transactionDate: string;
+    createdByName: string;
+    notes?: string;
+  }[];
+  incomeByCategory: Record<string, number>;
+  expensesByCategory: Record<string, number>;
+  monthlyTrend: { month: string; income: number; expenses: number }[];
+}
+
 // Accounting Types (Plan Comptable)
 export interface AccountingAccount {
   id: string;
@@ -376,11 +399,11 @@ export interface Student {
   email: string;
   phone?: string;
   programId: string;
-  status: StudentStatus;
+  status: StudentStatus;  // Utilise le type défini plus bas
   enrollmentDate: Date;
 }
 
-export type StudentStatus = 'inscrit' | 'actif' | 'attente' | 'diplome' | 'abandon';
+// Note: StudentStatus est défini dans la section Education mise à jour (ligne ~830)
 
 export interface Teacher {
   id: string;
@@ -557,4 +580,278 @@ export interface NavItem {
   id: string;
   path?: string;
 }
+
+// ==================== CRM (Nouveaux) ====================
+export type ContactType = 'CLIENT' | 'FOURNISSEUR' | 'PARTENAIRE' | 'PROSPECT';
+export type ContactStatus = 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED';
+export type ContactPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'VIP';
+
+export interface Contact {
+  id: string;
+  type: ContactType;
+  firstName?: string;
+  lastName?: string;
+  companyName?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  industry?: string;
+  companySize?: string;
+  taxId?: string;
+  registrationId?: string;
+  status: ContactStatus;
+  priority: ContactPriority;
+  creditLimit?: number;
+  paymentTerms?: string;
+  notes?: string;
+  tags?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ContactFilters {
+  type?: ContactType;
+  status?: ContactStatus;
+  search?: string;
+}
+
+export type DealStage = 'PROSPECTION' | 'QUALIFICATION' | 'PROPOSITION' | 'NEGOTIATION' | 'WON' | 'LOST';
+export type DealStatus = 'OPEN' | 'WON' | 'LOST' | 'ON_HOLD';
+
+export interface Deal {
+  id: string;
+  title: string;
+  contactId: string;
+  contactName: string;
+  amount: number;
+  currency: string;
+  probability: number;
+  stage: DealStage;
+  source?: string;
+  expectedClose?: Date;
+  actualClose?: Date;
+  description?: string;
+  nextAction?: string;
+  nextActionDate?: Date;
+  ownerId?: string;
+  ownerName: string;
+  status: DealStatus;
+  lossReason?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DealFilters {
+  stage?: DealStage;
+  status?: DealStatus;
+  ownerId?: string;
+}
+
+// ==================== Purchases (Nouveaux) ====================
+export type PurchaseOrderStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'SENT' | 'PARTIAL' | 'RECEIVED' | 'CANCELLED';
+
+export interface PurchaseOrderItem {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  supplierName: string;
+  supplierContact?: string;
+  supplierEmail?: string;
+  supplierPhone?: string;
+  orderDate: Date;
+  expectedDelivery?: Date;
+  actualDelivery?: Date;
+  status: PurchaseOrderStatus;
+  currency: string;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  discountAmount?: number;
+  shippingCost?: number;
+  total: number;
+  items: PurchaseOrderItem[];
+  shippingAddress?: string;
+  notes?: string;
+  terms?: string;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedAt?: Date;
+  receiverId?: string;
+  receiverName?: string;
+  receivedAt?: Date;
+  invoiceReference?: string;
+  attachmentUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PurchaseOrderFilters {
+  status?: PurchaseOrderStatus;
+  supplierId?: string;
+}
+
+// ==================== Inventory (Mise à jour) ====================
+export interface Asset {
+  id: string;
+  assetCode: string;
+  name: string;
+  description?: string;
+  category: AssetCategory;
+  type?: string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  purchaseDate?: Date;
+  purchasePrice?: number;
+  supplierId?: string;
+  supplierName?: string;
+  warrantyUntil?: Date;
+  status: AssetStatus;
+  condition: AssetCondition;
+  location?: string;
+  assignedToId?: string;
+  assignedToName?: string;
+  departmentId?: string;
+  departmentName?: string;
+  notes?: string;
+  photoUrl?: string;
+  qrCodeUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type AssetCategory = 'ELECTRONIC' | 'FURNITURE' | 'VEHICLE' | 'SOFTWARE' | 'OTHER';
+export type AssetStatus = 'AVAILABLE' | 'ASSIGNED' | 'MAINTENANCE' | 'BROKEN' | 'DISPOSED';
+export type AssetCondition = 'NEW' | 'GOOD' | 'FAIR' | 'POOR';
+
+export interface AssetAssignment {
+  id: string;
+  assetId: string;
+  assetName: string;
+  assignedToId: string;
+  assignedToName: string;
+  assignedToType: 'EMPLOYEE' | 'DEPARTMENT';
+  departmentId?: string;
+  departmentName?: string;
+  assignmentDate: Date;
+  returnDate?: Date;
+  reason?: string;
+  conditionAtAssignment?: string;
+  conditionAtReturn?: string;
+  notes?: string;
+  assignedById?: string;
+  assignedByName?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ==================== Education (Mise à jour) ====================
+export interface TrainingProgram {
+  id: string;
+  title: string;
+  description?: string;
+  category?: string;
+  level: ProgramLevel;
+  durationWeeks: number;
+  durationHours: number;
+  maxStudents?: number;
+  startDate?: Date;
+  endDate?: Date;
+  schedule?: string;
+  location?: string;
+  price: number;
+  currency: string;
+  teacherId?: string;
+  teacherName?: string;
+  modules: ProgramModule[];
+  prerequisites?: string;
+  certification?: boolean;
+  active: boolean;
+  passingScore: number;
+  enrolledCount?: number;
+  completedCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type ProgramLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+export interface ProgramModule {
+  title: string;
+  durationHours: number;
+  order: number;
+}
+
+export interface Enrollment {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentCode?: string;
+  programId: string;
+  programName: string;
+  enrollmentDate: Date;
+  completionDate?: Date;
+  status: EnrollmentStatus;
+  paymentStatus?: string;
+  amountPaid?: number;
+  finalAverage?: number;
+  finalLetterGrade?: string;
+  passed?: boolean;
+  grades?: GradeRecord[];
+  attendanceRate?: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'DROPPED_OUT' | 'FAILED';
+
+export interface GradeRecord {
+  module: string;
+  score: number;
+  maxScore: number;
+  date: string;
+}
+
+export interface Student {
+  id: string;
+  studentCode: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  birthDate?: Date;
+  gender?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  photoUrl?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  emergencyRelation?: string;
+  educationLevel?: string;
+  occupation?: string;
+  companyName?: string;
+  status: StudentStatus;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type StudentStatus = 'ACTIVE' | 'GRADUATED' | 'SUSPENDED' | 'DROPPED_OUT';
 

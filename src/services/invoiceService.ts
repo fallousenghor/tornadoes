@@ -47,6 +47,8 @@ const mapStatus = (backendStatus: string): InvoiceStatus => {
   switch (backendStatus) {
     case 'PAID':
       return 'paye';
+    case 'DRAFT':
+    case 'SENT':
     case 'PENDING':
       return 'en_attente';
     case 'PARTIAL':
@@ -149,13 +151,13 @@ const invoiceService = {
     const today = new Date().toISOString().split('T')[0];
     const response = await api.post<InvoiceResponse>('/v1/invoices', {
       clientName: data.clientName,
-      clientEmail: data.clientEmail || '',
-      clientAddress: data.clientAddress || '',
+      ...(data.clientEmail ? { clientEmail: data.clientEmail } : {}),
+      ...(data.clientAddress ? { clientAddress: data.clientAddress } : {}),
       items: data.items,
       dueDate: data.dueDate || today,
       issueDate: data.issueDate || today,
-      currency: data.currency || 'EUR',
-      taxRate: data.taxRate || 18,
+      currency: data.currency || 'XOF',
+      taxRate: data.taxRate ?? 0,
       notes: data.notes,
     });
     return mapInvoice(response.data as unknown as InvoiceResponse);
@@ -185,19 +187,23 @@ const invoiceService = {
     paymentMethod: string;
     reference?: string;
   }): Promise<Invoice> {
-    // Convert paymentMethod from lowercase to uppercase enum format
-    // e.g., 'bank_transfer' -> 'BANK_TRANSFER', 'cash' -> 'CASH'
-    const paymentMethodUpper = data.paymentMethod.toUpperCase().replace(/_/g, '_');
-    
+    // Convert paymentMethod to uppercase enum format expected by backend
+    const paymentMethodUpper = data.paymentMethod.toUpperCase();
+
     // Use today's date as paymentDate (required by backend)
     const today = new Date().toISOString().split('T')[0];
-    
-    const response = await api.post<InvoiceResponse>(`/v1/invoices/${id}/payments`, {
-      amount: data.amount,
+
+    const paymentRequest = {
+      amount: Number(data.amount),
       paymentMethod: paymentMethodUpper,
       paymentDate: today,
-      reference: data.reference || '',
-    });
+      reference: data.reference || undefined,
+      notes: undefined,
+    };
+
+    console.log('Sending payment request:', paymentRequest);
+
+    const response = await api.post<InvoiceResponse>(`/v1/invoices/${id}/payments`, paymentRequest);
     return mapInvoice(response.data as unknown as InvoiceResponse);
   },
 

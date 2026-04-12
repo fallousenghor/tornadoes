@@ -104,6 +104,13 @@ const teacherService = {
     const response = await api.put<TeacherResponse>(`/v1/teachers/${id}`, data);
     return mapTeacher(response.data as unknown as TeacherResponse);
   },
+
+  /**
+   * Supprimer un professeur
+   */
+  async deleteTeacher(id: string): Promise<void> {
+    await api.delete(`/v1/teachers/${id}`);
+  },
 };
 
 export default teacherService;

@@ -28,18 +28,19 @@ const keyframes = `
 export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const store = useAppStore();
   const { colors } = useTheme();
-  const { 
-    isSidebarOpen, 
-    toggleSidebar, 
-    collapsedSections, 
-    toggleSection, 
-    setNavSections,
-    activeView,
-    setActiveView,
-    logout 
-  } = store;
+  
+  // Use selectors for proper re-renders
+  const isSidebarOpen = useAppStore((state) => state.isSidebarOpen);
+  const toggleSidebar = useAppStore((state) => state.toggleSidebar);
+  const collapsedSections = useAppStore((state) => state.collapsedSections);
+  const toggleSection = useAppStore((state) => state.toggleSection);
+  const setNavSections = useAppStore((state) => state.setNavSections);
+  const activeView = useAppStore((state) => state.activeView);
+  const setActiveView = useAppStore((state) => state.setActiveView);
+  const logout = useAppStore((state) => state.logout);
+  const navSections = useAppStore((state) => state.navSections);
+  const currentUser = useAppStore((state) => state.currentUser);
 
   // Set nav sections from mock data on mount
   useEffect(() => {
@@ -142,8 +143,8 @@ export const AppLayout: React.FC = () => {
 
         {/* Navigation */}
         <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto', overflowX: 'hidden' }}>
-          {store.navSections.length > 0 ? (
-            store.navSections.map((section) => {
+          {navSections.length > 0 ? (
+            navSections.map((section) => {
               const isCollapsed = !!collapsedSections[section.label];
               const hasActive = section.items.some(i => i.id === activeNav);
               return (
@@ -350,7 +351,7 @@ export const AppLayout: React.FC = () => {
               color: colors.sidebarText, 
               fontFamily: "'DM Sans', sans-serif" 
             }}>
-              {store.currentUser?.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+              {currentUser?.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
             </div>
             {isSidebarOpen && (
               <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -360,14 +361,14 @@ export const AppLayout: React.FC = () => {
                   fontFamily: "'DM Sans', sans-serif", 
                   fontWeight: 600 
                 }}>
-                  {store.currentUser?.name || 'Utilisateur'}
+                  {currentUser?.name || 'Utilisateur'}
                 </div>
                 <div style={{ 
                   fontSize: 11, 
                   color: colors.sidebarTextMuted, 
                   fontFamily: "'DM Sans', sans-serif" 
                 }}>
-                  {store.currentUser?.email || 'user@nexus-erp.sn'}
+                  {currentUser?.email || 'user@nexus-erp.sn'}
                 </div>
               </div>
             )}
@@ -479,71 +480,46 @@ export const AppLayout: React.FC = () => {
           </div>
 
           {/* Search */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 8, 
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
             background: colors.inputBg,
-            border: `1px solid ${colors.border}`, 
-            borderRadius: BorderRadius.lg, 
-            padding: '8px 14px', 
+            border: `1px solid ${colors.border}`,
+            borderRadius: BorderRadius.lg,
+            padding: '8px 14px',
             width: 220,
           }}>
             <span style={{ color: colors.textMuted, fontSize: 14 }}>⌕</span>
-            <input 
-              placeholder="Rechercher…" 
-              style={{ 
-                background: 'none', 
+            <input
+              placeholder="Rechercher…"
+              style={{
+                background: 'none',
                 border: 'none',
-                color: colors.textPrimary, 
-                fontSize: 13, 
-                fontFamily: "'DM Sans', sans-serif", 
+                color: colors.textPrimary,
+                fontSize: 13,
+                fontFamily: "'DM Sans', sans-serif",
                 width: '100%',
                 outline: 'none',
-              }} 
+              }}
             />
-          </div>
-
-          {/* System Status */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 6, 
-            padding: '6px 12px',
-            background: colors.successBg, 
-            borderRadius: BorderRadius.md,
-            border: `1px solid ${colors.successMuted}` 
-          }}>
-            <div style={{ 
-              width: 6, 
-              height: 6, 
-              borderRadius: '50%', 
-              background: colors.success,
-              animation: 'pulse 2s infinite' 
-            }} />
-            <span style={{ 
-              fontSize: 11, 
-              color: colors.success, 
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 500,
-            }}>Système actif</span>
           </div>
 
           {/* Theme Toggle */}
           <ThemeToggle />
 
           {/* Notifications */}
-          <div style={{ 
-            width: 38, 
-            height: 38, 
-            borderRadius: BorderRadius.lg, 
+          <div style={{
+            width: 38,
+            height: 38,
+            borderRadius: BorderRadius.lg,
             background: colors.bgSecondary,
-            border: `1px solid ${colors.border}`, 
-            display: 'flex', 
+            border: `1px solid ${colors.border}`,
+            display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center', 
-            cursor: 'pointer', 
-            position: 'relative', 
+            justifyContent: 'center',
+            cursor: 'pointer',
+            position: 'relative',
             fontSize: 14,
             transition: 'all 0.15s ease',
           }}
@@ -555,33 +531,16 @@ export const AppLayout: React.FC = () => {
           }}
           >
             🔔
-            <div style={{ 
-              position: 'absolute', 
-              top: 6, 
-              right: 6, 
-              width: 8, 
+            <div style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              width: 8,
               height: 8,
-              borderRadius: '50%', 
-              background: colors.danger, 
-              border: `2px solid ${colors.header}` 
+              borderRadius: '50%',
+              background: colors.danger,
+              border: `2px solid ${colors.header}`
             }} />
-          </div>
-
-          {/* AI Badge */}
-          <div style={{ 
-            padding: '6px 12px', 
-            borderRadius: BorderRadius.md,
-            background: colors.primaryMuted, 
-            border: `1px solid ${colors.primaryMuted}`,
-            fontSize: 11, 
-            color: colors.primary, 
-            fontFamily: "'DM Sans', sans-serif",
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 5,
-            fontWeight: 500,
-          }}>
-            <span>🤖</span> IA Activée
           </div>
 
           {/* Logout */}

@@ -90,9 +90,16 @@ const scheduleService = {
 
     try {
       const response = await api.get<PageResponse<ScheduleResponse>>('/v1/schedules', { params: backendParams });
+      
+      if (!response.data) {
+        console.warn('Empty response data from getSchedules');
+        return { data: [], total: 0 };
+      }
+
+      const content = Array.isArray(response.data) ? response.data : (response.data.content || []);
       return {
-        data: response.data.content,
-        total: response.data.totalElements,
+        data: content,
+        total: response.data.totalElements || 0,
       };
     } catch (error) {
       console.error('Error fetching schedules:', error);
@@ -176,7 +183,14 @@ const scheduleService = {
   async getRooms(): Promise<Room[]> {
     try {
       const response = await api.get<PageResponse<RoomResponse>>('/v1/rooms');
-      return response.data.content.map(mapRoom);
+      
+      if (!response.data) {
+        console.warn('Empty response data from getRooms');
+        return [];
+      }
+
+      const content = Array.isArray(response.data) ? response.data : (response.data.content || []);
+      return content.map(mapRoom);
     } catch (error) {
       console.error('Error fetching rooms:', error);
       return [];

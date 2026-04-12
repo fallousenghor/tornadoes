@@ -45,13 +45,6 @@ interface AppState {
   setNavSections: (sections: NavSection[]) => void;
 }
 
-// Mock users for authentication (fallback for demo)
-const mockUsers = [
-  { email: 'dg@nexus-erp.sn', password: 'admin123', name: 'Directeur Général', role: 'DG' },
-  { email: 'rh@nexus-erp.sn', password: 'rh123', name: 'Responsable RH', role: 'RH' },
-  { email: 'finance@nexus-erp.sn', password: 'finance123', name: 'Directeur Financier', role: 'Finance' },
-];
-
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -133,8 +126,8 @@ export const useAppStore = create<AppState>()(
       // Search
       searchQuery: '',
       setSearchQuery: (query) => set({ searchQuery: query }),
-      
-      // Navigation sections - will be set from mock data
+
+      // Navigation sections
       navSections: [],
       setNavSections: (sections) => set({ navSections: sections }),
     }),

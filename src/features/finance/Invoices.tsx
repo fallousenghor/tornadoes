@@ -178,32 +178,54 @@ export const Invoices: React.FC = () => {
         alert('Facture non trouvée');
         return;
       }
-      
-      // Check if invoice is in DRAFT status - need to send it first
+
       // Backend requires invoice to be in SENT status before processing payment
+      // If invoice is in DRAFT/PENDING status, send it first
       if (invoice.status === 'en_attente') {
-        // Need to send the invoice first - but we need to check if it's actually DRAFT
-        // The frontend status 'en_attente' maps to backend DRAFT or SENT
-        // Let's try to process payment first - if it fails, we'll handle the error
+        try {
+          await invoiceService.sendInvoice(invoiceId);
+          console.log('Invoice sent successfully');
+        } catch (sendErr) {
+          console.warn('Failed to send invoice, trying payment anyway:', sendErr);
+          // Continue to try payment - backend will give clear error if still not allowed
+        }
       }
-      
+
       await invoiceService.processPayment(invoiceId, {
         amount: invoice.amount,
-        paymentMethod: 'bank_transfer',
+        paymentMethod: 'BANK_TRANSFER',
       });
       fetchInvoices();
       setIsModalOpen(false);
       setSelectedInvoice(null);
     } catch (err: unknown) {
       console.error('Error processing payment:', err);
-      // Provide more detailed error message
-      const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
-      if (errorMessage.includes('SENT')) {
-        alert('La facture doit d\'abord être envoyée au client avant d\'enregistrer un paiement.');
-      } else if (errorMessage.includes('transition')) {
-        alert('Impossible d\'enregistrer le paiement pour cette facture. Vérifiez le statut de la facture.');
+      
+      // Try to extract detailed error from Axios response
+      let detailedError = 'Erreur inconnue';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosErr = err as any;
+        console.error('Axios error response:', axiosErr.response?.data);
+        
+        if (axiosErr.response?.data?.message) {
+          detailedError = axiosErr.response.data.message;
+        } else if (axiosErr.response?.data?.errors) {
+          detailedError = JSON.stringify(axiosErr.response.data.errors, null, 2);
+        } else if (axiosErr.message) {
+          detailedError = axiosErr.message;
+        }
+      } else if (err instanceof Error) {
+        detailedError = err.message;
+      }
+      
+      if (detailedError.includes('SENT') || detailedError.includes('transition')) {
+        alert('❌ La facture doit d\'abord être envoyée au client avant d\'enregistrer un paiement.');
+      } else if (detailedError.includes('amount') || detailedError.includes('paymentMethod') || detailedError.includes('paymentDate')) {
+        alert(`❌ Erreur de validation:\n${detailedError}`);
+      } else if (detailedError.includes('400')) {
+        alert(`❌ Requête invalide (400):\n${detailedError}\n\nVérifiez les champs du paiement.`);
       } else {
-        alert('Erreur lors du traitement du paiement: ' + errorMessage);
+        alert(`❌ Erreur lors du traitement du paiement:\n${detailedError}`);
       }
     }
   };
@@ -561,30 +583,55 @@ export const Invoices: React.FC = () => {
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                            <button 
+                            <button
                               onClick={() => handleViewDetails(invoice)}
-                              style={{ 
-                                padding: '6px 12px', 
-                                borderRadius: 6, 
-                                border: `1px solid ${Colors.border}`, 
-                                background: 'transparent', 
-                                color: Colors.textMuted, 
-                                fontSize: 11, 
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: 6,
+                                border: `1px solid ${Colors.border}`,
+                                background: 'transparent',
+                                color: Colors.textMuted,
+                                fontSize: 11,
                                 cursor: 'pointer',
                               }}
                             >
                               ✎ Détails
                             </button>
+                            {invoice.status === 'en_attente' && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await invoiceService.sendInvoice(invoice.id);
+                                    fetchInvoices();
+                                  } catch (err) {
+                                    console.error('Error sending invoice:', err);
+                                    alert('Erreur lors de l\'envoi de la facture');
+                                  }
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: 6,
+                                  border: 'none',
+                                  background: 'rgba(100, 140, 255, 0.15)',
+                                  color: '#6490ff',
+                                  fontSize: 11,
+                                  cursor: 'pointer',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Envoyer
+                              </button>
+                            )}
                             {invoice.status !== 'paye' && (
-                              <button 
+                              <button
                                 onClick={() => handlePayment(invoice.id)}
-                                style={{ 
-                                  padding: '6px 12px', 
-                                  borderRadius: 6, 
-                                  border: 'none', 
-                                  background: 'rgba(62, 207, 142, 0.15)', 
-                                  color: '#3ecf8e', 
-                                  fontSize: 11, 
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: 6,
+                                  border: 'none',
+                                  background: 'rgba(62, 207, 142, 0.15)',
+                                  color: '#3ecf8e',
+                                  fontSize: 11,
                                   cursor: 'pointer',
                                   fontWeight: 500,
                                 }}

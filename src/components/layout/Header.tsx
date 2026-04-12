@@ -75,15 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Search */}
       <SearchInput />
 
-      {/* System Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
-        background: 'rgba(62,207,142,0.08)', borderRadius: 6,
-        border: '1px solid rgba(62,207,142,0.15)' }}>
-        <div style={{ width: 5, height: 5, borderRadius: '50%', background: Colors.green,
-          animation: 'pulse 2s infinite' }} />
-        <span style={{ fontSize: 9, color: Colors.green, fontFamily: "'DM Sans',sans-serif" }}>Système actif</span>
-      </div>
-
       {/* Notifications */}
       <div style={{ width: 32, height: 32, borderRadius: 8, background: Colors.input,
         border: `1px solid ${Colors.border}`, display: 'flex', alignItems: 'center',
@@ -91,14 +82,6 @@ export const Header: React.FC<HeaderProps> = ({
         🔔
         <div style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7,
           borderRadius: '50%', background: Colors.accent, border: `2px solid ${Colors.bg}` }} />
-      </div>
-
-      {/* AI Badge */}
-      <div style={{ padding: '4px 10px', borderRadius: 6,
-        background: 'rgba(100,140,255,0.1)', border: '1px solid rgba(100,140,255,0.2)',
-        fontSize: 9, color: Colors.accent, fontFamily: "'DM Sans',sans-serif",
-        display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span>🤖</span> IA Activée
       </div>
     </header>
   );

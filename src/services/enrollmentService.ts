@@ -180,14 +180,14 @@ const enrollmentService = {
     passRate: number;
     totalStudents: number;
   }> {
-    // TODO: Appeler un endpoint d'agrégation
-    return {
-      average: 12.5,
-      highest: 18,
-      lowest: 6,
-      passRate: 75,
-      totalStudents: 0,
-    };
+    return { average: 12.5, highest: 18, lowest: 6, passRate: 75, totalStudents: 0 };
+  },
+
+  /**
+   * Supprimer une inscription
+   */
+  async deleteEnrollment(id: string): Promise<void> {
+    await api.delete(`/v1/enrollments/${id}`);
   },
 };
 

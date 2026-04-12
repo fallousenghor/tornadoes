@@ -4,6 +4,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
+import { useToast } from '../../store/toastStore';
 import dashboardService, { CashFlowDataPoint } from '../../services/dashboardService';
 import invoiceService from '../../services/invoiceService';
 import departmentService from '../../services/departmentService';
@@ -34,7 +35,19 @@ export const Treasury: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const itemsPerPage = 10;
+  const toast = useToast();
+
+  // Transaction form state
+  const [formType, setFormType] = useState<'income' | 'expense'>('income');
+  const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formCategory, setFormCategory] = useState('');
+  const [formAmount, setFormAmount] = useState('');
+  const [formCenterOfCost, setFormCenterOfCost] = useState('');
+  const [formReference, setFormReference] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Fetch data from API
   const fetchData = useCallback(async () => {
@@ -42,17 +55,32 @@ export const Treasury: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch cash flow data
-      const cashFlow = await dashboardService.getCashFlow();
-      setCashFlowData(cashFlow);
+      // Fetch cash flow data (with error handling)
+      try {
+        const cashFlow = await dashboardService.getCashFlow();
+        setCashFlowData(cashFlow);
+      } catch (cashFlowErr) {
+        console.warn('Failed to fetch cash flow data, using empty dataset:', cashFlowErr);
+        setCashFlowData([]);
+      }
 
       // Fetch invoices for transactions
-      const invoicesResponse = await invoiceService.getInvoices({ pageSize: 50 });
-      setInvoices(invoicesResponse.data);
+      try {
+        const invoicesResponse = await invoiceService.getInvoices({ pageSize: 50 });
+        setInvoices(invoicesResponse.data);
+      } catch (invoiceErr) {
+        console.warn('Failed to fetch invoices:', invoiceErr);
+        setInvoices([]);
+      }
 
       // Fetch departments
-      const deptsResponse = await departmentService.getDepartments();
-      setDepartments(deptsResponse.data);
+      try {
+        const deptsResponse = await departmentService.getDepartments();
+        setDepartments(deptsResponse.data);
+      } catch (deptErr) {
+        console.warn('Failed to fetch departments:', deptErr);
+        setDepartments([]);
+      }
     } catch (err) {
       console.error('Error fetching treasury data:', err);
       setError('Erreur lors du chargement des données');
@@ -65,6 +93,92 @@ export const Treasury: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Reset form
+  const resetForm = () => {
+    setFormType('income');
+    setFormDate(new Date().toISOString().split('T')[0]);
+    setFormCategory('');
+    setFormAmount('');
+    setFormCenterOfCost('');
+    setFormReference('');
+    setFormDescription('');
+    setFormErrors({});
+  };
+
+  // Open modal
+  const handleOpenModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!formCategory) errors.category = 'La catégorie est requise';
+    if (!formAmount || parseFloat(formAmount) <= 0) errors.amount = 'Le montant doit être supérieur à 0';
+    if (!formDescription.trim()) errors.description = 'La description est requise';
+    if (!formDate) errors.date = 'La date est requise';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setSubmitting(true);
+    try {
+      if (formType === 'income') {
+        // Create an invoice for income transactions
+        await invoiceService.createInvoice({
+          clientName: formCenterOfCost || 'Trésorerie',
+          clientEmail: undefined,
+          clientAddress: undefined,
+          items: [{
+            description: formDescription,
+            quantity: 1,
+            unitPrice: parseFloat(formAmount),
+          }],
+          issueDate: formDate,
+          dueDate: formDate,
+          currency: 'XOF',
+          taxRate: 0,
+          notes: formReference ? `Référence: ${formReference}` : undefined,
+        });
+        toast.success('Transaction créée', 'L\'entrée a été enregistrée avec succès');
+      } else {
+        // For expenses, create an invoice with negative context
+        // TODO: Replace with dedicated expense transaction endpoint when available
+        await invoiceService.createInvoice({
+          clientName: formCenterOfCost || 'Trésorerie',
+          clientEmail: undefined,
+          clientAddress: undefined,
+          items: [{
+            description: `Sortie: ${formDescription}`,
+            quantity: 1,
+            unitPrice: parseFloat(formAmount),
+          }],
+          issueDate: formDate,
+          dueDate: formDate,
+          currency: 'XOF',
+          taxRate: 0,
+          notes: formReference ? `Référence: ${formReference}` : undefined,
+        });
+        toast.success('Transaction créée', 'La sortie a été enregistrée avec succès');
+      }
+      setIsModalOpen(false);
+      resetForm();
+      fetchData();
+    } catch (err: any) {
+      console.error('Error creating transaction:', err);
+      const errorMessage = err?.response?.data?.message || err?.message || 'Une erreur est survenue lors de la création de la transaction';
+      toast.error('Erreur', errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Generate transactions from invoices
   const transactions = useMemo((): TransactionDisplay[] => {
@@ -129,8 +243,8 @@ export const Treasury: React.FC = () => {
 
   // Cash flow totals from API
   const cashFlowTotals = useMemo(() => {
-    const totalIncomes = cashFlowData.reduce((sum, d) => sum + d.incomes, 0);
-    const totalExpenses = cashFlowData.reduce((sum, d) => sum + d.expenses, 0);
+    const totalIncomes = cashFlowData.reduce((sum, d) => sum + (d.incomes || 0), 0);
+    const totalExpenses = cashFlowData.reduce((sum, d) => sum + (d.expenses || 0), 0);
     return { totalIncomes, totalExpenses };
   }, [cashFlowData]);
 
@@ -202,7 +316,7 @@ export const Treasury: React.FC = () => {
             Flux de trésorerie · Transactions · Soldes
           </p>
         </div>
-        <Button variant="primary" onClick={() => setIsModalOpen(true)}>
+        <Button variant="primary" onClick={handleOpenModal}>
           + Nouvelle transaction
         </Button>
       </div>
@@ -322,33 +436,34 @@ export const Treasury: React.FC = () => {
           </h3>
           {cashFlowData.length > 0 ? (
             <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 180 }}>
-              {cashFlowData.map((month, idx) => {
-                const maxValue = Math.max(month.incomes, month.expenses);
-                const incomeHeight = (month.incomes / 1500000) * 140;
-                const expenseHeight = (month.expenses / 1500000) * 140;
-                
-                return (
-                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 140 }}>
-                      <div style={{ 
-                        width: 32, 
-                        height: `${Math.max(incomeHeight, 20)}px`, 
-                        background: '#3ecf8e', 
-                        borderRadius: 4,
-                        minHeight: 20,
-                      }} />
-                      <div style={{ 
-                        width: 32, 
-                        height: `${Math.max(expenseHeight, 20)}px`, 
-                        background: '#e05050', 
-                        borderRadius: 4,
-                        minHeight: 20,
-                      }} />
+              {(() => {
+                // Dynamic max value from actual data, minimum 1 to avoid division by zero
+                const globalMax = Math.max(1, ...cashFlowData.map(d => Math.max(d.incomes || 0, d.expenses || 0)));
+                return cashFlowData.map((month, idx) => {
+                  const incomeHeight = ((month.incomes || 0) / globalMax) * 140;
+                  const expenseHeight = ((month.expenses || 0) / globalMax) * 140;
+
+                  return (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 140 }}>
+                        <div style={{
+                          width: 32,
+                          height: `${Math.max(incomeHeight, 4)}px`,
+                          background: '#3ecf8e',
+                          borderRadius: 4,
+                        }} />
+                        <div style={{
+                          width: 32,
+                          height: `${Math.max(expenseHeight, 4)}px`,
+                          background: '#e05050',
+                          borderRadius: 4,
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: Colors.textMuted, fontWeight: 500 }}>{month.month}</span>
                     </div>
-                    <span style={{ fontSize: 11, color: Colors.textMuted, fontWeight: 500 }}>{month.month}</span>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           ) : (
             <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: Colors.textMuted }}>
@@ -603,109 +718,149 @@ export const Treasury: React.FC = () => {
       </Card>
 
       {/* New Transaction Modal */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); resetForm(); }}
         title="Nouvelle transaction"
         size="lg"
       >
-        <form onSubmit={(e) => { e.preventDefault(); setIsModalOpen(false); }}>
+        <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Type</label>
               <div style={{ display: 'flex', gap: 12 }}>
-                <label style={{ 
+                <label style={{
                   flex: 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '12px',
                   borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
+                  border: `1px solid ${formType === 'income' ? '#3ecf8e' : Colors.border}`,
                   cursor: 'pointer',
                   fontSize: 13,
-                  color: Colors.text,
-                  background: 'rgba(62, 207, 142, 0.05)',
+                  color: formType === 'income' ? '#3ecf8e' : Colors.text,
+                  background: formType === 'income' ? 'rgba(62, 207, 142, 0.05)' : 'transparent',
                 }}>
-                  <input type="radio" name="type" value="income" style={{ marginRight: 8 }} />
+                  <input
+                    type="radio"
+                    name="type"
+                    value="income"
+                    checked={formType === 'income'}
+                    onChange={() => setFormType('income')}
+                    style={{ marginRight: 8 }}
+                  />
                   Entrée
                 </label>
-                <label style={{ 
+                <label style={{
                   flex: 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '12px',
                   borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
+                  border: `1px solid ${formType === 'expense' ? '#e05050' : Colors.border}`,
                   cursor: 'pointer',
                   fontSize: 13,
-                  color: Colors.text,
+                  color: formType === 'expense' ? '#e05050' : Colors.text,
+                  background: formType === 'expense' ? 'rgba(224, 80, 80, 0.05)' : 'transparent',
                 }}>
-                  <input type="radio" name="type" value="expense" style={{ marginRight: 8 }} />
+                  <input
+                    type="radio"
+                    name="type"
+                    value="expense"
+                    checked={formType === 'expense'}
+                    onChange={() => setFormType('expense')}
+                    style={{ marginRight: 8 }}
+                  />
                   Sortie
                 </label>
               </div>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Date</label>
-              <input 
-                type="date" 
-                defaultValue={new Date().toISOString().split('T')[0]}
+              <input
+                type="date"
+                value={formDate}
+                onChange={(e) => setFormDate(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
+                  border: `1px solid ${formErrors.date ? '#e05050' : Colors.border}`,
                   background: Colors.bg,
                   color: Colors.text,
                   fontSize: 13,
                 }}
               />
+              {formErrors.date && (
+                <span style={{ fontSize: 11, color: '#e05050', marginTop: 4, display: 'block' }}>{formErrors.date}</span>
+              )}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Catégorie</label>
-              <select 
+              <select
+                value={formCategory}
+                onChange={(e) => setFormCategory(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
+                  border: `1px solid ${formErrors.category ? '#e05050' : Colors.border}`,
                   background: Colors.bg,
                   color: Colors.text,
                   fontSize: 13,
                 }}
               >
                 <option value="">Sélectionner une catégorie</option>
-                <option value="income">Ventes Services</option>
-                <option value="income">Formation</option>
-                <option value="income">Consulting</option>
-                <option value="expense">Salaires</option>
-                <option value="expense">Loyer</option>
-                <option value="expense">Fournitures</option>
-                <option value="expense">Équipements</option>
-                <option value="expense">Marketing</option>
+                {formType === 'income' ? (
+                  <>
+                    <option value="Ventes Services">Ventes Services</option>
+                    <option value="Formation">Formation</option>
+                    <option value="Consulting">Consulting</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="Salaires">Salaires</option>
+                    <option value="Loyer">Loyer</option>
+                    <option value="Fournitures">Fournitures</option>
+                    <option value="Équipements">Équipements</option>
+                    <option value="Marketing">Marketing</option>
+                  </>
+                )}
               </select>
+              {formErrors.category && (
+                <span style={{ fontSize: 11, color: '#e05050', marginTop: 4, display: 'block' }}>{formErrors.category}</span>
+              )}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Montant</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 placeholder="0"
+                min="0"
+                step="0.01"
+                value={formAmount}
+                onChange={(e) => setFormAmount(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
+                  border: `1px solid ${formErrors.amount ? '#e05050' : Colors.border}`,
                   background: Colors.bg,
                   color: Colors.text,
                   fontSize: 13,
                 }}
               />
+              {formErrors.amount && (
+                <span style={{ fontSize: 11, color: '#e05050', marginTop: 4, display: 'block' }}>{formErrors.amount}</span>
+              )}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Centre de coût</label>
-              <select 
+              <select
+                value={formCenterOfCost}
+                onChange={(e) => setFormCenterOfCost(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -725,9 +880,11 @@ export const Treasury: React.FC = () => {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Référence</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="REC-0001 ou DEP-0001"
+                value={formReference}
+                onChange={(e) => setFormReference(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -741,14 +898,16 @@ export const Treasury: React.FC = () => {
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Description</label>
-              <textarea 
+              <textarea
                 placeholder="Description de la transaction..."
                 rows={2}
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: 8,
-                  border: `1px solid ${Colors.border}`,
+                  border: `1px solid ${formErrors.description ? '#e05050' : Colors.border}`,
                   background: Colors.bg,
                   color: Colors.text,
                   fontSize: 13,
@@ -756,14 +915,17 @@ export const Treasury: React.FC = () => {
                   fontFamily: 'inherit',
                 }}
               />
+              {formErrors.description && (
+                <span style={{ fontSize: 11, color: '#e05050', marginTop: 4, display: 'block' }}>{formErrors.description}</span>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-            <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>
+            <Button variant="secondary" type="button" onClick={() => { setIsModalOpen(false); resetForm(); }}>
               Annuler
             </Button>
-            <Button variant="primary" type="submit">
-              Enregistrer
+            <Button variant="primary" type="submit" disabled={submitting}>
+              {submitting ? 'Enregistrement...' : 'Enregistrer'}
             </Button>
           </div>
         </form>

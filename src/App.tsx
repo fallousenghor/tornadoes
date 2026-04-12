@@ -1,4 +1,4 @@
-// App.tsx - AEVUM Enterprise ERP
+// App.tsx - TORNADOES JOB ERP
 // Main application component with React Router, Lazy Loading and Theme Provider
 
 import React, { Suspense, useEffect } from 'react';
@@ -7,33 +7,62 @@ import { useAppStore } from './store';
 import { AppLayout } from './components/layout';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { getNavItems, getRouteId } from './routes';
+import ToastContainer from './components/common/ToastContainer';
 
 // Lazy load Login component
 const Login = React.lazy(() => import('./features/auth/Login'));
 
 // Lazy load all feature components - direct imports to avoid type issues
+// Dashboard
 const Dashboard = React.lazy(() => import('./features/dashboard/Dashboard'));
-const Employees = React.lazy(() => import('./features/rh/Employees')); 
-const Departments = React.lazy(() => import('./features/rh/Departments'));
-const Presence = React.lazy(() => import('./features/rh/Presence'));
-const Leaves = React.lazy(() => import('./features/rh/Leaves'));
-const Performance = React.lazy(() => import('./features/rh/Performance'));
-const EmployeeDetail = React.lazy(() => import('./features/rh/EmployeeDetail'));
-const Treasury = React.lazy(() => import('./features/finance/Treasury'));
+
+// HR (ex: RH)
+const Employees = React.lazy(() => import('./features/hr/Employees'));
+const Departments = React.lazy(() => import('./features/hr/Departments'));
+const Presence = React.lazy(() => import('./features/hr/Presence'));
+const Leaves = React.lazy(() => import('./features/hr/Leaves'));
+const Performance = React.lazy(() => import('./features/hr/Performance'));
+const EmployeeDetail = React.lazy(() => import('./features/hr/EmployeeDetail'));
+
+// Finance
+const FinanceDashboard = React.lazy(() => import('./features/finance/FinanceDashboard'));
 const Invoices = React.lazy(() => import('./features/finance/Invoices'));
 const Expenses = React.lazy(() => import('./features/finance/Expenses'));
 const Accounting = React.lazy(() => import('./features/finance/Accounting'));
-const Stock = React.lazy(() => import('./features/stock/Stock'));
+
+// CRM (NOUVEAU)
+const Contacts = React.lazy(() => import('./features/crm/Contacts'));
+const Deals = React.lazy(() => import('./features/crm/Deals'));
+
+// Purchases (NOUVEAU)
+const Purchases = React.lazy(() => import('./features/purchases/Purchases'));
+
+// Inventory (ex: Stock)
+const Inventory = React.lazy(() => import('./features/inventory/Inventory'));
+
+// Projects
 const Projects = React.lazy(() => import('./features/projects/Projects'));
+
+// Documents
 const Documents = React.lazy(() => import('./features/documents/Documents'));
-const Students = React.lazy(() => import('./features/students/Students'));
-const Teachers = React.lazy(() => import('./features/teachers/Teachers'));
-const Schedule = React.lazy(() => import('./features/schedule/Schedule'));
-const Grades = React.lazy(() => import('./features/grades/Grades'));
+
+// Formation
+const Students = React.lazy(() => import('./features/formation/Students'));
+const Teachers = React.lazy(() => import('./features/formation/Teachers'));
+const Schedule = React.lazy(() => import('./features/formation/Schedule'));
+const Grades = React.lazy(() => import('./features/formation/Grades'));
+const Programs = React.lazy(() => import('./features/formation/Programs'));
+const Enrollments = React.lazy(() => import('./features/formation/Enrollments'));
+const TuitionPayments = React.lazy(() => import('./features/formation/TuitionPayments'));
+const TeacherSalaries = React.lazy(() => import('./features/formation/TeacherSalaries'));
+
+// AI
+const AIAnalytics = React.lazy(() => import('./features/ai/AIAnalytics'));
+
+// System
 const Roles = React.lazy(() => import('./features/roles/Roles'));
 const Audit = React.lazy(() => import('./features/audit/Audit'));
 const Settings = React.lazy(() => import('./features/settings/Settings'));
-const AIAnalytics = React.lazy(() => import('./features/ai/AIAnalytics'));
 
 // Loading fallback component - uses CSS variables for theme support
 const LoadingFallback: React.FC = () => (
@@ -57,7 +86,7 @@ const LoadingFallback: React.FC = () => (
       marginBottom: 16,
     }} />
     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)' }}>Chargement...</div>
-    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>Nexus ERP</div>
+    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>Tornadoes Job ERP</div>
     <style>{`
       @keyframes spin {
         from { transform: rotate(0deg); }
@@ -75,7 +104,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   useEffect(() => {
     // Wait for hydration to complete before checking auth
     if (!isHydrated) return;
-    
+
     if (!isAuthenticated) {
       navigate('/login', { replace: true });
     }
@@ -101,7 +130,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     // Wait for hydration to complete before checking auth
     if (!isHydrated) return;
-    
+
     if (isAuthenticated) {
       navigate('/', { replace: true });
     }
@@ -126,15 +155,15 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route 
-        path="/login" 
+      <Route
+        path="/login"
         element={
           <PublicRoute>
             <Suspense fallback={<LoadingFallback />}>
               <Login />
             </Suspense>
           </PublicRoute>
-        } 
+        }
       />
 
       {/* Protected Routes with AppLayout */}
@@ -146,31 +175,42 @@ const AppRoutes: React.FC = () => {
         }
       >
         {/* Dashboard */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             <Suspense fallback={<LoadingFallback />}>
               <Dashboard />
             </Suspense>
-          } 
+          }
         />
 
-        {/* RH Routes */}
-        <Route path="/rh/employees" element={<Suspense fallback={<LoadingFallback />}><Employees /></Suspense>} />
-        <Route path="/rh/employees/:id" element={<Suspense fallback={<LoadingFallback />}><EmployeeDetail /></Suspense>} />
-        <Route path="/rh/departments" element={<Suspense fallback={<LoadingFallback />}><Departments /></Suspense>} />
-        <Route path="/rh/presence" element={<Suspense fallback={<LoadingFallback />}><Presence /></Suspense>} />
-        <Route path="/rh/leaves" element={<Suspense fallback={<LoadingFallback />}><Leaves /></Suspense>} />
-        <Route path="/rh/performance" element={<Suspense fallback={<LoadingFallback />}><Performance /></Suspense>} />
+        {/* AI Analytics */}
+        <Route path="/ai" element={<Suspense fallback={<LoadingFallback />}><AIAnalytics /></Suspense>} />
+
+        {/* HR Routes */}
+        <Route path="/hr/employees" element={<Suspense fallback={<LoadingFallback />}><Employees /></Suspense>} />
+        <Route path="/hr/employees/:id" element={<Suspense fallback={<LoadingFallback />}><EmployeeDetail /></Suspense>} />
+        <Route path="/hr/departments" element={<Suspense fallback={<LoadingFallback />}><Departments /></Suspense>} />
+        <Route path="/hr/presence" element={<Suspense fallback={<LoadingFallback />}><Presence /></Suspense>} />
+        <Route path="/hr/leaves" element={<Suspense fallback={<LoadingFallback />}><Leaves /></Suspense>} />
+        <Route path="/hr/performance" element={<Suspense fallback={<LoadingFallback />}><Performance /></Suspense>} />
 
         {/* Finance Routes */}
-        <Route path="/finance/treasury" element={<Suspense fallback={<LoadingFallback />}><Treasury /></Suspense>} />
+        <Route path="/finance" element={<Suspense fallback={<LoadingFallback />}><FinanceDashboard /></Suspense>} />
         <Route path="/finance/invoices" element={<Suspense fallback={<LoadingFallback />}><Invoices /></Suspense>} />
         <Route path="/finance/expenses" element={<Suspense fallback={<LoadingFallback />}><Expenses /></Suspense>} />
-        <Route path="/finance/accounting" element={<Suspense fallback={<LoadingFallback />}><Accounting /></Suspense>} />
+
+        {/* CRM Routes (NOUVEAU) */}
+        <Route path="/crm/contacts" element={<Suspense fallback={<LoadingFallback />}><Contacts /></Suspense>} />
+        <Route path="/crm/deals" element={<Suspense fallback={<LoadingFallback />}><Deals /></Suspense>} />
+
+        {/* Purchases Routes (NOUVEAU) */}
+        <Route path="/purchases" element={<Suspense fallback={<LoadingFallback />}><Purchases /></Suspense>} />
+
+        {/* Inventory Routes */}
+        <Route path="/inventory" element={<Suspense fallback={<LoadingFallback />}><Inventory /></Suspense>} />
 
         {/* Operations Routes */}
-        <Route path="/stock" element={<Suspense fallback={<LoadingFallback />}><Stock /></Suspense>} />
         <Route path="/projects" element={<Suspense fallback={<LoadingFallback />}><Projects /></Suspense>} />
         <Route path="/documents" element={<Suspense fallback={<LoadingFallback />}><Documents /></Suspense>} />
 
@@ -179,20 +219,23 @@ const AppRoutes: React.FC = () => {
         <Route path="/formation/teachers" element={<Suspense fallback={<LoadingFallback />}><Teachers /></Suspense>} />
         <Route path="/formation/schedule" element={<Suspense fallback={<LoadingFallback />}><Schedule /></Suspense>} />
         <Route path="/formation/grades" element={<Suspense fallback={<LoadingFallback />}><Grades /></Suspense>} />
+        <Route path="/formation/programs" element={<Suspense fallback={<LoadingFallback />}><Programs /></Suspense>} />
+        <Route path="/formation/enrollments" element={<Suspense fallback={<LoadingFallback />}><Enrollments /></Suspense>} />
+        <Route path="/formation/payments" element={<Suspense fallback={<LoadingFallback />}><TuitionPayments /></Suspense>} />
+        <Route path="/formation/salaries" element={<Suspense fallback={<LoadingFallback />}><TeacherSalaries /></Suspense>} />
 
         {/* System Routes */}
         <Route path="/system/roles" element={<Suspense fallback={<LoadingFallback />}><Roles /></Suspense>} />
         <Route path="/system/audit" element={<Suspense fallback={<LoadingFallback />}><Audit /></Suspense>} />
         <Route path="/system/settings" element={<Suspense fallback={<LoadingFallback />}><Settings /></Suspense>} />
-        <Route path="/system/ai" element={<Suspense fallback={<LoadingFallback />}><AIAnalytics /></Suspense>} />
       </Route>
 
       {/* Catch all - redirect to dashboard or login */}
-      <Route 
-        path="*" 
+      <Route
+        path="*"
         element={
           isAuthenticated ? <Navigate to="/" replace /> : <Navigate to="/login" replace />
-        } 
+        }
       />
     </Routes>
   );
@@ -204,10 +247,10 @@ const App: React.FC = () => {
     <ThemeProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AppRoutes />
+        <ToastContainer />
       </BrowserRouter>
     </ThemeProvider>
   );
 };
 
 export default App;
-

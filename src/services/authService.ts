@@ -1,4 +1,5 @@
-// Service d'authentification - Tornadoes Job
+// Service d'authentification - Tornadoes Job ERP
+// Connecté au backend Spring Boot - /api/v1/auth
 
 import api from './api';
 import type { AuthResponse, LoginRequest } from '@/types/auth';
@@ -6,31 +7,48 @@ import type { AuthResponse, LoginRequest } from '@/types/auth';
 export const authService = {
   /**
    * Connexion utilisateur
+   * POST /api/v1/auth/login
    */
   async login(username: string, password: string): Promise<AuthResponse> {
     const request: LoginRequest = { username, password };
     const response = await api.post<AuthResponse>('/v1/auth/login', request);
-    // Response is already unwrapped by interceptor
+    return response.data;
+  },
+
+  /**
+   * Inscription utilisateur
+   * POST /api/v1/auth/register
+   */
+  async register(username: string, email: string, password: string): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/v1/auth/register', {
+      username,
+      email,
+      password,
+    });
     return response.data;
   },
 
   /**
    * Rafraîchir le token d'accès
+   * POST /api/v1/auth/refresh
    */
   async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const response = await api.post<{ accessToken: string; refreshToken: string }>(
       '/v1/auth/refresh',
       { refreshToken }
     );
-    // Response is already unwrapped by interceptor
     return response.data;
   },
 
   /**
    * Déconnexion utilisateur
+   * POST /api/v1/auth/logout
    */
-  async logout(refreshToken: string): Promise<void> {
-    await api.post('/v1/auth/logout', { refreshToken });
+  async logout(): Promise<void> {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      await api.post('/v1/auth/logout', { refreshToken });
+    }
   },
 
   /**

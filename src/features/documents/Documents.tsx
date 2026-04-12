@@ -1,22 +1,50 @@
-// Documents Feature - Tornadoes Job Document Management
-// Connected to backend API
-
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Card, Button, Modal, FilterBar, PaginationControls } from '../../components/common';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { Colors } from '../../constants/theme';
-import documentService, { 
-  Document, 
-  DocumentType, 
-  DocumentCategory, 
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, Plus, Filter, Eye, Trash2, FileText, FileCheck, FileX, Calendar, User, Upload } from 'lucide-react';
+import documentService, {
+  Document,
+  DocumentType,
+  DocumentCategory,
   DocumentStatus,
-  DocumentStats,
   documentTypeLabels,
-  documentCategoryLabels 
+  documentCategoryLabels
 } from '../../services/documentService';
+import employeeService from '../../services/employeeService';
+import { Button } from '../../components/common/Button';
+import { Card } from '../../components/common/Card';
+import { Input } from '../../components/common/Input';
+import { Select } from '../../components/common/Select';
+import Modal from '../../components/common/Modal';
+import { LoadingSpinner } from '../../components/common/Loading';
+import { useToast } from '../../store/toastStore';
+import { useTheme } from '../../contexts/ThemeContext';
+import { Colors, BorderRadius, Spacing } from '../../constants/theme';
 
-// Document type icons
-const docTypeIcons: Record<string, string> = {
+interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber?: string;
+}
+
+const CATEGORY_OPTIONS = [
+  { value: '', label: 'Toutes catégories' },
+  { value: 'RH', label: 'Ressources Humaines' },
+  { value: 'FINANCE', label: 'Finance' },
+  { value: 'JURIDIQUE', label: 'Juridique' },
+  { value: 'TECHNIQUE', label: 'Technique' },
+  { value: 'COMMERCIAL', label: 'Commercial' },
+  { value: 'GENERAL', label: 'Général' },
+];
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'Tous statuts' },
+  { value: 'DRAFT', label: 'Brouillon' },
+  { value: 'PENDING_SIGNATURE', label: 'En attente' },
+  { value: 'SIGNED', label: 'Signé' },
+  { value: 'EXPIRED', label: 'Expiré' },
+];
+
+const TYPE_ICONS: Record<DocumentType, string> = {
   CONTRACT: '📄',
   CNSS: '🛂',
   ID: '🪪',
@@ -27,648 +55,822 @@ const docTypeIcons: Record<string, string> = {
   OTHER: '📁',
 };
 
-// Category colors
-const categoryColors: Record<string, string> = {
-  RH: '#6490ff',
-  FINANCE: '#3ecf8e',
-  JURIDIQUE: '#a78bfa',
-  TECHNIQUE: '#fb923c',
-  COMMERCIAL: '#c9a84c',
-  GENERAL: '#5a6480',
-};
-
-// Filter options matching backend enums
-const categoryOptions = [
-  { value: '', label: 'Toutes catégories' },
-  { value: 'RH', label: 'RH' },
-  { value: 'FINANCE', label: 'Finance' },
-  { value: 'JURIDIQUE', label: 'Juridique' },
-  { value: 'TECHNIQUE', label: 'Technique' },
-  { value: 'COMMERCIAL', label: 'Commercial' },
-  { value: 'GENERAL', label: 'Général' },
-];
-
-const statusOptions = [
-  { value: '', label: 'Tous statuts' },
-  { value: 'DRAFT', label: 'Brouillon' },
-  { value: 'PENDING_SIGNATURE', label: 'En attente' },
-  { value: 'SIGNED', label: 'Signé' },
-  { value: 'EXPIRED', label: 'Expiré' },
-];
-
-// Get frontend-friendly status for StatusBadge
-const getStatusBadgeStatus = (status: DocumentStatus): string => {
-  const statusMap: Record<DocumentStatus, string> = {
-    DRAFT: 'draft',
-    PENDING_SIGNATURE: 'pending_signature',
-    SIGNED: 'signed',
-    EXPIRED: 'expired',
+const getStatusStyle = (status: DocumentStatus, colors: any) => {
+  const statusMap: Record<string, { bg: string; color: string; label: string }> = {
+    DRAFT: { bg: colors.neutralMuted || 'rgba(100, 140, 255, 0.1)', color: colors.textMuted || '#6b7280', label: 'Brouillon' },
+    PENDING_SIGNATURE: { bg: colors.warningMuted || 'rgba(251, 146, 60, 0.15)', color: colors.warning || '#fb923c', label: 'En attente' },
+    SIGNED: { bg: colors.successMuted || 'rgba(62, 207, 142, 0.15)', color: colors.success || '#3ecf8e', label: 'Signé' },
+    EXPIRED: { bg: colors.dangerMuted || 'rgba(224, 80, 80, 0.15)', color: colors.danger || '#e05050', label: 'Expiré' },
   };
-  return statusMap[status] || 'draft';
+  return statusMap[status] || statusMap.DRAFT;
 };
 
-export const Documents: React.FC = () => {
-  // State
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+const getCategoryColor = (category: DocumentCategory, colors: any) => {
+  const colorMap: Record<DocumentCategory, string> = {
+    RH: colors.primary || '#6490ff',
+    FINANCE: colors.success || '#3ecf8e',
+    JURIDIQUE: colors.purple || '#a855f7',
+    TECHNIQUE: colors.orange || '#f97316',
+    COMMERCIAL: colors.warning || '#fb923c',
+    GENERAL: colors.textMuted || '#6b7280',
+  };
+  return colorMap[category] || colorMap.GENERAL;
+};
+
+export function Documents() {
+  const { colors } = useTheme();
+  const toast = useToast();
+  
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [stats, setStats] = useState<DocumentStats>({ total: 0, draft: 0, pending: 0, signed: 0, expired: 0 });
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize] = useState(10);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  
-  // Filter state
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [isCreateMode, setIsCreateMode] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    type: 'OTHER' as DocumentType,
+    category: 'GENERAL' as DocumentCategory,
+    fileUrl: '',
+    employeeId: '',
+  });
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
-  // Fetch documents from API
-  const fetchDocuments = useCallback(async () => {
-    setIsLoading(true);
+  const loadEmployees = useCallback(async () => {
     try {
-      const result = await documentService.getDocuments({
-        page: currentPage,
-        size: pageSize,
-        category: categoryFilter as DocumentCategory || undefined,
-        status: statusFilter as DocumentStatus || undefined,
-        search: searchQuery || undefined,
-        sortBy: 'createdAt',
-        sortDir: 'DESC',
-      });
-      setDocuments(result.data);
-      setTotalItems(result.total);
-      setTotalPages(Math.ceil(result.total / pageSize));
+      const result = await employeeService.getEmployees({ page: 0, size: 200 });
+      setEmployees(result.data.map((emp: any) => ({
+        id: emp.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        employeeNumber: emp.employeeNumber,
+      })));
     } catch (error) {
-      console.error('Error fetching documents:', error);
-      setDocuments([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, pageSize, categoryFilter, statusFilter, searchQuery]);
-
-  // Fetch stats from API
-  const fetchStats = useCallback(async () => {
-    try {
-      const result = await documentService.getDocumentStats();
-      setStats(result);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error loading employees:', error);
     }
   }, []);
 
-  // Initial load
-  useEffect(() => {
-    fetchDocuments();
-    fetchStats();
-  }, [fetchDocuments, fetchStats]);
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  // Handle filter change
-  const handleFilterChange = (key: string, value: string) => {
-    if (key === 'category') {
-      setCategoryFilter(value);
-    } else if (key === 'status') {
-      setStatusFilter(value);
+  const loadDocuments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await documentService.getDocuments({
+        page: 0,
+        size: 100,
+        category: categoryFilter as DocumentCategory || undefined,
+        status: statusFilter as DocumentStatus || undefined,
+        search: searchQuery || undefined,
+      });
+      setDocuments(result.data);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    } finally {
+      setLoading(false);
     }
-    setCurrentPage(0); // Reset to first page
+  }, [categoryFilter, statusFilter, searchQuery]);
+
+  useEffect(() => {
+    loadDocuments();
+    loadEmployees();
+  }, [loadDocuments, loadEmployees]);
+
+  // Client-side filtering
+  const filteredDocuments = useMemo(() => {
+    let result = documents;
+
+    if (categoryFilter) {
+      result = result.filter(doc => doc.category === categoryFilter);
+    }
+    if (statusFilter) {
+      result = result.filter(doc => doc.status === statusFilter);
+    }
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(doc =>
+        doc.name.toLowerCase().includes(query) ||
+        (doc.description && doc.description.toLowerCase().includes(query))
+      );
+    }
+
+    return result;
+  }, [documents, categoryFilter, statusFilter, searchQuery]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = documents.length;
+    const draft = documents.filter(d => d.status === 'DRAFT').length;
+    const pending = documents.filter(d => d.status === 'PENDING_SIGNATURE').length;
+    const signed = documents.filter(d => d.status === 'SIGNED').length;
+    const expired = documents.filter(d => d.status === 'EXPIRED').length;
+    return { total, draft, pending, signed, expired };
+  }, [documents]);
+
+  const handleOpenCreate = () => {
+    setIsCreateMode(true);
+    setSelectedDoc(null);
+    setFormData({
+      name: '',
+      description: '',
+      type: 'OTHER',
+      category: 'GENERAL',
+      fileUrl: '',
+      employeeId: '',
+    });
+    setShowModal(true);
   };
 
-  // Handle search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setCurrentPage(0); // Reset to first page
+  const handleOpenView = (doc: Document) => {
+    setIsCreateMode(false);
+    setSelectedDoc(doc);
+    setShowModal(true);
   };
 
-  // Format date
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await documentService.createDocument({
+        name: formData.name,
+        description: formData.description || undefined,
+        type: formData.type,
+        category: formData.category,
+        fileUrl: formData.fileUrl || undefined,
+        employeeId: formData.employeeId || undefined,
+      });
+      
+      toast.success('Document créé', 'Le nouveau document a été ajouté');
+      setShowModal(false);
+      loadDocuments();
+    } catch (error: any) {
+      console.error('Error creating document:', error);
+      toast.error('Erreur', 'Une erreur est survenue lors de la création');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce document?')) return;
+    try {
+      await documentService.deleteDocument(id);
+      toast.success('Document supprimé');
+      setShowModal(false);
+      loadDocuments();
+    } catch (error) {
+      toast.error('Erreur de suppression');
+    }
+  };
+
+  const handleSign = async (id: string) => {
+    try {
+      await documentService.updateDocument(id, { status: 'SIGNED' });
+      toast.success('Document signé');
+      loadDocuments();
+    } catch (error) {
+      toast.error('Erreur lors de la signature');
+    }
+  };
+
+  const handleMarkExpired = async (id: string) => {
+    try {
+      await documentService.updateDocument(id, { status: 'EXPIRED' });
+      toast.success('Document marqué comme expiré');
+      loadDocuments();
+    } catch (error) {
+      toast.error('Erreur lors du marquage');
+    }
+  };
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  // View mode tabs
-  const viewModes = [
-    { id: 'list', label: 'Liste', icon: '☰' },
-    { id: 'grid', label: 'Grille', icon: '▦' },
-  ];
-
-  // Calculate pagination values
-  const showingFrom = totalItems > 0 ? currentPage * pageSize + 1 : 0;
-  const showingTo = Math.min((currentPage + 1) * pageSize, totalItems);
-
-  // Handle create document
-  const handleCreateDocument = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    try {
-      await documentService.createDocument({
-        name: formData.get('name') as string,
-        type: formData.get('type') as DocumentType,
-        category: formData.get('category') as DocumentCategory,
-        description: formData.get('description') as string || undefined,
-        signatureRequired: formData.get('signatureRequired') === 'on',
-      });
-      setIsModalOpen(false);
-      fetchDocuments();
-      fetchStats();
-    } catch (error) {
-      console.error('Error creating document:', error);
-    }
-  };
-
-  // Handle delete document
-  const handleDeleteDocument = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
-    
-    try {
-      await documentService.deleteDocument(id);
-      setIsModalOpen(false);
-      setSelectedDoc(null);
-      fetchDocuments();
-      fetchStats();
-    } catch (error) {
-      console.error('Error deleting document:', error);
-    }
-  };
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg, color: colors.textMuted }}><LoadingSpinner size="lg" /></div>;
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: Spacing.lg, display: 'flex', flexDirection: 'column', gap: Spacing.lg }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: Colors.text, marginBottom: 4 }}>
-            Documents
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: colors.text, margin: 0 }}>
+            Gestion Documentaire
           </h1>
-          <p style={{ fontSize: 13, color: Colors.textMuted }}>
-            Gestion documentaire · Versions · Signatures · Archivage
+          <p style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
+            Documents · Catégories · Archivage
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="secondary" onClick={() => setIsModalOpen(true)}>
-            ↺ Exporter
-          </Button>
-          <Button variant="primary" onClick={() => { setSelectedDoc(null); setIsModalOpen(true); }}>
-            + Nouveau document
-          </Button>
-        </div>
+        <Button onClick={handleOpenCreate}>
+          <Plus style={{ width: 16, height: 16, marginRight: 8 }} />
+          Nouveau Document
+        </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(100, 140, 255, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#6490ff' }}>
-              📁
+      {/* Stats Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: Spacing.md }}>
+        <Card style={{ padding: Spacing.md, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: BorderRadius.lg }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: Spacing.sm }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: 'rgba(100, 140, 255, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#6490ff',
+            }}>
+              <FileText size={20} />
             </div>
             <div>
-              <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Total
               </div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {isLoading ? '...' : stats.total}
-              </div>
-            </div>
-          </div>
-        </Card>
-        
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(90, 100, 128, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#5a6480' }}>
-              📝
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Brouillons
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {isLoading ? '...' : stats.draft}
+              <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, fontFamily: "'DM Serif Display', serif" }}>
+                {stats.total}
               </div>
             </div>
           </div>
         </Card>
 
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(201, 168, 76, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#c9a84c' }}>
-              ⏳
+        <Card style={{ padding: Spacing.md, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: BorderRadius.lg }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: Spacing.sm }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: 'rgba(251, 146, 60, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#fb923c',
+            }}>
+              <Filter size={20} />
             </div>
             <div>
-              <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 En Attente
               </div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {isLoading ? '...' : stats.pending}
+              <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, fontFamily: "'DM Serif Display', serif" }}>
+                {stats.pending}
               </div>
             </div>
           </div>
         </Card>
-        
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(62, 207, 142, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#3ecf8e' }}>
-              ✓
+
+        <Card style={{ padding: Spacing.md, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: BorderRadius.lg }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: Spacing.sm }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: 'rgba(62, 207, 142, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#3ecf8e',
+            }}>
+              <FileCheck size={20} />
             </div>
             <div>
-              <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Signés
               </div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {isLoading ? '...' : stats.signed}
+              <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, fontFamily: "'DM Serif Display', serif" }}>
+                {stats.signed}
               </div>
             </div>
           </div>
         </Card>
-        
-        <Card style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(224, 80, 80, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#e05050' }}>
-              ⚠
+
+        <Card style={{ padding: Spacing.md, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: BorderRadius.lg }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: Spacing.sm }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: 'rgba(224, 80, 80, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#e05050',
+            }}>
+              <FileX size={20} />
             </div>
             <div>
-              <div style={{ fontSize: 11, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Expirés
               </div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: Colors.text, fontFamily: "'DM Serif Display', serif" }}>
-                {isLoading ? '...' : stats.expired}
+              <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, fontFamily: "'DM Serif Display', serif" }}>
+                {stats.expired}
               </div>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card style={{ marginBottom: 20, padding: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <FilterBar
-            filters={[
-              { key: 'category', type: 'select', options: categoryOptions, placeholder: 'Catégorie' },
-              { key: 'status', type: 'select', options: statusOptions, placeholder: 'Statut' },
-            ]}
-            values={{ category: categoryFilter, status: statusFilter }}
-            onChange={handleFilterChange}
-            onSearch={handleSearch}
-            searchValue={searchQuery}
-            searchPlaceholder="Rechercher un document..."
-          />
-          
-          <div style={{ display: 'flex', gap: 4, background: 'rgba(100, 140, 255, 0.05)', padding: 4, borderRadius: 10 }}>
-            {viewModes.map(mode => (
-              <button
-                key={mode.id}
-                onClick={() => setViewMode(mode.id as 'list' | 'grid')}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  border: 'none',
-                  background: viewMode === mode.id ? 'rgba(100, 140, 255, 0.15)' : 'transparent',
-                  color: viewMode === mode.id ? Colors.accent : Colors.textMuted,
-                  fontSize: 12,
-                  fontWeight: viewMode === mode.id ? 600 : 400,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontFamily: "'DM Sans', sans-serif",
-                }}
-              >
-                <span>{mode.icon}</span>
-                {mode.label}
-              </button>
-            ))}
+      {/* Filters Card */}
+      <Card style={{ padding: Spacing.md, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: BorderRadius.lg }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: Spacing.md, alignItems: 'center' }}>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Search style={{ position: 'absolute', left: Spacing.sm, width: 16, height: 16, color: colors.textMuted }} />
+              <Input
+                placeholder="Rechercher un document..."
+                value={searchQuery}
+                onChange={(value) => setSearchQuery(value)}
+                style={{ paddingLeft: 36, background: colors.input, color: colors.text, borderColor: colors.border }}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, color: colors.textMuted, marginBottom: 4 }}>
+              Catégorie
+            </label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{
+                padding: '10px 12px',
+                borderRadius: BorderRadius.md,
+                border: `1px solid ${colors.border}`,
+                background: colors.bg,
+                color: colors.text,
+                fontSize: 13,
+                minWidth: 180,
+              }}
+            >
+              {CATEGORY_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, color: colors.textMuted, marginBottom: 4 }}>
+              Statut
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                padding: '10px 12px',
+                borderRadius: BorderRadius.md,
+                border: `1px solid ${colors.border}`,
+                background: colors.bg,
+                color: colors.text,
+                fontSize: 13,
+                minWidth: 150,
+              }}
+            >
+              {STATUS_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
         </div>
       </Card>
 
       {/* Documents List */}
-      {viewMode === 'list' && (
-        <Card style={{ padding: 0, overflow: 'hidden' }}>
-          {isLoading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
-              Chargement des documents...
-            </div>
-          ) : documents.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: Colors.textMuted }}>
-              Aucun document trouvé
-            </div>
-          ) : (
-            <>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
-                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Document</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Catégorie</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Version</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Statut</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Modifié par</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Date</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: Colors.textMuted, textTransform: 'uppercase' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {documents.map((doc, index) => {
-                      const catColor = categoryColors[doc.category] || categoryColors.GENERAL;
-                      return (
-                        <tr 
-                          key={doc.id}
-                          style={{ 
-                            borderBottom: `1px solid ${Colors.border}`,
-                            background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
-                            cursor: 'pointer',
-                          }}
-                          onClick={() => { setSelectedDoc(doc); setIsModalOpen(true); }}
-                        >
-                          <td style={{ padding: '14px 16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ fontSize: 20 }}>{docTypeIcons[doc.type] || '📄'}</span>
-                              <div>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: Colors.text }}>{doc.name}</div>
-                                <div style={{ fontSize: 10, color: Colors.textMuted }}>
-                                  {doc.signatureRequired && '🔏 Signature requise'}
-                                </div>
+      {filteredDocuments.length === 0 ? (
+        <Card style={{ padding: Spacing.lg, textAlign: 'center', color: colors.textMuted }}>
+          <FileText size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+          <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Aucun document trouvé</p>
+          <p style={{ fontSize: 13 }}>Commencez par créer un nouveau document</p>
+        </Card>
+      ) : (
+        <Card style={{ padding: 0, overflow: 'hidden', background: colors.card, border: `1px solid ${colors.border}`, borderRadius: BorderRadius.lg }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'rgba(100, 140, 255, 0.05)' }}>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Document
+                  </th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Catégorie
+                  </th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Statut
+                  </th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Employé
+                  </th>
+                  <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Date
+                  </th>
+                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDocuments.map((doc, index) => {
+                  const statusStyle = getStatusStyle(doc.status, colors);
+                  const catColor = getCategoryColor(doc.category, colors);
+                  return (
+                    <tr
+                      key={doc.id}
+                      style={{
+                        borderBottom: `1px solid ${colors.border}`,
+                        background: index % 2 === 0 ? 'transparent' : 'rgba(100, 140, 255, 0.02)',
+                      }}
+                    >
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 20 }}>{TYPE_ICONS[doc.type] || '📄'}</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: colors.text }}>{doc.name}</div>
+                            {doc.description && (
+                              <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                                {doc.description.substring(0, 50)}{doc.description.length > 50 ? '...' : ''}
                               </div>
-                            </div>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{ 
-                              padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                              background: `${catColor}20`, color: catColor,
-                            }}>
-                              {documentCategoryLabels[doc.category] || doc.category}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                            <span style={{ 
-                              padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                              background: 'rgba(100, 140, 255, 0.1)', color: Colors.accent,
-                            }}>
-                              v{doc.version}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <StatusBadge status={getStatusBadgeStatus(doc.status)} />
-                          </td>
-                          <td style={{ padding: '14px 16px', fontSize: 12, color: Colors.textMuted }}>
-                            {doc.uploadedBy}
-                          </td>
-                          <td style={{ padding: '14px 16px', fontSize: 12, color: Colors.textMuted }}>
-                            {formatDate(doc.updatedAt)}
-                          </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                            <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                              <button style={{ padding: '4px 8px', borderRadius: 4, border: `1px solid ${Colors.border}`, background: 'transparent', color: Colors.textMuted, fontSize: 10, cursor: 'pointer' }} title="Télécharger">↓</button>
-                              <button style={{ padding: '4px 8px', borderRadius: 4, border: `1px solid ${Colors.border}`, background: 'transparent', color: Colors.textMuted, fontSize: 10, cursor: 'pointer' }} title="Partager">↗</button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalItems={totalItems}
-                showingFrom={showingFrom}
-                showingTo={showingTo}
-                onPageChange={handlePageChange}
-              />
-            </>
-          )}
+                            )}
+                            {doc.fileUrl && (
+                              <div style={{ fontSize: 10, color: colors.primary || '#6490ff', marginTop: 2 }}>
+                                🔗 Fichier joint
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: BorderRadius.sm,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: `${catColor}20`,
+                          color: catColor,
+                        }}>
+                          {documentCategoryLabels[doc.category]}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: BorderRadius.sm,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: statusStyle.bg,
+                          color: statusStyle.color,
+                        }}>
+                          {statusStyle.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: 12, color: colors.textMuted }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <User size={12} />
+                          {(() => {
+                            const emp = employees.find(e => e.id === doc.employeeId);
+                            return emp ? `${emp.firstName} ${emp.lastName}` : '—';
+                          })()}
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px', fontSize: 12, color: colors.textMuted }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Calendar size={12} />
+                          {formatDate(doc.updatedAt)}
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleOpenView(doc)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: BorderRadius.sm,
+                              border: `1px solid ${colors.border}`,
+                              background: 'transparent',
+                              color: colors.textMuted,
+                              fontSize: 11,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Eye size={12} />
+                            Voir
+                          </button>
+                          {doc.status === 'DRAFT' && (
+                            <button
+                              onClick={() => handleSign(doc.id)}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: BorderRadius.sm,
+                                border: 'none',
+                                background: 'rgba(62, 207, 142, 0.15)',
+                                color: '#3ecf8e',
+                                fontSize: 11,
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <FileCheck size={12} />
+                              Signer
+                            </button>
+                          )}
+                          {doc.status !== 'EXPIRED' && (
+                            <button
+                              onClick={() => handleMarkExpired(doc.id)}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: BorderRadius.sm,
+                                border: 'none',
+                                background: 'rgba(224, 80, 80, 0.15)',
+                                color: '#e05050',
+                                fontSize: 11,
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <FileX size={12} />
+                              Expirer
+                            </button>
+                          )}
+                          {doc.status === 'DRAFT' && (
+                            <button
+                              onClick={() => handleDelete(doc.id)}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: BorderRadius.sm,
+                                border: 'none',
+                                background: 'rgba(224, 80, 80, 0.15)',
+                                color: '#e05050',
+                                fontSize: 11,
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
-      {/* Documents Grid */}
-      {viewMode === 'grid' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-          {isLoading ? (
-            <div style={{ gridColumn: '1 / -1', padding: 40, textAlign: 'center', color: Colors.textMuted }}>
-              Chargement des documents...
-            </div>
-          ) : documents.length === 0 ? (
-            <div style={{ gridColumn: '1 / -1', padding: 40, textAlign: 'center', color: Colors.textMuted }}>
-              Aucun document trouvé
-            </div>
-          ) : (
-            documents.map((doc) => {
-              const catColor = categoryColors[doc.category] || categoryColors.GENERAL;
-              return (
-                <div 
-                  key={doc.id}
-                  onClick={() => { setSelectedDoc(doc); setIsModalOpen(true); }}
-                  style={{
-                    background: Colors.card,
-                    border: `1px solid ${Colors.border}`,
-                    borderRadius: 12,
-                    padding: 16,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <span style={{ fontSize: 32 }}>{docTypeIcons[doc.type] || '📄'}</span>
-                    <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: 'rgba(100, 140, 255, 0.15)', color: Colors.accent }}>
-                      v{doc.version}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: Colors.text, marginBottom: 8, lineHeight: 1.3 }}>
-                    {doc.name}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                    <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, background: `${catColor}20`, color: catColor }}>
-                      {documentCategoryLabels[doc.category] || doc.category}
-                    </span>
-                    {doc.signatureRequired && (
-                      <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, background: 'rgba(201, 168, 76, 0.15)', color: '#c9a84c' }}>
-                        🔏 Signature
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <StatusBadge status={getStatusBadgeStatus(doc.status)} size="sm" />
-                    <span style={{ fontSize: 10, color: Colors.textMuted }}>
-                      {formatDate(doc.updatedAt)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* Document Details Modal */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => { setIsModalOpen(false); setSelectedDoc(null); }} 
-        title={selectedDoc ? selectedDoc.name : 'Nouveau document'}
+      {/* Create/View Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => { setShowModal(false); setSelectedDoc(null); }}
+        title={isCreateMode ? 'Nouveau Document' : selectedDoc?.name || 'Détails du document'}
         size="lg"
       >
-        {selectedDoc ? (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        {isCreateMode ? (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: Spacing.md }}>
+            <Input
+              label="Nom du document *"
+              value={formData.name}
+              onChange={(value) => setFormData({ ...formData, name: value })}
+              placeholder="Contrat de travail..."
+              style={{ background: colors.input, borderColor: colors.border, color: colors.text }}
+            />
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: colors.text, marginBottom: Spacing.xs }}>
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Description du document..."
+                style={{
+                  width: '100%',
+                  padding: Spacing.sm,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: BorderRadius.md,
+                  background: colors.input,
+                  color: colors.text,
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                }}
+                rows={3}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: colors.text, marginBottom: Spacing.xs }}>
+                Lien vers le fichier (optionnel)
+              </label>
+              <input
+                type="text"
+                value={formData.fileUrl}
+                onChange={(e) => setFormData({ ...formData, fileUrl: e.target.value })}
+                placeholder="https://drive.google.com/... ou https://..."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: BorderRadius.md,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.input,
+                  color: colors.text,
+                  fontSize: 13,
+                  boxSizing: 'border-box',
+                }}
+              />
+              <p style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+                Lien Google Drive, Dropbox, SharePoint, OneDrive, etc.
+              </p>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: colors.text, marginBottom: Spacing.xs }}>
+                Employé lié (optionnel)
+              </label>
+              <select
+                value={formData.employeeId}
+                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: BorderRadius.md,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.input,
+                  color: colors.text,
+                  fontSize: 13,
+                }}
+              >
+                <option value="">-- Aucun --</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName}{emp.employeeNumber ? ` (${emp.employeeNumber})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+                Associer ce document à un employé (contrat, bulletin, etc.)
+              </p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: Spacing.md }}>
               <div>
-                <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>TYPE</div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: colors.text, marginBottom: Spacing.xs }}>
+                  Type
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as DocumentType })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: BorderRadius.md,
+                    border: `1px solid ${colors.border}`,
+                    background: colors.input,
+                    color: colors.text,
+                    fontSize: 13,
+                  }}
+                >
+                  {Object.entries(documentTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: colors.text, marginBottom: Spacing.xs }}>
+                  Catégorie
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value as DocumentCategory })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: BorderRadius.md,
+                    border: `1px solid ${colors.border}`,
+                    background: colors.input,
+                    color: colors.text,
+                    fontSize: 13,
+                  }}
+                >
+                  {Object.entries(documentCategoryLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: Spacing.md, paddingTop: Spacing.md, borderTop: `1px solid ${colors.border}` }}>
+              <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
+                Annuler
+              </Button>
+              <Button type="submit">
+                Créer
+              </Button>
+            </div>
+          </form>
+        ) : selectedDoc ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: Spacing.md }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: Spacing.md }}>
+              <div>
+                <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Type</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 24 }}>{docTypeIcons[selectedDoc.type] || '📄'}</span>
-                  <span style={{ fontSize: 14, color: Colors.text }}>
-                    {documentTypeLabels[selectedDoc.type] || selectedDoc.type}
+                  <span style={{ fontSize: 20 }}>{TYPE_ICONS[selectedDoc.type] || '📄'}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>
+                    {documentTypeLabels[selectedDoc.type]}
                   </span>
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>CATÉGORIE</div>
-                <span style={{ 
-                  padding: '6px 12px', borderRadius: 6, fontSize: 12, 
-                  background: `${categoryColors[selectedDoc.category] || categoryColors.GENERAL}20`, 
-                  color: categoryColors[selectedDoc.category] || categoryColors.GENERAL,
+                <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Catégorie</p>
+                <span style={{
+                  padding: '6px 12px',
+                  borderRadius: BorderRadius.sm,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: `${getCategoryColor(selectedDoc.category, colors)}20`,
+                  color: getCategoryColor(selectedDoc.category, colors),
                 }}>
-                  {documentCategoryLabels[selectedDoc.category] || selectedDoc.category}
+                  {documentCategoryLabels[selectedDoc.category]}
                 </span>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>STATUT</div>
-                <StatusBadge status={getStatusBadgeStatus(selectedDoc.status)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 4 }}>VERSION</div>
-                <span style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: 'rgba(100, 140, 255, 0.15)', color: Colors.accent }}>
-                  v{selectedDoc.version}
+                <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Statut</p>
+                <span style={{
+                  padding: '6px 12px',
+                  borderRadius: BorderRadius.sm,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: getStatusStyle(selectedDoc.status, colors).bg,
+                  color: getStatusStyle(selectedDoc.status, colors).color,
+                }}>
+                  {getStatusStyle(selectedDoc.status, colors).label}
                 </span>
               </div>
-            </div>
-
-            {selectedDoc.description && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8 }}>DESCRIPTION</div>
-                <div style={{ fontSize: 13, color: Colors.text }}>{selectedDoc.description}</div>
+              <div>
+                <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Dernière modification</p>
+                <p style={{ fontSize: 13, color: colors.text }}>{formatDate(selectedDoc.updatedAt)}</p>
               </div>
-            )}
-
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8 }}>INFORMATIONS</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: 'rgba(100, 140, 255, 0.03)', padding: 16, borderRadius: 8 }}>
-                <div><div style={{ fontSize: 10, color: Colors.textMuted }}>Modifié par</div><div style={{ fontSize: 13, color: Colors.text }}>{selectedDoc.uploadedBy}</div></div>
-                <div><div style={{ fontSize: 10, color: Colors.textMuted }}>Dernière modification</div><div style={{ fontSize: 13, color: Colors.text }}>{formatDate(selectedDoc.updatedAt)}</div></div>
-                <div><div style={{ fontSize: 10, color: Colors.textMuted }}>Date de création</div><div style={{ fontSize: 13, color: Colors.text }}>{formatDate(selectedDoc.uploadedAt)}</div></div>
-                <div><div style={{ fontSize: 10, color: Colors.textMuted }}>Signature requise</div><div style={{ fontSize: 13, color: Colors.text }}>{selectedDoc.signatureRequired ? 'Oui' : 'Non'}</div></div>
-              </div>
-            </div>
-
-            {selectedDoc.signedBy && selectedDoc.signedBy.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8 }}>SIGNATURES</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {selectedDoc.signedBy.map((sig, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(62, 207, 142, 0.1)', borderRadius: 20, border: '1px solid rgba(62, 207, 142, 0.2)' }}>
-                      <span style={{ fontSize: 12 }}>✓</span>
-                      <span style={{ fontSize: 12, color: '#3ecf8e' }}>{sig}</span>
-                    </div>
-                  ))}
+              {selectedDoc.employeeId && (
+                <div>
+                  <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Employé lié</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <User size={14} style={{ color: colors.primary || '#6490ff' }} />
+                    <span style={{ fontSize: 13, color: colors.text }}>
+                      {(() => {
+                        const emp = employees.find(e => e.id === selectedDoc.employeeId);
+                        return emp ? `${emp.firstName} ${emp.lastName}` : 'Inconnu';
+                      })()}
+                    </span>
+                  </div>
                 </div>
+              )}
+            </div>
+            {selectedDoc.description && (
+              <div>
+                <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Description</p>
+                <p style={{ fontSize: 13, color: colors.text, lineHeight: 1.5 }}>{selectedDoc.description}</p>
               </div>
             )}
-
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <Button 
-                variant="secondary" 
-                onClick={() => handleDeleteDocument(selectedDoc.id)}
-                style={{ color: '#e05050', borderColor: '#e05050' }}
-              >
+            {selectedDoc.fileUrl && (
+              <div>
+                <p style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Fichier</p>
+                <a
+                  href={selectedDoc.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 16px',
+                    borderRadius: BorderRadius.md,
+                    background: 'rgba(100, 140, 255, 0.1)',
+                    color: colors.primary || '#6490ff',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                  }}
+                >
+                  🔗 Ouvrir le fichier
+                </a>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: Spacing.md, paddingTop: Spacing.md, borderTop: `1px solid ${colors.border}` }}>
+              <Button variant="danger" onClick={() => handleDelete(selectedDoc.id)}>
                 Supprimer
               </Button>
-              <Button variant="secondary" onClick={() => { setIsModalOpen(false); setSelectedDoc(null); }}>Fermer</Button>
-              <Button variant="primary">Modifier</Button>
+              <Button variant="secondary" onClick={() => { setShowModal(false); setSelectedDoc(null); }}>
+                Fermer
+              </Button>
             </div>
           </div>
-        ) : (
-          <form onSubmit={handleCreateDocument}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Nom du document *</label>
-                <input 
-                  name="name" 
-                  type="text" 
-                  required
-                  placeholder="Contrat de travail..." 
-                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }} 
-                />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Description</label>
-                <textarea 
-                  name="description"
-                  placeholder="Description du document..."
-                  rows={3}
-                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13, resize: 'vertical' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Type *</label>
-                <select 
-                  name="type" 
-                  required
-                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}
-                >
-                  <option value="">Sélectionner...</option>
-                  <option value="CONTRACT">Contrat</option>
-                  <option value="CNSS">CNSS</option>
-                  <option value="ID">Pièce identité</option>
-                  <option value="DIPLOMA">Diplôme</option>
-                  <option value="INVOICE">Facture</option>
-                  <option value="REPORT">Rapport</option>
-                  <option value="POLICY">Politique</option>
-                  <option value="OTHER">Autre</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: Colors.textMuted, marginBottom: 6 }}>Catégorie *</label>
-                <select 
-                  name="category" 
-                  required
-                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1px solid ${Colors.border}`, background: Colors.bg, color: Colors.text, fontSize: 13 }}
-                >
-                  <option value="">Sélectionner...</option>
-                  <option value="RH">Ressources Humaines</option>
-                  <option value="FINANCE">Finance</option>
-                  <option value="JURIDIQUE">Juridique</option>
-                  <option value="TECHNIQUE">Technique</option>
-                  <option value="COMMERCIAL">Commercial</option>
-                  <option value="GENERAL">Général</option>
-                </select>
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input 
-                    name="signatureRequired" 
-                    type="checkbox"
-                    style={{ width: 16, height: 16 }}
-                  />
-                  <span style={{ fontSize: 13, color: Colors.text }}>Signature requise</span>
-                </label>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-              <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>Annuler</Button>
-              <Button variant="primary" type="submit">Créer</Button>
-            </div>
-          </form>
-        )}
+        ) : null}
       </Modal>
     </div>
   );
-};
+}
 
 export default Documents;
-

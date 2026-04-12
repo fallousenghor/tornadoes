@@ -7,20 +7,25 @@ import type { Program, Module } from '@/types';
 // Types backend
 interface ProgramResponse {
   id: string;
-  name: string;
+  title: string;
   description?: string;
-  duration: number;
-  price: number;
-  modules: ModuleResponse[];
+  durationWeeks: number;
+  maxStudents?: number;
+  level?: string;
+  active?: boolean;
+  passingScore?: number;
+  totalHours?: number;
+  currentEnrollments?: number;
+  modules?: ModuleResponse[];
   createdAt: string;
 }
 
 interface ModuleResponse {
   id: string;
-  name: string;
-  duration: number;
-  order: number;
-  teacherId?: string;
+  title: string;
+  durationHours: number;
+  orderIndex: number;
+  teacherName?: string;
 }
 
 interface PageResponse<T> {
@@ -36,19 +41,19 @@ interface PageResponse<T> {
 // Mapper la réponse backend vers le format frontend
 const mapProgram = (response: ProgramResponse): Program => ({
   id: response.id,
-  name: response.name,
+  name: response.title,
   description: response.description,
-  duration: response.duration,
-  price: response.price,
+  duration: response.durationWeeks,
+  price: 0,
   modules: response.modules?.map(m => ({
     id: m.id,
     programId: response.id,
-    name: m.name,
-    duration: m.duration,
-    order: m.order,
-    teacherId: m.teacherId,
+    name: m.title,
+    duration: m.durationHours,
+    order: m.orderIndex,
+    teacherId: '',
   })) || [],
-  studentsCount: 0, // À calculer via enrollments
+  studentsCount: response.currentEnrollments || 0,
   activeStudents: 0,
   completionRate: 0,
 });
@@ -97,10 +102,14 @@ const programService = {
    * Créer un nouveau programme
    */
   async createProgram(data: {
-    name: string;
+    title: string;
     description?: string;
-    duration: number;
-    price: number;
+    level: string;
+    durationWeeks: number;
+    maxStudents?: number;
+    startDate?: string;
+    endDate?: string;
+    passingScore?: number;
   }): Promise<Program> {
     const response = await api.post<ProgramResponse>('/v1/programs', data);
     return mapProgram(response.data as unknown as ProgramResponse);
@@ -110,13 +119,24 @@ const programService = {
    * Mettre à jour un programme
    */
   async updateProgram(id: string, data: {
-    name?: string;
+    title?: string;
     description?: string;
-    duration?: number;
-    price?: number;
+    level?: string;
+    durationWeeks?: number;
+    maxStudents?: number;
+    startDate?: string;
+    endDate?: string;
+    passingScore?: number;
   }): Promise<Program> {
     const response = await api.put<ProgramResponse>(`/v1/programs/${id}`, data);
     return mapProgram(response.data as unknown as ProgramResponse);
+  },
+
+  /**
+   * Supprimer un programme
+   */
+  async deleteProgram(id: string): Promise<void> {
+    await api.delete(`/v1/programs/${id}`);
   },
 
   /**

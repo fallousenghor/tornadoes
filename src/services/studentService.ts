@@ -110,6 +110,13 @@ const studentService = {
     const response = await api.put<StudentResponse>(`/v1/students/${id}`, data);
     return mapStudent(response.data as unknown as StudentResponse);
   },
+
+  /**
+   * Supprimer un apprenant
+   */
+  async deleteStudent(id: string): Promise<void> {
+    await api.delete(`/v1/students/${id}`);
+  },
 };
 
 export default studentService;

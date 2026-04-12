@@ -77,7 +77,7 @@ const attendanceService = {
   },
 
   getAttendancesByEmployee: async (employeeId: string, params?: { fromDate?: string; toDate?: string }): Promise<PresenceRecord[]> => {
-    const response = await api.get(`/api/v1/attendance/employee/${employeeId}`, { params });
+    const response = await api.get(`/v1/attendance/employee/${employeeId}`, { params });
     return (response.data.content || response.data).map(mapAttendance as any);
   },
 
