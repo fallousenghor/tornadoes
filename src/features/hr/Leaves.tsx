@@ -2,7 +2,7 @@
 // Complete leave management with requests, balances, and approvals
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Card, Button, Badge, SearchInput } from '../../components/common';
+import { Card, Button, SearchInput } from '../../components/common';
 import { Colors } from '../../constants/theme';
 import leaveService from '../../services/leaveService';
 import employeeService from '../../services/employeeService';
@@ -46,15 +46,28 @@ interface LeaveDistribution {
   color: string;
 }
 
+const LEAVE_ALLOWANCES: Record<LeaveType, number> = {
+  annuel: 24,
+  maladie: 10,
+  maternite: 14,
+  sans_solde: 30,
+  exceptionnel: 5,
+};
+
+const LEAVE_DISTRIBUTION_META: Array<{ type: LeaveType; name: string; color: string }> = [
+  { type: 'annuel', name: 'Annuel', color: '#6490ff' },
+  { type: 'maladie', name: 'Maladie', color: '#3ecf8e' },
+  { type: 'maternite', name: 'Maternité', color: '#a78bfa' },
+  { type: 'sans_solde', name: 'Sans solde', color: '#fb923c' },
+  { type: 'exceptionnel', name: 'Exceptionnel', color: '#2dd4bf' },
+];
+
 export const Leaves: React.FC = () => {
   // State
   const toast = useToast();
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestDisplay[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceData[]>([]);
-  const [leaveDistribution, setLeaveDistribution] = useState<LeaveDistribution[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -109,48 +122,6 @@ export const Leaves: React.FC = () => {
     }
   }, []);
 
-  // Fetch leave statistics (distribution by type)
-  const fetchLeaveStats = useCallback(async () => {
-    try {
-      setLoadingStats(true);
-      const stats = await leaveService.getLeaveStats();
-      
-      // Convert backend stats to frontend format
-      const distribution: LeaveDistribution[] = [
-        { name: 'Annuel', value: stats.ANNUAL || 0, color: '#6490ff' },
-        { name: 'Maladie', value: stats.SICK || 0, color: '#3ecf8e' },
-        { name: 'Maternité', value: stats.MATERNITY || 0, color: '#a78bfa' },
-        { name: 'Sans solde', value: stats.UNPAID || 0, color: '#fb923c' },
-        { name: 'Exceptionnel', value: stats.EXCEPTIONAL || 0, color: '#2dd4bf' },
-      ];
-      
-      setLeaveDistribution(distribution);
-    } catch (err) {
-      console.error('Error fetching leave stats:', err);
-      // Fallback to empty data on error
-      setLeaveDistribution([
-        { name: 'Annuel', value: 0, color: '#6490ff' },
-        { name: 'Maladie', value: 0, color: '#3ecf8e' },
-        { name: 'Maternité', value: 0, color: '#a78bfa' },
-        { name: 'Sans solde', value: 0, color: '#fb923c' },
-        { name: 'Exceptionnel', value: 0, color: '#2dd4bf' },
-      ]);
-    } finally {
-      setLoadingStats(false);
-    }
-  }, []);
-
-  // Fetch leave balances
-  const fetchLeaveBalances = useCallback(async () => {
-    try {
-      const balances = await leaveService.getLeaveBalances();
-      setLeaveBalances(balances);
-    } catch (err) {
-      console.error('Error fetching leave balances:', err);
-      // Keep empty on error
-    }
-  }, []);
-
   // Load data on mount
   useEffect(() => {
     fetchEmployees();
@@ -159,37 +130,89 @@ export const Leaves: React.FC = () => {
   useEffect(() => {
     if (employees.length > 0) {
       fetchLeaveRequests();
-      fetchLeaveStats();
-      fetchLeaveBalances();
     }
-  }, [employees, fetchLeaveRequests, fetchLeaveStats, fetchLeaveBalances]);
+  }, [employees, fetchLeaveRequests]);
 
-  // Calculate leave balances from backend data
-  const leaveBalancesData = useMemo((): LeaveBalanceData[] => {
-    if (leaveBalances.length > 0) {
-      return leaveBalances.map(balance => ({
-        employeeId: balance.employeeId,
-        employeeName: balance.employeeName,
-        department: balance.department,
-        annuel: balance.annuel,
-        maladie: balance.maladie,
-        maternite: balance.maternite,
-        sans_solde: balance.sans_solde,
-        exceptionnel: balance.exceptionnel,
-      }));
-    }
-    // Fallback: generate from employees if no backend data
-    return employees.map(emp => ({
-      employeeId: emp.id,
-      employeeName: `${emp.firstName} ${emp.lastName}`,
-      department: emp.departmentId || 'N/A',
-      annuel: { total: 24, used: 0, remaining: 24 },
-      maladie: { total: 10, used: 0, remaining: 10 },
-      maternite: { total: 14, used: 0, remaining: 14 },
-      sans_solde: { total: 30, used: 0, remaining: 30 },
-      exceptionnel: { total: 5, used: 0, remaining: 5 },
+  const leaveDistribution = useMemo((): LeaveDistribution[] => {
+    return LEAVE_DISTRIBUTION_META.map(({ type, name, color }) => ({
+      name,
+      color,
+      value: leaveRequests.filter(request => request.type === type).length,
     }));
-  }, [employees, leaveBalances]);
+  }, [leaveRequests]);
+
+  // Calculate leave balances from loaded leave requests
+  const leaveBalancesData = useMemo((): LeaveBalanceData[] => {
+    if (employees.length === 0 || leaveRequests.length === 0) {
+      return [];
+    }
+
+    const approvedDaysByEmployee = new Map<string, Record<LeaveType, number>>();
+
+    leaveRequests
+      .filter(request => request.status === 'approved')
+      .forEach(request => {
+        const current = approvedDaysByEmployee.get(request.employeeId) ?? {
+          annuel: 0,
+          maladie: 0,
+          maternite: 0,
+          sans_solde: 0,
+          exceptionnel: 0,
+        };
+        current[request.type] += request.days;
+        approvedDaysByEmployee.set(request.employeeId, current);
+      });
+
+    return employees
+      .filter(emp => leaveRequests.some(request => request.employeeId === emp.id))
+      .map(emp => {
+        const used = approvedDaysByEmployee.get(emp.id) ?? {
+          annuel: 0,
+          maladie: 0,
+          maternite: 0,
+          sans_solde: 0,
+          exceptionnel: 0,
+        };
+
+        return {
+          employeeId: emp.id,
+          employeeName: `${emp.firstName} ${emp.lastName}`,
+          department: emp.employeeNumber || 'N/A',
+          annuel: {
+            total: LEAVE_ALLOWANCES.annuel,
+            used: used.annuel,
+            remaining: Math.max(LEAVE_ALLOWANCES.annuel - used.annuel, 0),
+          },
+          maladie: {
+            total: LEAVE_ALLOWANCES.maladie,
+            used: used.maladie,
+            remaining: Math.max(LEAVE_ALLOWANCES.maladie - used.maladie, 0),
+          },
+          maternite: {
+            total: LEAVE_ALLOWANCES.maternite,
+            used: used.maternite,
+            remaining: Math.max(LEAVE_ALLOWANCES.maternite - used.maternite, 0),
+          },
+          sans_solde: {
+            total: LEAVE_ALLOWANCES.sans_solde,
+            used: used.sans_solde,
+            remaining: Math.max(LEAVE_ALLOWANCES.sans_solde - used.sans_solde, 0),
+          },
+          exceptionnel: {
+            total: LEAVE_ALLOWANCES.exceptionnel,
+            used: used.exceptionnel,
+            remaining: Math.max(LEAVE_ALLOWANCES.exceptionnel - used.exceptionnel, 0),
+          },
+        };
+      })
+      .sort((a, b) => {
+        const totalUsedA =
+          a.annuel.used + a.maladie.used + a.maternite.used + a.sans_solde.used + a.exceptionnel.used;
+        const totalUsedB =
+          b.annuel.used + b.maladie.used + b.maternite.used + b.sans_solde.used + b.exceptionnel.used;
+        return totalUsedB - totalUsedA;
+      });
+  }, [employees, leaveRequests]);
 
   // Filter requests
   const filteredRequests = useMemo(() => {
@@ -237,8 +260,6 @@ export const Leaves: React.FC = () => {
     try {
       await leaveService.approveLeave(requestId);
       fetchLeaveRequests();
-      fetchLeaveStats();
-      fetchLeaveBalances();
       toast.success('Demande approuvée');
     } catch (err) {
       console.error('Error approving leave:', err);
@@ -254,8 +275,6 @@ export const Leaves: React.FC = () => {
     try {
       await leaveService.rejectLeave(requestId);
       fetchLeaveRequests();
-      fetchLeaveStats();
-      fetchLeaveBalances();
       toast.success('Demande rejetée');
     } catch (err) {
       console.error('Error rejecting leave:', err);
@@ -274,8 +293,6 @@ export const Leaves: React.FC = () => {
         reason: data.reason,
       });
       fetchLeaveRequests();
-      fetchLeaveStats();
-      fetchLeaveBalances();
       toast.success('Demande créée');
     } catch (err) {
       console.error('Error creating leave request:', err);
@@ -311,6 +328,9 @@ export const Leaves: React.FC = () => {
     const max = Math.max(...leaveDistribution.map(d => d.value));
     return max > 0 ? max : 50;
   }, [leaveDistribution]);
+
+  const hasLeaveDistributionData = leaveDistribution.some(item => item.value > 0);
+  const hasLeaveBalanceData = leaveBalancesData.length > 0;
 
   return (
     <div style={{ padding: 24 }}>
@@ -483,29 +503,35 @@ export const Leaves: React.FC = () => {
           <h3 style={{ fontSize: 14, fontWeight: 600, color: Colors.text, marginBottom: 16 }}>
             Répartition des Congés
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {leaveDistribution.map((item) => (
-              <div key={item.name}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: Colors.textMuted }}>{item.name}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>{item.value}</span>
-                </div>
-                <div style={{ 
-                  height: 8, 
-                  background: 'rgba(100, 140, 255, 0.1)', 
-                  borderRadius: 4, 
-                  overflow: 'hidden',
-                }}>
+          {!hasLeaveDistributionData ? (
+            <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted, fontSize: 13 }}>
+              Aucune demande de congé disponible pour afficher une répartition.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {leaveDistribution.map((item) => (
+                <div key={item.name}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, color: Colors.textMuted }}>{item.name}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: Colors.text }}>{item.value}</span>
+                  </div>
                   <div style={{ 
-                    width: `${(item.value / 50) * 100}%`, 
-                    height: '100%', 
-                    background: item.color,
-                    borderRadius: 4,
-                  }} />
+                    height: 8, 
+                    background: 'rgba(100, 140, 255, 0.1)', 
+                    borderRadius: 4, 
+                    overflow: 'hidden',
+                  }}>
+                    <div style={{ 
+                      width: `${(item.value / maxValue) * 100}%`, 
+                      height: '100%', 
+                      background: item.color,
+                      borderRadius: 4,
+                    }} />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
         
         <Card style={{ padding: 20 }}>
@@ -515,6 +541,10 @@ export const Leaves: React.FC = () => {
           {loading ? (
             <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>
               Chargement...
+            </div>
+          ) : !hasLeaveBalanceData ? (
+            <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted, fontSize: 13 }}>
+              Aucun solde de congé exploitable pour le moment.
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
