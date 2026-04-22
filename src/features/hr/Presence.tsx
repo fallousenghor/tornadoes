@@ -2,10 +2,9 @@
 // Complete presence tracking with daily logs, statistics and reports
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import DeleteConfirmModal from './components/DeleteConfirmModal';
-import { Card, Button, Badge, SearchInput, Modal } from '../../components/common';
+import { Card, Button, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
-import attendanceService, { WeeklyPresenceData } from '../../services/attendanceService';
+import attendanceService from '../../services/attendanceService';
 import employeeService from '../../services/employeeService';
 import type { Employee, PresenceStatus } from '../../types';
 
@@ -14,6 +13,7 @@ interface DailyPresence {
   id: string;
   date: Date;
   employeeId: string;
+  employeeNumber: string;
   employeeName: string;
   department: string;
   checkIn?: string;
@@ -27,7 +27,6 @@ export const Presence: React.FC = () => {
   // State
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [presenceRecords, setPresenceRecords] = useState<DailyPresence[]>([]);
-  const [weeklyData, setWeeklyData] = useState<WeeklyPresenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,7 +44,6 @@ export const Presence: React.FC = () => {
   });
   const [editingRecord, setEditingRecord] = useState<DailyPresence | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const itemsPerPage = 10;
 
   // Fetch employees
@@ -64,11 +62,6 @@ export const Presence: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch weekly data for chart
-      const weekly = await attendanceService.getWeeklyPresence();
-      setWeeklyData(weekly);
-
-// Fetch real daily presence records from API
       const sevenDaysAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
       const attendanceResponse = await attendanceService.getAttendances({
         page: 0,
@@ -80,6 +73,7 @@ export const Presence: React.FC = () => {
         id: record.id,
         date: record.date,
         employeeId: record.employeeId,
+        employeeNumber: employees.find(emp => emp.id === record.employeeId)?.employeeNumber || 'N/A',
         employeeName: record.employeeName || 'N/A',
         department: record.department || 'N/A',
         checkIn: record.checkIn instanceof Date 
@@ -121,6 +115,7 @@ export const Presence: React.FC = () => {
     return presenceRecords.filter(record => {
       const matchesSearch = 
         record.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        record.employeeNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         record.department.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
@@ -132,7 +127,7 @@ export const Presence: React.FC = () => {
 
   // Calculate statistics
   const stats = useMemo(() => {
-    const total = presenceRecords.length || 1;
+    const total = presenceRecords.length;
     const present = presenceRecords.filter(r => r.status === 'present').length;
     const absent = presenceRecords.filter(r => r.status === 'absent').length;
     const late = presenceRecords.filter(r => r.status === 'late').length;
@@ -221,32 +216,6 @@ export const Presence: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (deleteConfirm) {
-      try {
-        await attendanceService.deleteRecord(deleteConfirm.id);
-        fetchPresenceData();
-      } catch (err) {
-        console.error('Delete error:', err);
-      }
-      setDeleteConfirm(null);
-    }
-  };
-
-    const handleDelete = (record: DailyPresence) => {
-      setDeleteConfirm({ id: record.id, name: record.employeeName });
-    };
-
-    {deleteConfirm && (
-      <DeleteConfirmModal
-        isOpen={true}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={handleDeleteConfirm}
-        title="Supprimer présence"
-        message={`Confirmer la suppression de la présence de ${deleteConfirm.name} ?`}
-      />
-    )}
-
   // Status badge colors
   const getStatusBadge = (status: DailyPresence['status']) => {
     const styles: Record<string, { bg: string; color: string; label: string }> = {
@@ -258,19 +227,23 @@ export const Presence: React.FC = () => {
     return styles[status] || styles.present;
   };
 
-  // Default weekly data if empty
-  const displayWeeklyData = weeklyData.length > 0 ? weeklyData.map(d => ({
-    jour: d.dayOfWeek || 'Lun',
-    presents: d.present || 0,
-    absents: d.absent || 0,
-    retards: d.late || 0
-  })) : [
-    { jour: 'Lun', presents: 0, absents: 0, retards: 0 },
-    { jour: 'Mar', presents: 0, absents: 0, retards: 0 },
-    { jour: 'Mer', presents: 0, absents: 0, retards: 0 },
-    { jour: 'Jeu', presents: 0, absents: 0, retards: 0 },
-    { jour: 'Ven', presents: 0, absents: 0, retards: 0 },
-  ];
+  const displayWeeklyData = useMemo(() => {
+    const dayLabels = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    const recentDays = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - index));
+      const iso = date.toISOString().split('T')[0];
+      const recordsForDay = presenceRecords.filter(record => record.date.toISOString().split('T')[0] === iso);
+      return {
+        jour: dayLabels[date.getDay()],
+        presents: recordsForDay.filter(record => record.status === 'present').length,
+        absents: recordsForDay.filter(record => record.status === 'absent').length,
+        retards: recordsForDay.filter(record => record.status === 'late').length,
+      };
+    });
+
+    return recentDays;
+  }, [presenceRecords]);
 
   return (
     <div style={{ padding: 24 }}>
@@ -597,7 +570,6 @@ export const Presence: React.FC = () => {
               <option value="present">Présent</option>
               <option value="absent">Absent</option>
               <option value="late">Retard</option>
-              <option value="leave">Congé</option>
             </select>
           </div>
           <div>
@@ -678,6 +650,9 @@ export const Presence: React.FC = () => {
                               <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
                                 {record.employeeName}
                               </div>
+                              <div style={{ fontSize: 12, color: Colors.textMuted }}>
+                                {record.employeeNumber}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -720,13 +695,6 @@ export const Presence: React.FC = () => {
                               onClick={() => handleEdit(record)}
                               style={{ padding: '4px 8px', fontSize: 11 }}>
                               ✎ Éditer
-                            </Button>
-                            <Button 
-                              variant="secondary" 
-                              size="sm" 
-                              onClick={() => handleDelete(record)}
-                              style={{ padding: '4px 8px', fontSize: 11, color: '#ef4444' }}>
-                              🗑 Supprimer
                             </Button>
                           </div>
                         </td>
@@ -863,7 +831,6 @@ export const Presence: React.FC = () => {
                   { value: 'present', label: 'Présent', color: '#3ecf8e' },
                   { value: 'absent', label: 'Absent', color: '#e05050' },
                   { value: 'late', label: 'Retard', color: '#fb923c' },
-                  { value: 'leave', label: 'Congé', color: '#6490ff' },
                 ].map(option => (
                   <label key={option.value} style={{ 
                     flex: 1,
@@ -971,4 +938,3 @@ export const Presence: React.FC = () => {
 };
 
 export default Presence;
-

@@ -5,10 +5,14 @@ import type { PresenceRecord, PresenceStatus } from '@/types';
 interface AttendanceResponse {
   id: string;
   employeeId: string;
+  employeeNumber?: string;
   employeeName?: string;
   departmentName?: string;
-  recordDate: string;
+  attendanceDate?: string;
+  recordDate?: string;
+  checkIn?: string;
   checkInTime?: string;
+  checkOut?: string;
   checkOutTime?: string;
   status: string;
   lateMinutes?: number;
@@ -16,15 +20,32 @@ interface AttendanceResponse {
   workedHours?: string;
 }
 
+const ATTENDANCE_BASE_PATH = '/v1/attendances';
+
+const parseTimeToDate = (time?: string): Date | undefined => {
+  if (!time) return undefined;
+  const parsed = new Date(`1970-01-01T${time}`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
 const mapStatus = (backendStatus: string): PresenceStatus => {
   const statusMap: Record<string, PresenceStatus> = {
     'PRESENT': 'present',
     'ABSENT': 'absent',
-    'LATE': 'late',
-    'ON_LEAVE': 'leave',
-    'REMOTE': 'present'
+    'HALF_DAY': 'late',
+    'REMOTE': 'present',
   };
   return statusMap[backendStatus as keyof typeof statusMap] || 'present';
+};
+
+const parseAttendanceDate = (response: AttendanceResponse): Date => {
+  const rawDate = response.attendanceDate || response.recordDate;
+  if (!rawDate) {
+    return new Date();
+  }
+
+  const parsed = new Date(rawDate);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
 const mapAttendance = (response: AttendanceResponse): PresenceRecord => ({
@@ -32,9 +53,9 @@ const mapAttendance = (response: AttendanceResponse): PresenceRecord => ({
   employeeId: response.employeeId,
   employeeName: response.employeeName || 'N/A',
   department: response.departmentName || 'N/A',
-  date: new Date(response.recordDate),
-  checkIn: response.checkInTime ? new Date(response.checkInTime) : undefined,
-  checkOut: response.checkOutTime ? new Date(response.checkOutTime) : undefined,
+  date: parseAttendanceDate(response),
+  checkIn: parseTimeToDate(response.checkIn || response.checkInTime),
+  checkOut: parseTimeToDate(response.checkOut || response.checkOutTime),
   status: mapStatus(response.status),
   notes: response.notes,
 });
@@ -47,11 +68,6 @@ export interface WeeklyPresenceData {
 }
 
 const attendanceService = {
-  /** Get attendances by employee ID with optional date range */
-  deleteRecord: async (id: string): Promise<void> => {
-    await api.delete(`/v1/attendance/${id}`);
-  },
-
   updateRecord: async (id: string, data: {
     checkIn?: string;
     checkOut?: string;
@@ -61,8 +77,8 @@ const attendanceService = {
     const statusMap = {
       present: 'PRESENT',
       absent: 'ABSENT',
-      late: 'LATE',
-      leave: 'ON_LEAVE'
+      late: 'HALF_DAY',
+      leave: 'ABSENT'
     } as Record<PresenceStatus, string>;
     
     const body = {
@@ -72,12 +88,15 @@ const attendanceService = {
       notes: data.notes
     };
     
-    const response = await api.put<AttendanceResponse>(`/v1/attendance/${id}`, body);
+    const response = await api.put<AttendanceResponse>(`${ATTENDANCE_BASE_PATH}/${id}`, body);
     return mapAttendance(response.data);
   },
 
   getAttendancesByEmployee: async (employeeId: string, params?: { fromDate?: string; toDate?: string }): Promise<PresenceRecord[]> => {
-    const response = await api.get(`/v1/attendance/employee/${employeeId}`, { params });
+    const backendParams = params?.fromDate && params?.toDate
+      ? { from: params.fromDate, to: params.toDate }
+      : undefined;
+    const response = await api.get(`${ATTENDANCE_BASE_PATH}/employee/${employeeId}`, { params: backendParams });
     return (response.data.content || response.data).map(mapAttendance as any);
   },
 
@@ -93,33 +112,42 @@ const attendanceService = {
     const statusMap = {
       present: 'PRESENT',
       absent: 'ABSENT',
-      late: 'LATE',
-      leave: 'ON_LEAVE'
+      late: 'HALF_DAY',
+      leave: 'ABSENT'
     } as Record<PresenceStatus, string>;
 
     const body = {
       employeeId: data.employeeId,
-      recordDate: data.date,  // Backend expects "recordDate", not "date"
+      date: data.date,
       checkIn: data.checkIn,
       checkOut: data.checkOut,
       status: statusMap[data.status] || 'PRESENT',
       notes: data.notes
     };
 
-    const response = await api.post<AttendanceResponse>('/v1/attendance', body);
+    const response = await api.post<AttendanceResponse>(ATTENDANCE_BASE_PATH, body);
     return mapAttendance(response.data);
   },
 
-  /** Get company-wide presence stats */
-  getPresenceStats: async () => {
-    const response = await api.get('/v1/attendance/stats');
-    return response.data;
-  },
-
-  /** Get weekly presence data for charts */
   getWeeklyPresence: async (): Promise<WeeklyPresenceData[]> => {
-    const response = await api.get('/v1/attendance/weekly');
-    return response.data.days || [];
+    const attendanceResult = await attendanceService.getAttendances({});
+    const dayLabels = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - index));
+      const iso = date.toISOString().split('T')[0];
+      const recordsForDay = attendanceResult.data.filter(
+        record => record.date.toISOString().split('T')[0] === iso
+      );
+
+      return {
+        dayOfWeek: dayLabels[date.getDay()],
+        present: recordsForDay.filter(record => record.status === 'present').length,
+        absent: recordsForDay.filter(record => record.status === 'absent').length,
+        late: recordsForDay.filter(record => record.status === 'late').length,
+      };
+    });
   },
 
   /** List attendances with filters/pagination */
@@ -130,18 +158,27 @@ const attendanceService = {
     fromDate?: string;
     toDate?: string;
   }) => {
-    const response = await api.get('/v1/attendance', { params });
-    // Handle both paginated and non-paginated responses
+    const response = await api.get(ATTENDANCE_BASE_PATH);
     const data = response.data;
     const records = Array.isArray(data) ? data : (data.content || []);
+    const normalizedStatus = params.status && params.status !== 'all' ? params.status : undefined;
+    const filtered = records
+      .map(mapAttendance as any)
+      .filter((record: PresenceRecord) => {
+        const recordDate = record.date.toISOString().split('T')[0];
+        if (params.fromDate && recordDate < params.fromDate) return false;
+        if (params.toDate && recordDate > params.toDate) return false;
+        if (normalizedStatus && record.status !== normalizedStatus) return false;
+        return true;
+      });
+
     return {
-      data: records.map(mapAttendance as any),
-      total: Array.isArray(data) ? data.length : (data.totalElements || 0),
-      page: Array.isArray(data) ? 0 : (data.page || 0),
-      pageSize: Array.isArray(data) ? records.length : (data.size || 10)
+      data: filtered,
+      total: filtered.length,
+      page: params.page || 0,
+      pageSize: params.pageSize || filtered.length || 10
     };
   },
 };
 
 export default attendanceService;
-
