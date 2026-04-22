@@ -73,9 +73,18 @@ export const EmployeeDetail: React.FC = () => {
       setLoading(true);
       setError(null);
       const emp = await employeeService.getEmployee(id);
-      setEmployee({
-        ...emp,
-        departmentName: departments.find(d => d.id === emp.departmentId)?.name || 'N/A'
+      setEmployee((prevEmployee) => {
+        // Éviter les re-renders si les données n'ont pas changé
+        if (prevEmployee?.id === emp.id) {
+          return {
+            ...emp,
+            departmentName: departments.find(d => d.id === emp.departmentId)?.name || 'N/A'
+          };
+        }
+        return {
+          ...emp,
+          departmentName: departments.find(d => d.id === emp.departmentId)?.name || 'N/A'
+        };
       });
     } catch (err) {
       console.error('Error fetching employee:', err);
@@ -128,11 +137,12 @@ export const EmployeeDetail: React.FC = () => {
     fetchDepartments();
   }, [fetchDepartments]);
 
+  // Fetch employee - seulement quand l'ID change
   useEffect(() => {
-    if (departments.length > 0) {
+    if (departments.length > 0 && id) {
       fetchEmployee();
     }
-  }, [id, departments.length, fetchEmployee]);
+  }, [id]); // Retirer fetchEmployee de les dépendances!
 
   // Fetch tab-specific data when tab changes
   useEffect(() => {
@@ -142,7 +152,7 @@ export const EmployeeDetail: React.FC = () => {
     if (activeTab === 'performance' && performanceReviews.length === 0) {
       fetchPerformanceReviews();
     }
-  }, [activeTab, id]);
+  }, [activeTab, fetchLeaveRequests, fetchPerformanceReviews]);
 
   // Handle go back
   const handleBack = () => {
