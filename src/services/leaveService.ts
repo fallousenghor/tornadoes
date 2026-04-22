@@ -8,6 +8,7 @@ import type { LeaveRequest, LeaveStatus, LeaveType } from '@/types';
 interface LeaveResponse {
   id: string;
   employeeId: string;
+  employeeNumber?: string;
   employeeName?: string;
   leaveType: string;
   startDate: string;
@@ -106,6 +107,7 @@ const mapStatus = (backendStatus: string): LeaveStatus => {
 const mapLeave = (response: LeaveResponse): LeaveRequest => ({
   id: response.id,
   employeeId: response.employeeId,
+  employeeNumber: response.employeeNumber,
   type: mapLeaveType(response.leaveType),
   startDate: new Date(response.startDate),
   endDate: new Date(response.endDate),

@@ -190,6 +190,7 @@ export type PresenceStatus = 'present' | 'absent' | 'late' | 'leave';
 export interface LeaveRequest {
   id: string;
   employeeId: string;
+  employeeNumber?: string;
   type: LeaveType;
   startDate: Date;
   endDate: Date;
@@ -858,4 +859,3 @@ export interface Student {
 }
 
 export type StudentStatus = 'ACTIVE' | 'GRADUATED' | 'SUSPENDED' | 'DROPPED_OUT';
-

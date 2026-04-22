@@ -15,6 +15,7 @@ import { useToast } from '../../store/toastStore';
 interface LeaveRequestDisplay {
   id: string;
   employeeId: string;
+  employeeNumber: string;
   employeeName: string;
   department: string;
   type: LeaveType;
@@ -76,6 +77,7 @@ export const Leaves: React.FC = () => {
         return {
           id: leave.id,
           employeeId: leave.employeeId,
+          employeeNumber: leave.employeeNumber || emp?.employeeNumber || 'N/A',
           employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown',
           department: emp?.departmentId || 'N/A',
           type: leave.type,
@@ -194,6 +196,7 @@ export const Leaves: React.FC = () => {
     return leaveRequests.filter(request => {
       const matchesSearch = 
         request.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        request.employeeNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         request.department.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
@@ -676,7 +679,7 @@ export const Leaves: React.FC = () => {
                                 {request.employeeName}
                               </div>
                               <div style={{ fontSize: 12, color: Colors.textMuted }}>
-                                {request.department}
+                                {request.employeeNumber}
                               </div>
                             </div>
                           </div>
@@ -853,4 +856,3 @@ export const Leaves: React.FC = () => {
 };
 
 export default Leaves;
-

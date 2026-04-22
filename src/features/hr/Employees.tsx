@@ -59,7 +59,8 @@ export const Employees: React.FC = () => {
       setError(null);
       const response = await employeeService.getEmployees();
       
-      // Enrich employees with department names
+      // Enrich employees with department names MAINTENANT
+      // On utilise departments de state qui a été mis à jour
       const enrichedEmployees: EmployeeDisplay[] = response.data.map(emp => {
         const dept = departments.find(d => d.id === emp.departmentId);
         return { ...emp, departmentName: dept?.name || 'N/A' };
@@ -69,11 +70,10 @@ export const Employees: React.FC = () => {
     } catch (err) {
       console.error('Error fetching employees:', err);
       setError('Erreur lors du chargement des employés - utilisation des données locales');
-      // No fallback - just show empty or error state
     } finally {
       setLoading(false);
     }
-  }, [departments]);
+  }, [departments]); // ✅ Garder departments pour enrichissement des données
 
   // Fetch departments
   const fetchDepartments = useCallback(async () => {
@@ -91,18 +91,21 @@ export const Employees: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching departments:', err);
-      // Keep fallback to mock data
     }
   }, []);
 
-  // Load data on mount
+  // ✅ Phase 1: Charger les départements au montage
   useEffect(() => {
     fetchDepartments();
-  }, [fetchDepartments]);
+  }, []);
 
+  // ✅ Phase 2: Charger employés uniquement quand departments.length change
+  // Cela évite la boucle infinie car fetchEmployees change seulement quand departments change
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
+    if (departments.length > 0) {
+      fetchEmployees();
+    }
+  }, [departments.length]); // ✅ JUSTE departments.length, pas fetchEmployees!
 
   // Filter employees
   const filteredEmployees = useMemo(() => {

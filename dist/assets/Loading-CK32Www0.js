@@ -1,0 +1,1 @@
+import{a as t,j as a}from"./index-Cf1ZBa6W.js";const m=({size:r="md",className:e="",style:i})=>{const{colors:o}=t(),s={sm:20,md:32,lg:48},n={width:s[r],height:s[r],border:`3px solid ${o.border}`,borderTopColor:o.primary,borderRadius:"50%",animation:"spin 1s linear infinite",...i};return a.jsx("div",{style:n,className:e})};export{m as L};
