@@ -3,15 +3,17 @@
 
 import React, { useState, useRef } from 'react';
 import { Modal, Button } from '../../../components/common';
+import { LoadingSpinner } from '../../../components/common/Loading';
 import { Colors } from '../../../constants/theme';
 import type { Employee, ContractType, Department } from '../../../types';
 
 interface EmployeeFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: EmployeeFormData, photoFile?: File) => void;
+  onSubmit: (data: EmployeeFormData, photoFile?: File) => Promise<void>;
   employee?: Employee | null;
   departments?: Department[];
+  isLoading?: boolean;
 }
 
 export interface EmployeeFormData {
@@ -33,6 +35,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
   onSubmit,
   employee,
   departments = [],
+  isLoading = false,
 }) => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(employee?.photoUrl || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -58,8 +61,10 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLoading) return; // Prevent double submission
+    
     const formData = new FormData(e.currentTarget);
     
     const data: EmployeeFormData = {
@@ -75,18 +80,20 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
       notes: formData.get('notes') as string,
     };
     
-    // Pass both data and optional photo file
-    onSubmit(data, photoFile || undefined);
-    onClose();
-    
-    // Reset form after close
-    setTimeout(() => {
+    // Pass both data and optional photo file and wait for completion
+    try {
+      await onSubmit(data, photoFile || undefined);
+      
+      // Reset form after successful submission
       setPhotoPreview(null);
       setPhotoFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    }, 300);
+    } catch (error) {
+      // Error is handled by parent, just don't reset the form
+      console.error('Form submission error:', error);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -114,7 +121,39 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
       title={employee ? "Modifier l'employé" : "Nouvel Employé"}
       size="lg"
     >
-      <form onSubmit={handleSubmit}>
+      {isLoading && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '8px',
+          zIndex: 1000,
+          backdropFilter: 'blur(2px)',
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 12,
+          }}>
+            <LoadingSpinner size="lg" />
+            <span style={{
+              fontSize: 14,
+              fontWeight: 500,
+              color: Colors.text,
+            }}>
+              {employee ? 'Mise à jour en cours...' : 'Création en cours...'}
+            </span>
+          </div>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} style={{ opacity: isLoading ? 0.5 : 1, pointerEvents: isLoading ? 'none' : 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           
           {/* Photo Upload Section */}
@@ -139,6 +178,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                   <button
                     type="button"
                     onClick={handleRemovePhoto}
+                    disabled={isLoading}
                     style={{
                       position: 'absolute',
                       top: -8,
@@ -149,11 +189,12 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                       background: '#e05050',
                       color: 'white',
                       border: 'none',
-                      cursor: 'pointer',
+                      cursor: isLoading ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: 14,
+                      opacity: isLoading ? 0.5 : 1,
                     }}
                     title="Supprimer la photo"
                   >
@@ -162,7 +203,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 </div>
               ) : (
                 <div
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => !isLoading && fileInputRef.current?.click()}
                   style={{
                     width: 100,
                     height: 100,
@@ -171,10 +212,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
                     background: 'rgba(100, 140, 255, 0.05)',
                     flexDirection: 'column',
                     gap: 4,
+                    opacity: isLoading ? 0.5 : 1,
                   }}
                 >
                   <span style={{ fontSize: 24, color: Colors.textMuted }}>📷</span>
@@ -186,6 +228,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 type="file"
                 accept="image/*"
                 onChange={handlePhotoChange}
+                disabled={isLoading}
                 style={{ display: 'none' }}
               />
             </div>
@@ -198,6 +241,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               style={inputStyle}
               placeholder="Prénom" 
               defaultValue={employee?.firstName} 
+              disabled={isLoading}
               required 
             />
           </div>
@@ -208,6 +252,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               style={inputStyle}
               placeholder="Nom" 
               defaultValue={employee?.lastName} 
+              disabled={isLoading}
               required 
             />
           </div>
@@ -219,6 +264,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               style={inputStyle}
               placeholder="email@exemple.sn" 
               defaultValue={employee?.email} 
+              disabled={isLoading}
               required 
             />
           </div>
@@ -229,7 +275,8 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               type="tel"
               style={inputStyle}
               placeholder="+221 77 XXX XX XX" 
-              defaultValue={employee?.phone} 
+              defaultValue={employee?.phone}
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -239,6 +286,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               style={inputStyle}
               placeholder="Développeur, Manager..." 
               defaultValue={employee?.poste} 
+              disabled={isLoading}
               required 
             />
           </div>
@@ -248,6 +296,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               name="departmentId"
               defaultValue={employee?.departmentId || ''}
               style={inputStyle}
+              disabled={isLoading}
             >
               <option value="">Sélectionner un département</option>
               {(departments.length > 0 ? departments : []).map(dept => (
@@ -261,6 +310,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               name="contractType"
               defaultValue={employee?.contractType || 'CDI'}
               style={inputStyle}
+              disabled={isLoading}
             >
               <option value="CDI">CDI</option>
               <option value="CDD">CDD</option>
@@ -277,6 +327,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               style={inputStyle}
               placeholder="50000" 
               defaultValue={employee?.salary} 
+              disabled={isLoading}
               required 
             />
           </div>
@@ -287,6 +338,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               type="date" 
               defaultValue={employee?.startDate ? new Date(employee.startDate).toISOString().split('T')[0] : ''}
               style={inputStyle}
+              disabled={isLoading}
             />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
@@ -295,6 +347,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               name="notes"
               placeholder="Notes supplémentaires..."
               defaultValue={employee?.notes}
+              disabled={isLoading}
               rows={3}
               style={{
                 ...inputStyle,
@@ -304,11 +357,18 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-          <Button variant="secondary" type="button" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={onClose} disabled={isLoading}>
             Annuler
           </Button>
-          <Button variant="primary" type="submit">
-            {employee ? 'Enregistrer' : "Créer l'employé"}
+          <Button variant="primary" type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>{employee ? 'Mise à jour...' : 'Création...'}</span>
+              </>
+            ) : (
+              employee ? 'Enregistrer' : "Créer l'employé"
+            )}
           </Button>
         </div>
       </form>

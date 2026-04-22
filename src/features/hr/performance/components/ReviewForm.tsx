@@ -7,6 +7,7 @@ import { Colors } from '../../../../constants/theme';
 import type { PerformanceReview, ReviewFormData } from '../types';
 import type { Employee } from '../../../../types';
 import { PERIOD_OPTIONS, RATING_OPTIONS } from '../types';
+import { formatEntityName } from '../utils/nullableValueFormatter';
 
 interface ReviewFormProps {
   isOpen: boolean;
@@ -89,8 +90,10 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
               disabled={!!review}
             >
               <option value="">Sélectionner un employé</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+              {employees.filter(emp => emp.firstName && emp.lastName).map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {formatEntityName(`${emp.firstName} ${emp.lastName}`)}
+                </option>
               ))}
             </select>
           </div>

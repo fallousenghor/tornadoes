@@ -6,6 +6,7 @@ import { Card } from '../../../../components/common';
 import { Colors } from '../../../../constants/theme';
 import type { PerformanceReview } from '../types';
 import { formatDate, renderStars, getRatingBadge, getReviewStatusBadge } from '../utils/formatters';
+import { formatReviewerName, isMissing } from '../utils/nullableValueFormatter';
 
 interface ReviewsTableProps {
   reviews: PerformanceReview[];
@@ -83,14 +84,14 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={avatarStyle}>
-                        {review.employeeName.split(' ').map(n => n[0]).join('')}
+                        {isMissing(review.employeeName) ? '?' : review.employeeName.split(' ').map(n => n[0]).join('')}
                       </div>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: Colors.text }}>
-                          {review.employeeName}
+                        <div style={{ fontSize: 14, fontWeight: 500, color: isMissing(review.employeeName) ? '#64748b' : Colors.text }}>
+                          {isMissing(review.employeeName) ? <span style={{ fontStyle: 'italic' }}>Non spécifié</span> : review.employeeName}
                         </div>
-                        <div style={{ fontSize: 12, color: Colors.textMuted }}>
-                          {review.department}
+                        <div style={{ fontSize: 12, color: isMissing(review.department) ? '#f59e0b' : Colors.textMuted }}>
+                          {isMissing(review.department) ? <span style={{ fontStyle: 'italic' }}>Département inconnu</span> : review.department}
                         </div>
                       </div>
                     </div>
@@ -109,8 +110,8 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                     </span>
                     <span style={{ color: Colors.textMuted }}>/{review.objectivesTotal}</span>
                   </td>
-                  <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.textMuted }}>
-                    {review.reviewer}
+                  <td style={{ padding: '14px 16px', fontSize: 13, color: review.reviewer === 'Non assigné' ? Colors.textMuted : Colors.text }}>
+                    {review.reviewer === 'Non assigné' ? <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>⚠ {review.reviewer}</span> : review.reviewer}
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                     <span style={{ 

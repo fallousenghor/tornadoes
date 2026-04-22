@@ -6,6 +6,7 @@ import { Card } from '../../../../components/common';
 import { Colors } from '../../../../constants/theme';
 import type { Objective } from '../types';
 import { formatDate, getObjectiveStatus, calculateProgress } from '../utils/formatters';
+import { isMissing } from '../utils/nullableValueFormatter';
 
 interface ObjectivesTableProps {
   objectives: Objective[];
@@ -77,8 +78,8 @@ export const ObjectivesTable: React.FC<ObjectivesTableProps> = ({
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: '14px 16px', fontSize: 13, color: Colors.text }}>
-                    {objective.employeeName}
+                  <td style={{ padding: '14px 16px', fontSize: 13, color: isMissing(objective.employeeName) ? '#f59e0b' : Colors.text }}>
+                    {isMissing(objective.employeeName) ? <span style={{ fontStyle: 'italic' }}>Non spécifié</span> : objective.employeeName}
                   </td>
                   <td style={{ padding: '14px 16px', width: 200 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -49,6 +49,7 @@ export const Employees: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeDisplay | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const itemsPerPage = 8;
 
   // Fetch employees from API
@@ -173,6 +174,7 @@ export const Employees: React.FC = () => {
   // Handle form submission (create or update)
   const handleEmployeeSubmit = async (data: EmployeeFormData, photoFile?: File) => {
     try {
+      setIsSavingEmployee(true);
       if (selectedEmployee) {
         // Update existing employee
         const updateData: UpdateEmployeeRequest = {
@@ -188,6 +190,7 @@ export const Employees: React.FC = () => {
           notes: data.notes,
         };
         await employeeService.updateEmployee(selectedEmployee.id, updateData);
+        toast.success('Employé mis à jour');
       } else {
         // Create new employee - use with-photo endpoint if photo provided
         const createData: CreateEmployeeRequest = {
@@ -208,13 +211,16 @@ export const Employees: React.FC = () => {
         } else {
           await employeeService.createEmployee(createData);
         }
+        toast.success('Employé créé');
       }
       // Refresh the employee list
-      fetchEmployees();
-      toast.success(selectedEmployee ? 'Employé mis à jour' : 'Employé créé');
+      await fetchEmployees();
+      setIsModalOpen(false);
     } catch (err) {
       console.error('Error saving employee:', err);
       toast.error('Erreur lors de l\'enregistrement');
+    } finally {
+      setIsSavingEmployee(false);
     }
   };
 
@@ -587,6 +593,7 @@ export const Employees: React.FC = () => {
         onSubmit={handleEmployeeSubmit}
         employee={selectedEmployee}
         departments={departments}
+        isLoading={isSavingEmployee}
       />
 
       {/* Delete Confirmation Modal */}

@@ -77,14 +77,14 @@ const mapObjectiveStatus = (backendStatus: string): 'pending' | 'achieved' | 'ex
 const mapReview = (response: PerformanceReviewResponse) => ({
   id: response.id,
   employeeId: response.employeeId,
-  employeeName: response.employeeName || 'Unknown',
-  department: response.departmentName || 'N/A',
+  employeeName: response.employeeName || '-',
+  department: response.departmentName || '-',
   period: response.period,
   rating: response.rating,
   objectivesCompleted: response.objectivesCompleted,
   objectivesTotal: response.objectivesTotal,
   feedback: response.feedback,
-  reviewer: response.reviewerName || 'Unknown',
+  reviewer: response.reviewerName || 'Non assigné',
   reviewedAt: new Date(response.reviewedAt),
   status: mapReviewStatus(response.status),
 });
@@ -92,7 +92,7 @@ const mapReview = (response: PerformanceReviewResponse) => ({
 const mapObjective = (response: ObjectiveResponse) => ({
   id: response.id,
   employeeId: response.employeeId,
-  employeeName: response.employeeName || 'Unknown',
+  employeeName: response.employeeName || '-',
   title: response.title,
   description: response.description,
   target: response.target,
