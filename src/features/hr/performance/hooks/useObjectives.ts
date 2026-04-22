@@ -5,10 +5,8 @@ import { useState, useEffect, useCallback } from 'react';
 import performanceService from '../../../../services/performanceService';
 import type {
   Objective,
-  ObjectiveFormData,
   CreateObjectivePayload,
   UpdateObjectivePayload,
-  ObjectiveStatus,
 } from '../types';
 
 interface UseObjectivesOptions {
@@ -152,7 +150,7 @@ export const useFilteredObjectives = (
 ) => {
   return objectives.filter(obj => 
     obj.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    obj.title.toLowerCase().includes(searchQuery.toLowerCase())
+    obj.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    obj.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 };
-

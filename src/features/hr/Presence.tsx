@@ -6,7 +6,7 @@ import { Card, Button, SearchInput, Modal } from '../../components/common';
 import { Colors } from '../../constants/theme';
 import attendanceService from '../../services/attendanceService';
 import employeeService from '../../services/employeeService';
-import type { Employee, PresenceStatus } from '../../types';
+import type { Department, Employee, PresenceStatus } from '../../types';
 
 // Extended presence type for display
 interface DailyPresence {
@@ -26,6 +26,7 @@ interface DailyPresence {
 export const Presence: React.FC = () => {
   // State
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [presenceRecords, setPresenceRecords] = useState<DailyPresence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +50,12 @@ export const Presence: React.FC = () => {
   // Fetch employees
   const fetchEmployees = useCallback(async () => {
     try {
-      const response = await employeeService.getEmployees({ pageSize: 100 });
-      setEmployees(response.data);
+      const [employeeResponse, departmentResponse] = await Promise.all([
+        employeeService.getEmployees({ pageSize: 100 }),
+        employeeService.getDepartments(),
+      ]);
+      setEmployees(employeeResponse.data);
+      setDepartments(departmentResponse);
     } catch (err) {
       console.error('Error fetching employees:', err);
     }
@@ -69,26 +74,34 @@ export const Presence: React.FC = () => {
         fromDate: sevenDaysAgo,
       });
       
-      const records = attendanceResponse.data.map(record => ({
-        id: record.id,
-        date: record.date,
-        employeeId: record.employeeId,
-        employeeNumber: employees.find(emp => emp.id === record.employeeId)?.employeeNumber || 'N/A',
-        employeeName: record.employeeName || 'N/A',
-        department: record.department || 'N/A',
-        checkIn: record.checkIn instanceof Date 
-          ? record.checkIn.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-          : record.checkIn
-            ? new Date(record.checkIn).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-            : undefined,
-        checkOut: record.checkOut instanceof Date
-          ? record.checkOut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-          : record.checkOut
-            ? new Date(record.checkOut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-            : undefined,
-        status: record.status,
-        lateMinutes: undefined,
-      }));
+      const records = attendanceResponse.data.map(record => {
+        const employee = employees.find(emp => emp.id === record.employeeId);
+        const departmentName =
+          record.department && record.department !== 'N/A'
+            ? record.department
+            : departments.find(dept => dept.id === employee?.departmentId)?.name || 'Non assigné';
+
+        return {
+          id: record.id,
+          date: record.date,
+          employeeId: record.employeeId,
+          employeeNumber: employee?.employeeNumber || 'N/A',
+          employeeName: record.employeeName || 'N/A',
+          department: departmentName,
+          checkIn: record.checkIn instanceof Date 
+            ? record.checkIn.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            : record.checkIn
+              ? new Date(record.checkIn).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+              : undefined,
+          checkOut: record.checkOut instanceof Date
+            ? record.checkOut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            : record.checkOut
+              ? new Date(record.checkOut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+              : undefined,
+          status: record.status,
+          lateMinutes: undefined,
+        };
+      });
       
       setPresenceRecords(records);
     } catch (err) {
@@ -97,7 +110,7 @@ export const Presence: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [employees]);
+  }, [departments, employees]);
 
   // Load data on mount
   useEffect(() => {

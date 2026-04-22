@@ -2,15 +2,13 @@
 // Hooks for fetching, creating, updating and deleting performance reviews
 
 import { useState, useEffect, useCallback } from 'react';
-import axios, { AxiosError } from 'axios';
 import performanceService from '../../../../services/performanceService';
 import type {
   PerformanceReview,
   PerformanceStats,
   RatingDistributionItem,
   CreateReviewPayload,
-  UpdateReviewPayload,
-  ReviewStatus
+  UpdateReviewPayload
 } from '../types';
 
 interface UsePerformanceReviewsOptions {
@@ -155,7 +153,9 @@ export const useFilteredReviews = (
   return reviews.filter(review => {
     const matchesSearch = 
       review.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      review.department.toLowerCase().includes(searchQuery.toLowerCase());
+      review.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      review.period.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      review.reviewer.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesRating = ratingFilter === 'all' || review.rating === parseInt(ratingFilter);
     const matchesStatus = statusFilter === 'all' || review.status === statusFilter;
@@ -163,4 +163,3 @@ export const useFilteredReviews = (
     return matchesSearch && matchesRating && matchesStatus;
   });
 };
-

@@ -28,12 +28,11 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
 }) => {
   const [formData, setFormData] = React.useState<ReviewFormData>({
     employeeId: '',
-    period: 'Q1 2025',
+    period: PERIOD_OPTIONS[0]?.value || '',
     rating: 3,
     objectivesCompleted: 0,
     objectivesTotal: 5,
     feedback: '',
-    improvementPoints: '',
   });
 
   // Update form when review changes
@@ -46,17 +45,15 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
         objectivesCompleted: review.objectivesCompleted,
         objectivesTotal: review.objectivesTotal,
         feedback: review.feedback,
-        improvementPoints: '',
       });
     } else {
       setFormData({
         employeeId: '',
-        period: 'Q1 2025',
+        period: PERIOD_OPTIONS[0]?.value || '',
         rating: 3,
         objectivesCompleted: 0,
         objectivesTotal: 5,
         feedback: '',
-        improvementPoints: '',
       });
     }
   }, [review, isOpen]);
@@ -169,17 +166,6 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({
             />
           </div>
 
-          {/* Improvement Points */}
-          <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Points d'amélioration</label>
-            <textarea 
-              value={formData.improvementPoints}
-              onChange={(e) => updateField('improvementPoints', e.target.value)}
-              placeholder="Points à améliorer..."
-              rows={3}
-              style={textareaStyle}
-            />
-          </div>
         </div>
 
         {/* Form Actions */}
@@ -248,4 +234,3 @@ const starButtonStyle: React.CSSProperties = {
 };
 
 export default ReviewForm;
-

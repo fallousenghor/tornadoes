@@ -84,7 +84,7 @@ const mapReview = (response: PerformanceReviewResponse) => ({
   objectivesCompleted: response.objectivesCompleted,
   objectivesTotal: response.objectivesTotal,
   feedback: response.feedback,
-  reviewer: response.reviewerName || 'Non assigné',
+  reviewer: response.reviewerName || 'Non renseigné',
   reviewedAt: new Date(response.reviewedAt),
   status: mapReviewStatus(response.status),
 });
@@ -383,15 +383,22 @@ const performanceService = {
     const response = await api.get<Array<{
       departmentId: string;
       departmentName: string;
-      avgRating: number;
+      avgRating?: number;
+      averageRating?: number;
       employeeCount: number;
     }>>('/v1/performance/departments');
-    return (response.data as unknown as Array<{
+    return ((response.data as unknown as Array<{
       departmentId: string;
       departmentName: string;
-      avgRating: number;
+      avgRating?: number;
+      averageRating?: number;
       employeeCount: number;
-    }>) || [];
+    }>) || []).map(item => ({
+      departmentId: item.departmentId,
+      departmentName: item.departmentName,
+      avgRating: item.avgRating ?? item.averageRating ?? 0,
+      employeeCount: item.employeeCount ?? 0,
+    }));
   },
 };
 

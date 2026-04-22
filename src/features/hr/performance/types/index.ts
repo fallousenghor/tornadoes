@@ -1,8 +1,6 @@
 // Performance Module Types
 // Types for Performance Reviews, Objectives, and Department Performance
 
-import type { Employee, Department } from '../../../../types';
-
 // ==================== Performance Reviews ====================
 
 export type ReviewStatus = 'completed' | 'pending' | 'in_progress';
@@ -29,7 +27,6 @@ export interface ReviewFormData {
   objectivesCompleted: number;
   objectivesTotal: number;
   feedback: string;
-  improvementPoints: string;
 }
 
 export interface CreateReviewPayload {
@@ -42,6 +39,7 @@ export interface CreateReviewPayload {
   objectivesCompleted: number;
   objectivesTotal: number;
   feedback: string;
+  reviewerName?: string;
 }
 
 export interface UpdateReviewPayload {
@@ -131,12 +129,13 @@ export interface DeleteModalState {
 
 // ==================== Form Options ====================
 
+const currentYear = new Date().getFullYear();
+
 export const PERIOD_OPTIONS = [
-  { value: 'Q1 2025', label: 'Q1 2025' },
-  { value: 'Q4 2024', label: 'Q4 2024' },
-  { value: 'Q3 2024', label: 'Q3 2024' },
-  { value: 'Q2 2024', label: 'Q2 2024' },
+  { value: `Q1 ${currentYear}`, label: `Q1 ${currentYear}` },
+  { value: `Q4 ${currentYear - 1}`, label: `Q4 ${currentYear - 1}` },
+  { value: `Q3 ${currentYear - 1}`, label: `Q3 ${currentYear - 1}` },
+  { value: `Q2 ${currentYear - 1}`, label: `Q2 ${currentYear - 1}` },
 ];
 
 export const RATING_OPTIONS = [1, 2, 3, 4, 5];
-

@@ -2,12 +2,12 @@
 // Complete performance management with reviews, objectives, and analytics
 
 import React, { useState, useEffect, useCallback } from 'react';
-import axios, { AxiosError } from 'axios';
 import { Button, SearchInput, Card } from '../../../components/common';
 import { Colors } from '../../../constants/theme';
 import performanceService from '../../../services/performanceService';
 import employeeService from '../../../services/employeeService';
 import departmentService from '../../../services/departmentService';
+import useAppStore from '../../../store/appStore';
 
 // Types
 import type { 
@@ -29,9 +29,6 @@ import { StatsCards, ReviewsTable, ObjectivesTable, ReviewForm, ObjectiveForm } 
 // Hooks
 import { usePerformanceReviews, useReviewActions, useFilteredReviews } from './hooks/usePerformance';
 import { useObjectives, useObjectiveActions, useFilteredObjectives } from './hooks/useObjectives';
-
-// Utils
-import { formatDate, getRatingBadge } from './utils/formatters';
 
 const Performance: React.FC = () => {
   // State - Employees & Departments
@@ -57,6 +54,7 @@ const Performance: React.FC = () => {
   const [editingReview, setEditingReview] = useState<PerformanceReview | null>(null);
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
   const [deletingItem, setDeletingItem] = useState<DeleteModalState | null>(null);
+  const currentUser = useAppStore((state) => state.currentUser);
 
   // Data from hooks
   const { reviews, loading: reviewsLoading, stats: reviewStats, ratingDistribution, refetch: refetchReviews } = usePerformanceReviews();
@@ -183,6 +181,7 @@ const Performance: React.FC = () => {
         objectivesCompleted: formData.objectivesCompleted,
         objectivesTotal: formData.objectivesTotal,
         feedback: formData.feedback,
+        reviewerName: currentUser?.name || undefined,
       });
       if (success) {
         showSuccess('Nouvelle évaluation créée avec succès');
@@ -425,7 +424,7 @@ const DepartmentPerformanceChart: React.FC<{ data: DepartmentPerformance[]; load
     {loading ? (
       <div style={{ padding: 20, textAlign: 'center', color: Colors.textMuted }}>Chargement...</div>
     ) : data.length > 0 ? (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
         {data.map((dept) => (
           <div key={dept.departmentId} style={{ 
             padding: 16, 
@@ -602,4 +601,3 @@ const DeleteModal: React.FC<{
 );
 
 export default Performance;
-

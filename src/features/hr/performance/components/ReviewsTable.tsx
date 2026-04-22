@@ -70,7 +70,6 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
           </thead>
           <tbody>
             {paginatedReviews.map((review, index) => {
-              const ratingBadge = getRatingBadge(review.rating);
               const statusBadge = getReviewStatusBadge(review.status);
               
               return (
@@ -119,10 +118,10 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                       borderRadius: 6, 
                       fontSize: 11, 
                       fontWeight: 500,
-                      background: ratingBadge.bg, 
-                      color: ratingBadge.color 
+                      background: statusBadge.bg, 
+                      color: statusBadge.color 
                     }}>
-                      {ratingBadge.label}
+                      {statusBadge.label}
                     </span>
                   </td>
                   <td style={{ padding: '14px 16px' }}>
@@ -258,4 +257,3 @@ const pageButtonStyle = (isActive: boolean): React.CSSProperties => ({
 });
 
 export default ReviewsTable;
-
